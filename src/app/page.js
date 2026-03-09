@@ -9,12 +9,11 @@ import AdminProdutos from '@/components/AdminProdutos';
 import AdminUsuarios from '@/components/AdminUsuarios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
-const TAGS_INICIAIS = ['Individual', 'Casal', 'Família', 'Estudantes', 'Academia', 'Com Crianças', 'Consumo Local', 'Para Viagem', 'Fidelidade'];
 const CORES_PIZZA = ['#0d9488', '#4f46e5', '#059669', '#ef4444']; 
 
 export default function Home() {
   
-  // Fuso Horário Local (Brasil) Blindado para a Vercel não virar o dia antes da hora
+  // Fuso Horário Local (Brasil) Blindado
   const getHoje = () => {
     const dataBr = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
     const d = new Date(dataBr);
@@ -33,7 +32,9 @@ export default function Home() {
   
   const [comandas, setComandas] = useState([]);
   const [menuCategorias, setMenuCategorias] = useState([]);
-  const [tagsGlobais, setTagsGlobais] = useState(TAGS_INICIAIS);
+  
+  // NOVO: As tags agora iniciam vazias e vêm do banco de dados!
+  const [tagsGlobais, setTagsGlobais] = useState([]);
   const [configPeso, setConfigPeso] = useState([]); 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -102,6 +103,22 @@ export default function Home() {
 
     const { data: pesoData } = await supabase.from('config_peso').select('*').eq('empresa_id', sessao.empresa_id);
     if (pesoData) setConfigPeso(pesoData.map(p => ({ id: p.id, nome: p.nome, preco: parseFloat(p.preco_kg), custo: parseFloat(p.custo_kg || 0) })));
+
+    // NOVO: Busca as Tags do banco de dados
+    const { data: tagsData } = await supabase.from('tags').select('*').eq('empresa_id', sessao.empresa_id);
+    
+    // LÓGICA DE SEEDING (Semeando dados no primeiro acesso)
+    if (tagsData && tagsData.length > 0) {
+      setTagsGlobais(tagsData); // Se já tem tags, apenas mostra
+    } else {
+      // Se não tem nenhuma tag (empresa nova), insere as padrões automaticamente!
+      const TAGS_INICIAIS = ['Individual', 'Casal', 'Família', 'Estudantes', 'Academia', 'Com Crianças', 'Consumo Local', 'Para Viagem', 'Fidelidade'];
+      const tagsSemente = TAGS_INICIAIS.map(t => ({ nome: t, empresa_id: sessao.empresa_id }));
+      
+      const { data: tagsInseridas } = await supabase.from('tags').insert(tagsSemente).select();
+      if (tagsInseridas) setTagsGlobais(tagsInseridas);
+    }
+
     setIsLoading(false);
   };
 
@@ -113,6 +130,7 @@ export default function Home() {
       .on('postgres', { event: '*', schema: 'public', table: 'comandas' }, () => { fetchData(); })
       .on('postgres', { event: '*', schema: 'public', table: 'comanda_produtos' }, () => { fetchData(); })
       .on('postgres', { event: '*', schema: 'public', table: 'pagamentos' }, () => { fetchData(); })
+      .on('postgres', { event: '*', schema: 'public', table: 'tags' }, () => { fetchData(); }) // Escuta as tags em tempo real
       .subscribe();
     return () => { supabase.removeChannel(canalAtualizacoes); };
   }, [sessao]);
@@ -147,8 +165,8 @@ export default function Home() {
     }
   };
 
-  const toggleTag = async (tag) => {
-    const novasTags = comandaAtiva.tags.includes(tag) ? comandaAtiva.tags.filter(t => t !== tag) : [...comandaAtiva.tags, tag];
+  const toggleTag = async (tagNome) => {
+    const novasTags = comandaAtiva.tags.includes(tagNome) ? comandaAtiva.tags.filter(t => t !== tagNome) : [...comandaAtiva.tags, tagNome];
     await supabase.from('comandas').update({ tags: novasTags }).eq('id', idSelecionado);
     setComandas(comandas.map(c => c.id === idSelecionado ? { ...c, tags: novasTags } : c));
   };
@@ -257,7 +275,7 @@ export default function Home() {
   const totalIfood = pagamentosFiltrados.filter(p => p.forma === 'iFood').reduce((acc, p) => acc + p.valor, 0);
   const dadosPizza = [{ name: 'Pix', value: totalPix }, { name: 'Cartão', value: totalCartao }, { name: 'Dinheiro', value: totalDinheiro }, { name: 'iFood', value: totalIfood }].filter(d => d.value > 0);
 
-  // NOVO: RANKING DE PRODUTOS POR FATURAMENTO (COM DETALHE NO MOUSE E NOME REAL DO PESO)
+  // RANKING DE PRODUTOS POR FATURAMENTO (COM NOME REAL DO PESO)
   const contagemProdutos = {};
   comandasFiltradas.forEach(c => {
     c.produtos.filter(p => p.pago).forEach(p => {
@@ -267,20 +285,15 @@ export default function Home() {
       let nomeChave = p.nome;
       
       if (isPeso) {
-        // A MÁGICA: Remove apenas a parte do peso "(450g)" e mantém o nome e a categoria reais!
-        // Ex: "Açaí no Peso (450g) - Premium" vira "Açaí no Peso - Premium"
         nomeChave = p.nome.replace(/\s*\(\d+(?:\.\d+)?\s*g\)/i, '').trim();
       }
       
-      // Cria a gaveta do produto se ela não existir
       if (!contagemProdutos[nomeChave]) {
         contagemProdutos[nomeChave] = { faturamento: 0, volume: 0, isPeso: isPeso };
       }
 
-      // SOMA O DINHEIRO (R$)
       contagemProdutos[nomeChave].faturamento += p.preco;
 
-      // SOMA AS GRAMAS OU AS UNIDADES
       if (isPeso) {
         const matchGramas = p.nome.match(/(\d+(?:\.\d+)?)\s*g/i);
         const gramas = matchGramas ? parseFloat(matchGramas[1]) : 0;
@@ -291,7 +304,6 @@ export default function Home() {
     });
   });
   
-  // Transforma em array e ordena do MAIOR faturamento para o menor
   const rankingProdutos = Object.keys(contagemProdutos)
     .map(nome => ({ 
       nome, 
@@ -529,7 +541,6 @@ export default function Home() {
                     <XAxis type="number" hide />
                     <YAxis dataKey="nome" type="category" axisLine={false} tickLine={false} tick={{fill: '#4b5563', fontSize: 11, fontWeight: 'bold'}} width={180} />
                     
-                    {/* TOOLTIP INTELIGENTE (MOSTRA DINHEIRO E VOLUME FÍSICO) */}
                     <RechartsTooltip 
                       cursor={{fill: '#f3e8ff'}} 
                       content={({ active, payload }) => {
@@ -551,7 +562,6 @@ export default function Home() {
                       }}
                     />
                     
-                    {/* BARRAS PROPORCIONAIS AO VALOR R$ */}
                     <Bar 
                       dataKey="valor" 
                       fill="#8b5cf6" 
@@ -622,7 +632,16 @@ export default function Home() {
               <div className="flex-1 overflow-y-auto pr-2 pb-4">
                 <div className="mb-4">
                   <p className="text-[10px] text-purple-300 uppercase font-bold mb-2">Classificação:</p>
-                  <div className="flex flex-wrap gap-1.5">{tagsGlobais.map(tag => <button key={tag} onClick={() => toggleTag(tag)} className={`px-2 py-1 rounded-md text-[10px] font-bold transition ${comandaAtiva?.tags.includes(tag) ? 'bg-purple-400 text-purple-900' : 'bg-purple-800/50 text-purple-300 hover:bg-purple-700'}`}>{tag}</button>)}</div>
+                  
+                  {/* RENDERIZA AS TAGS DA EMPRESA */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {tagsGlobais.map(tagObj => (
+                      <button key={tagObj.id} onClick={() => toggleTag(tagObj.nome)} className={`px-2 py-1 rounded-md text-[10px] font-bold transition ${comandaAtiva?.tags.includes(tagObj.nome) ? 'bg-purple-400 text-purple-900' : 'bg-purple-800/50 text-purple-300 hover:bg-purple-700'}`}>
+                        {tagObj.nome}
+                      </button>
+                    ))}
+                  </div>
+
                 </div>
                 <div className="flex justify-between items-center bg-purple-950 p-3 rounded-xl mb-4 border border-purple-800"><span className="text-xs text-purple-400 font-bold">ITENS LANÇADOS</span></div>
                 {comandaAtiva?.produtos.map((p) => (
@@ -652,6 +671,79 @@ export default function Home() {
       {mostrarAdminProdutos && sessao && <AdminProdutos empresaId={sessao.empresa_id} onFechar={() => { setMostrarAdminProdutos(false); fetchData(); }} />}
       {mostrarModalPeso && <ModalPeso opcoesPeso={configPeso} onAdicionar={adicionarProdutoNaComanda} onCancelar={() => setMostrarModalPeso(false)} />}
       {mostrarModalPagamento && <ModalPagamento comanda={comandaAtiva} onConfirmar={processarPagamento} onCancelar={() => setMostrarModalPagamento(false)} />}
+      
+      {/* NOVO MODAL DE CONFIGURAÇÃO DE TAGS DIRETO COM O BANCO */}
+      {mostrarConfigTags && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95">
+            <div className="flex justify-between items-center mb-6 border-b pb-4">
+              <h2 className="text-xl font-black text-purple-800">🏷️ Configurar Tags</h2>
+              <button onClick={() => setMostrarConfigTags(false)} className="bg-gray-100 p-2 rounded-full hover:bg-gray-200 font-bold transition">✕</button>
+            </div>
+            
+            <div className="flex gap-2 mb-6">
+              <input 
+                type="text" 
+                id="novaTagInput"
+                placeholder="Nova tag (Ex: Consumo Local)" 
+                className="flex-1 p-3 rounded-xl border border-purple-200 outline-none focus:border-purple-500 text-sm font-medium"
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter' && e.target.value.trim() !== '') {
+                    const val = e.target.value.trim();
+                    if (!tagsGlobais.some(t => t.nome.toLowerCase() === val.toLowerCase())) {
+                       // 1. Salva no banco e traz o ID gerado
+                       const { data } = await supabase.from('tags').insert([{ nome: val, empresa_id: sessao.empresa_id }]).select();
+                       // 2. Atualiza a tela NA HORA
+                       if (data) setTagsGlobais([...tagsGlobais, data[0]]);
+                    }
+                    e.target.value = '';
+                  }
+                }}
+              />
+              <button 
+                onClick={async () => {
+                  const input = document.getElementById('novaTagInput');
+                  const val = input.value.trim();
+                  if (val !== '' && !tagsGlobais.some(t => t.nome.toLowerCase() === val.toLowerCase())) {
+                     // 1. Salva no banco e traz o ID gerado
+                     const { data } = await supabase.from('tags').insert([{ nome: val, empresa_id: sessao.empresa_id }]).select();
+                     // 2. Atualiza a tela NA HORA
+                     if (data) setTagsGlobais([...tagsGlobais, data[0]]);
+                  }
+                  input.value = '';
+                }}
+                className="bg-purple-600 text-white font-bold px-4 rounded-xl hover:bg-purple-700 transition shadow-sm"
+              >
+                Adicionar
+              </button>
+            </div>
+            
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Tags Atuais</p>
+            <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto pr-2 scrollbar-hide">
+              {tagsGlobais.map(tagObj => (
+                <div key={tagObj.id} className="flex items-center gap-2 bg-purple-50 text-purple-800 px-3 py-1.5 rounded-lg border border-purple-100 text-sm font-bold">
+                  {tagObj.nome}
+                  <button 
+                    onClick={async () => {
+                      if (confirm(`Excluir a tag '${tagObj.nome}' do sistema?`)) {
+                        // 1. Apaga do banco de dados
+                        await supabase.from('tags').delete().eq('id', tagObj.id);
+                        // 2. Apaga da tela NA HORA
+                        setTagsGlobais(tagsGlobais.filter(t => t.id !== tagObj.id));
+                      }
+                    }} 
+                    className="text-red-500 hover:text-red-700 ml-1 hover:bg-red-50 p-1 rounded transition"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              {tagsGlobais.length === 0 && <span className="text-sm text-gray-400 italic">Nenhuma tag configurada para esta empresa.</span>}
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }

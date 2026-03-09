@@ -53,7 +53,7 @@ export default function AdminProdutos({ empresaId, onFechar }) {
     if (editandoItem) await supabase.from('produtos').update(payload).eq('id', editandoItem.id);
     else await supabase.from('produtos').insert([payload]);
     
-    fetchDados(); setEditandoItem(null); setNovoItem({ nome: '', preco: '', custo: '', idCategoria: categorias[0]?.id || '' });
+    fetchDados(); setEditandoItem(null); setNovoItem({ nome: '', preco: '', custo: '', idCategoria: '' });
   };
 
   const excluirProduto = async (idProduto) => { if (confirm("Excluir este produto?")) { await supabase.from('produtos').delete().eq('id', idProduto); fetchDados(); } };
@@ -120,16 +120,16 @@ export default function AdminProdutos({ empresaId, onFechar }) {
             {abaConfig === 'produtos' && (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6 bg-purple-50 p-4 rounded-2xl border border-purple-100">
-                  <select className="p-3 rounded-xl border border-purple-200 outline-none focus:border-purple-500 text-sm" value={novoItem.idCategoria} onChange={e => setNovoItem({...novoItem, idCategoria: e.target.value})}>
-                    {categorias.length === 0 && <option value="">Crie uma categoria primeiro</option>}
+                 <select className="p-3 rounded-xl border border-purple-200 outline-none focus:border-purple-500 text-sm" value={novoItem.idCategoria} onChange={e => setNovoItem({...novoItem, idCategoria: e.target.value})}>
+                    <option value="">{categorias.length === 0 ? "Crie uma categoria primeiro" : "Selecione a categoria..."}</option>
                     {categorias.map(cat => <option key={cat.id} value={cat.id}>{cat.nome}</option>)}
-                  </select>
+                </select>
                   <input type="text" placeholder="Nome do Produto" className="p-3 rounded-xl border border-purple-200 outline-none focus:border-purple-500 text-sm" value={novoItem.nome} onChange={e => setNovoItem({...novoItem, nome: e.target.value})} />
                   <input type="number" placeholder="Venda (R$)" className="p-3 rounded-xl border border-purple-200 outline-none focus:border-purple-500 text-sm" value={novoItem.preco} onChange={e => setNovoItem({...novoItem, preco: e.target.value})} />
                   <input type="number" placeholder="Custo (R$)" className="p-3 rounded-xl border border-purple-200 outline-none focus:border-purple-500 text-sm" value={novoItem.custo} onChange={e => setNovoItem({...novoItem, custo: e.target.value})} />
                   <div className="flex gap-2">
                     <button onClick={salvarProduto} disabled={categorias.length === 0} className="flex-1 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 transition shadow-md disabled:opacity-50">{editandoItem ? 'Salvar' : 'Adicionar'}</button>
-                    {editandoItem && <button onClick={() => { setEditandoItem(null); setNovoItem({ nome: '', preco: '', custo: '', idCategoria: categorias[0]?.id || '' }); }} className="bg-gray-300 text-gray-700 px-3 rounded-xl font-bold">✕</button>}
+                    {editandoItem && <button onClick={() => { setEditandoItem(null); setNovoItem({ nome: '', preco: '', custo: '', idCategoria: '' }); }} className="bg-gray-300 text-gray-700 px-3 rounded-xl font-bold">✕</button>}
                   </div>
                 </div>
                 <div className="overflow-y-auto flex-1 pr-2">

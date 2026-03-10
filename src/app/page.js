@@ -31,6 +31,7 @@ export default function Home() {
   const [nomeEmpresa, setNomeEmpresa] = useState('Carregando...'); 
   
   const [temaNoturno, setTemaNoturno] = useState(false);
+  const [menuMobileAberto, setMenuMobileAberto] = useState(false);
 
   const [caixaAtual, setCaixaAtual] = useState({ data_abertura: getHoje(), status: 'aberto' });
   const [comandas, setComandas] = useState([]);
@@ -57,6 +58,9 @@ export default function Home() {
   const comandaAtiva = comandas.find(c => c.id === idSelecionado);
 
   useEffect(() => {
+    const temaSalvo = localStorage.getItem('bessa_tema_noturno');
+    if (temaSalvo !== null) { setTemaNoturno(JSON.parse(temaSalvo)); }
+
     const sessionData = localStorage.getItem('bessa_session');
     if (sessionData) {
       try {
@@ -66,6 +70,27 @@ export default function Home() {
       } catch(e) { localStorage.removeItem('bessa_session'); }
     }
   }, []);
+
+  // SINCRONIZAÇÃO NATIVA DE COR (Theme-Color e Background do Body para o Safari/Chrome)
+  useEffect(() => {
+    localStorage.setItem('bessa_tema_noturno', JSON.stringify(temaNoturno));
+    
+    const corBackground = temaNoturno ? '#111827' : '#f9fafb'; // bg-gray-900 / bg-gray-50
+    const corHeader = temaNoturno ? '#1f2937' : '#ffffff';     // bg-gray-800 / bg-white
+    
+    // Altera a cor principal de fundo do HTML para o scroll elástico ficar perfeito
+    document.body.style.backgroundColor = corBackground;
+
+    let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (!metaThemeColor) {
+      metaThemeColor = document.createElement('meta');
+      metaThemeColor.name = 'theme-color';
+      document.head.appendChild(metaThemeColor);
+    }
+    // O Safari prefere que a cor do theme-color seja idêntica ao que está no topo (header)
+    metaThemeColor.setAttribute('content', corHeader);
+
+  }, [temaNoturno]);
 
   const fazerLogin = async () => {
     if (!credenciais.email || !credenciais.senha) return alert("Preencha e-mail e senha.");
@@ -82,7 +107,7 @@ export default function Home() {
 
   const fazerLogout = () => {
     localStorage.removeItem('bessa_session');
-    setSessao(null); setCredenciais({ email: '', senha: '' }); setMostrarMenuPerfil(false); setAbaAtiva('comandas');
+    setSessao(null); setCredenciais({ email: '', senha: '' }); setMostrarMenuPerfil(false); setMenuMobileAberto(false); setAbaAtiva('comandas');
   };
 
   const fetchData = async () => {
@@ -318,92 +343,158 @@ export default function Home() {
   }
 
   return (
-    <main className={`min-h-screen p-2 md:p-6 flex flex-col transition-colors duration-500 ${temaNoturno ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
+    <main className={`min-h-screen p-2 lg:p-6 flex flex-col transition-colors duration-500 ${temaNoturno ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
       
-      {/* HEADER ELEGANTE */}
-      <header className={`flex items-center justify-between p-3 md:p-4 rounded-3xl shadow-sm border mb-6 sticky top-0 z-50 transition-colors duration-500 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+      {/* =========================================
+          HEADER RESPONSIVO (Desktop & Mobile)
+          Alterado break point para 'lg:' (1024px)
+          ========================================= */}
+      <header className={`flex items-center justify-between p-3 lg:p-4 rounded-3xl shadow-sm border mb-6 sticky top-0 z-40 transition-colors duration-500 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
         
-        {/* COLUNA ESQUERDA: Voltar ou Indicador de Caixa */}
-        <div className="flex-1 flex justify-start">
+        {/* ESQUERDA */}
+        <div className="flex-1 flex justify-start items-center gap-3">
           {comandaAtiva ? (
             <button onClick={() => setIdSelecionado(null)} className={`flex items-center gap-2 font-bold px-4 py-2 rounded-xl transition ${temaNoturno ? 'bg-gray-700 text-purple-300 hover:bg-gray-600' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}>
-              <span className="text-xl">←</span> <span className="hidden md:inline">Voltar</span>
+              <span className="text-xl">←</span> <span className="hidden lg:inline">Voltar</span>
             </button>
           ) : (
-            <div className={`hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl border ${temaNoturno ? 'bg-green-900/20 border-green-800/50' : 'bg-green-50 border-green-100'}`}>
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"></span>
-              <span className={`text-[10px] font-black uppercase tracking-widest ${temaNoturno ? 'text-green-400' : 'text-green-700'}`}>Caixa Aberto: {caixaAtual.data_abertura.split('-').reverse().join('/')}</span>
-            </div>
+            <>
+              {/* Hambúrguer visível até em tablets (lg:hidden) */}
+              <button onClick={() => setMenuMobileAberto(true)} className={`lg:hidden p-2 rounded-xl border transition ${temaNoturno ? 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600' : 'bg-gray-50 border-gray-200 text-gray-800 hover:bg-gray-100'}`}>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+              </button>
+              
+              <div className={`hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl border ${temaNoturno ? 'bg-green-900/20 border-green-800/50' : 'bg-green-50 border-green-100'}`}>
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.8)]"></span>
+                <span className={`text-[10px] font-black uppercase tracking-widest ${temaNoturno ? 'text-green-400' : 'text-green-700'}`}>Caixa Aberto: {caixaAtual.data_abertura.split('-').reverse().join('/')}</span>
+              </div>
+            </>
           )}
         </div>
 
-        {/* COLUNA CENTRAL: Abas de Navegação */}
-        <div className="flex-[2] flex justify-center">
+        {/* CENTRO */}
+        <div className="flex-[2] flex justify-center overflow-hidden px-2">
           {!comandaAtiva ? (
-            <div className={`flex rounded-xl p-1 overflow-x-auto text-sm border ${temaNoturno ? 'bg-gray-900 border-gray-700' : 'bg-gray-100/80 border-gray-200/50'}`}>
-              <button onClick={() => setAbaAtiva('comandas')} className={`px-4 md:px-6 py-2 rounded-lg font-bold transition whitespace-nowrap ${abaAtiva === 'comandas' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>Comandas em Aberto</button>
-              <button onClick={() => setAbaAtiva('fechadas')} className={`px-4 md:px-6 py-2 rounded-lg font-bold transition whitespace-nowrap ${abaAtiva === 'fechadas' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>Comandas Encerradas</button>
-              {(sessao.role === 'dono' || sessao.perm_faturamento) && <button onClick={() => setAbaAtiva('faturamento')} className={`px-4 md:px-6 py-2 rounded-lg font-bold transition whitespace-nowrap ${abaAtiva === 'faturamento' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>Faturamento</button>}
-              {(sessao.role === 'dono' || sessao.perm_estudo) && <button onClick={() => setAbaAtiva('analises')} className={`px-4 md:px-6 py-2 rounded-lg font-bold transition whitespace-nowrap ${abaAtiva === 'analises' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>Público-Alvo</button>}
-            </div>
+            <>
+              {/* Abas visíveis apenas em desktop largo */}
+              <div className={`hidden lg:flex rounded-xl p-1 text-sm border ${temaNoturno ? 'bg-gray-900 border-gray-700' : 'bg-gray-100/80 border-gray-200/50'}`}>
+                <button onClick={() => setAbaAtiva('comandas')} className={`px-6 py-2 rounded-lg font-bold transition whitespace-nowrap ${abaAtiva === 'comandas' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>Comandas em Aberto</button>
+                <button onClick={() => setAbaAtiva('fechadas')} className={`px-6 py-2 rounded-lg font-bold transition whitespace-nowrap ${abaAtiva === 'fechadas' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>Comandas Encerradas</button>
+                {(sessao.role === 'dono' || sessao.perm_faturamento) && <button onClick={() => setAbaAtiva('faturamento')} className={`px-6 py-2 rounded-lg font-bold transition whitespace-nowrap ${abaAtiva === 'faturamento' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>Faturamento</button>}
+                {(sessao.role === 'dono' || sessao.perm_estudo) && <button onClick={() => setAbaAtiva('analises')} className={`px-6 py-2 rounded-lg font-bold transition whitespace-nowrap ${abaAtiva === 'analises' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>Público-Alvo</button>}
+              </div>
+              
+              {/* O NOVO TOPO MOBILE: Logo e Empresa */}
+              <div className="lg:hidden flex items-center justify-center gap-2">
+                 <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Logo Empresa" className={`w-8 h-8 rounded-full border shadow-sm object-cover ${temaNoturno ? 'border-gray-600' : 'border-purple-200'}`} />
+                 <span className={`font-black text-lg tracking-tight truncate max-w-[150px] md:max-w-[200px] ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
+                    {nomeEmpresa}
+                 </span>
+              </div>
+            </>
           ) : (
             <h2 className={`text-lg font-black truncate text-center cursor-pointer hover:opacity-70 transition ${temaNoturno ? 'text-purple-300' : 'text-purple-900'}`} onClick={editarNomeComanda}>{comandaAtiva?.nome} ✏️</h2>
           )}
         </div>
         
-        {/* COLUNA DIREITA: Modo Noturno + Perfil */}
-        <div className="flex-1 flex justify-end items-center gap-3 md:gap-6">
-          <button onClick={() => setTemaNoturno(!temaNoturno)} className={`p-2 rounded-full transition-all duration-300 flex items-center justify-center border ${temaNoturno ? 'bg-gray-700 border-gray-600 text-yellow-400 hover:bg-gray-600' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-200'}`}>
-            {temaNoturno ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-            )}
-          </button>
-
-          <div className="relative shrink-0 cursor-pointer" onClick={() => setMostrarMenuPerfil(!mostrarMenuPerfil)}>
-            <div className="flex items-center gap-3 hover:opacity-80 transition">
-              <div className="flex flex-col text-right hidden md:flex">
-                <span className={`text-[10px] font-black uppercase tracking-widest leading-none mb-1 ${temaNoturno ? 'text-gray-400' : 'text-gray-400'}`}>{nomeEmpresa}</span>
-                <span className={`font-black tracking-tight leading-none text-sm ${temaNoturno ? 'text-purple-300' : 'text-purple-900'}`}>{sessao.nome_usuario}</span>
-              </div>
-              <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-black text-lg ${temaNoturno ? 'border-gray-600 bg-gray-700 text-gray-300' : 'border-purple-200 bg-purple-100 text-purple-700'}`}>
-                 {sessao.nome_usuario.charAt(0).toUpperCase()}
-              </div>
-              <span className={`text-xs ml-1 ${temaNoturno ? 'text-gray-500' : 'text-gray-300'}`}>▼</span>
-            </div>
-            
-            {mostrarMenuPerfil && (
-              <div className={`absolute top-14 right-0 shadow-2xl rounded-2xl p-2 w-56 border z-50 transition-colors ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                {sessao.role === 'dono' && (
-                  <button onClick={() => { setMostrarAdminUsuarios(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center rounded-xl transition ${temaNoturno ? 'text-gray-200 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>
-                    <svg className="w-4 h-4 mr-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                    Gerenciar Equipe
-                  </button>
-                )}
-                {(sessao.role === 'dono' || sessao.perm_cardapio) && (
-                  <button onClick={() => { setMostrarAdminProdutos(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center rounded-xl transition ${temaNoturno ? 'text-gray-200 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>
-                    <svg className="w-4 h-4 mr-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                    Gerenciar Cardápio
-                  </button>
-                )}
-                {sessao.role === 'dono' && (
-                  <button onClick={() => { setMostrarConfigTags(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center rounded-xl transition ${temaNoturno ? 'text-gray-200 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>
-                    <svg className="w-4 h-4 mr-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
-                    Configurar Tags
-                  </button>
-                )}
-                <div className={`h-px my-1 ${temaNoturno ? 'bg-gray-700' : 'bg-gray-100'}`}></div>
-                <button onClick={fazerLogout} className={`w-full text-left p-3 text-sm font-bold flex items-center rounded-xl transition ${temaNoturno ? 'text-red-400 hover:bg-red-900/30' : 'text-red-600 hover:bg-red-50'}`}>
-                  <svg className="w-4 h-4 mr-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                  Sair do Sistema
+        {/* DIREITA */}
+        <div className="flex-1 flex justify-end items-center gap-2 lg:gap-6">
+          {!comandaAtiva ? (
+             <>
+                <button onClick={() => setTemaNoturno(!temaNoturno)} className={`p-2 rounded-full transition-all duration-300 flex items-center justify-center border ${temaNoturno ? 'bg-gray-700 border-gray-600 text-yellow-400 hover:bg-gray-600' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-200'}`}>
+                  {temaNoturno ? ( <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg> ) : ( <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg> )}
                 </button>
-              </div>
-            )}
-          </div>
+                
+                <div className="hidden lg:block relative shrink-0 cursor-pointer" onClick={() => setMostrarMenuPerfil(!mostrarMenuPerfil)}>
+                  <div className="flex items-center gap-3 hover:opacity-80 transition">
+                    <div className="flex flex-col text-right">
+                      <span className={`text-[10px] font-black uppercase tracking-widest leading-none mb-1 ${temaNoturno ? 'text-gray-400' : 'text-gray-400'}`}>{nomeEmpresa}</span>
+                      <span className={`font-black tracking-tight leading-none text-sm ${temaNoturno ? 'text-purple-300' : 'text-purple-900'}`}>{sessao.nome_usuario}</span>
+                    </div>
+                    <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-black text-lg ${temaNoturno ? 'border-gray-600 bg-gray-700 text-gray-300' : 'border-purple-200 bg-purple-100 text-purple-700'}`}>
+                       {sessao.nome_usuario.charAt(0).toUpperCase()}
+                    </div>
+                    <span className={`text-xs ml-1 ${temaNoturno ? 'text-gray-500' : 'text-gray-300'}`}>▼</span>
+                  </div>
+                  
+                  {mostrarMenuPerfil && (
+                    <div className={`absolute top-14 right-0 shadow-2xl rounded-2xl p-2 w-56 border z-50 transition-colors ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+                      {sessao.role === 'dono' && (
+                        <button onClick={() => { setMostrarAdminUsuarios(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center rounded-xl transition ${temaNoturno ? 'text-gray-200 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>
+                          <svg className="w-4 h-4 mr-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg> Gerenciar Equipe
+                        </button>
+                      )}
+                      {(sessao.role === 'dono' || sessao.perm_cardapio) && (
+                        <button onClick={() => { setMostrarAdminProdutos(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center rounded-xl transition ${temaNoturno ? 'text-gray-200 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>
+                          <svg className="w-4 h-4 mr-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg> Gerenciar Cardápio
+                        </button>
+                      )}
+                      {sessao.role === 'dono' && (
+                        <button onClick={() => { setMostrarConfigTags(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center rounded-xl transition ${temaNoturno ? 'text-gray-200 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>
+                          <svg className="w-4 h-4 mr-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg> Configurar Tags
+                        </button>
+                      )}
+                      <div className={`h-px my-1 ${temaNoturno ? 'bg-gray-700' : 'bg-gray-100'}`}></div>
+                      <button onClick={fazerLogout} className={`w-full text-left p-3 text-sm font-bold flex items-center rounded-xl transition ${temaNoturno ? 'text-red-400 hover:bg-red-900/30' : 'text-red-600 hover:bg-red-50'}`}>
+                        <svg className="w-4 h-4 mr-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg> Sair do Sistema
+                      </button>
+                    </div>
+                  )}
+                </div>
+             </>
+          ) : (
+            <div className="hidden lg:flex flex-wrap gap-1 justify-end">
+              {comandaAtiva.tags.map(t => <span key={t} className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase border ${temaNoturno ? 'bg-purple-900/30 text-purple-300 border-purple-800' : 'bg-purple-50 text-purple-700 border-purple-100'}`}>{t}</span>)}
+            </div>
+          )}
         </div>
       </header>
 
+      {/* =========================================
+          MENU LATERAL (SIDEBAR) - MOBILE & TABLET
+          ========================================= */}
+      {menuMobileAberto && (
+        <div className="fixed inset-0 z-[100] flex lg:hidden">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setMenuMobileAberto(false)}></div>
+          
+          <div className={`relative w-[80%] max-w-sm h-full shadow-2xl flex flex-col animate-in slide-in-from-left duration-300 border-r ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
+             
+             <div className={`p-6 border-b flex flex-col ${temaNoturno ? 'border-gray-800' : 'border-gray-100'}`}>
+                <div className="flex justify-between items-start mb-4">
+                  <div className={`w-14 h-14 rounded-full border-4 flex items-center justify-center font-black text-2xl shadow-sm ${temaNoturno ? 'border-gray-700 bg-gray-800 text-gray-200' : 'border-purple-100 bg-purple-50 text-purple-700'}`}>
+                     {sessao.nome_usuario.charAt(0).toUpperCase()}
+                  </div>
+                  <button onClick={() => setMenuMobileAberto(false)} className={`p-2 rounded-full transition ${temaNoturno ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>✕</button>
+                </div>
+                <h3 className={`font-black text-xl leading-tight truncate ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>{sessao.nome_usuario}</h3>
+                <p className={`text-xs font-bold uppercase tracking-widest mt-1 truncate ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>{nomeEmpresa}</p>
+             </div>
+
+             <div className="flex-1 overflow-y-auto py-6">
+                <p className={`px-6 text-[10px] font-bold uppercase tracking-widest mb-3 ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Navegação</p>
+                <nav className="flex flex-col gap-1 px-4">
+                  <button onClick={() => { setAbaAtiva('comandas'); setMenuMobileAberto(false); }} className={`p-3 rounded-xl text-left font-bold text-sm transition flex items-center gap-3 ${abaAtiva === 'comandas' ? (temaNoturno ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-50 text-purple-700') : (temaNoturno ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-50')}`}>📋 Em Aberto</button>
+                  <button onClick={() => { setAbaAtiva('fechadas'); setMenuMobileAberto(false); }} className={`p-3 rounded-xl text-left font-bold text-sm transition flex items-center gap-3 ${abaAtiva === 'fechadas' ? (temaNoturno ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-50 text-purple-700') : (temaNoturno ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-50')}`}>🛒 Encerradas</button>
+                  {(sessao.role === 'dono' || sessao.perm_faturamento) && <button onClick={() => { setAbaAtiva('faturamento'); setMenuMobileAberto(false); }} className={`p-3 rounded-xl text-left font-bold text-sm transition flex items-center gap-3 ${abaAtiva === 'faturamento' ? (temaNoturno ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-50 text-purple-700') : (temaNoturno ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-50')}`}>💰 Faturamento</button>}
+                  {(sessao.role === 'dono' || sessao.perm_estudo) && <button onClick={() => { setAbaAtiva('analises'); setMenuMobileAberto(false); }} className={`p-3 rounded-xl text-left font-bold text-sm transition flex items-center gap-3 ${abaAtiva === 'analises' ? (temaNoturno ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-50 text-purple-700') : (temaNoturno ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-50')}`}>📊 Público-Alvo</button>}
+                </nav>
+
+                <p className={`px-6 text-[10px] font-bold uppercase tracking-widest mb-3 mt-8 ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Administração</p>
+                <nav className="flex flex-col gap-1 px-4">
+                  {sessao.role === 'dono' && <button onClick={() => { setMostrarAdminUsuarios(true); setMenuMobileAberto(false); }} className={`p-3 rounded-xl text-left font-bold text-sm transition flex items-center gap-3 ${temaNoturno ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-50'}`}>👥 Gerenciar Equipe</button>}
+                  {(sessao.role === 'dono' || sessao.perm_cardapio) && <button onClick={() => { setMostrarAdminProdutos(true); setMenuMobileAberto(false); }} className={`p-3 rounded-xl text-left font-bold text-sm transition flex items-center gap-3 ${temaNoturno ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-50'}`}>📦 Gerenciar Cardápio</button>}
+                  {sessao.role === 'dono' && <button onClick={() => { setMostrarConfigTags(true); setMenuMobileAberto(false); }} className={`p-3 rounded-xl text-left font-bold text-sm transition flex items-center gap-3 ${temaNoturno ? 'text-gray-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-50'}`}>🏷️ Configurar Tags</button>}
+                </nav>
+             </div>
+
+             <div className={`p-4 border-t ${temaNoturno ? 'border-gray-800' : 'border-gray-100'}`}>
+               <button onClick={fazerLogout} className={`w-full text-center font-bold p-3 rounded-xl transition ${temaNoturno ? 'text-red-400 hover:bg-red-900/20' : 'text-red-500 hover:bg-red-50'}`}>Sair do Sistema</button>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONTEÚDO PRINCIPAL */}
       {!comandaAtiva ? (
         abaAtiva === 'comandas' ? (
           <div className="flex flex-col animate-in fade-in duration-300">
@@ -423,7 +514,8 @@ export default function Home() {
               <button onClick={() => adicionarComanda('Delivery')} disabled={modoExclusao} className={`w-32 h-44 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center font-bold transition ${temaNoturno ? 'border-orange-600 text-orange-400 bg-orange-900/10 hover:bg-orange-900/30' : 'border-orange-400 text-orange-600 bg-orange-50/30 hover:bg-orange-50 hover:scale-105'}`}><span className="text-4xl mb-2 font-light">+</span><span>Delivery</span></button>
               {comandasAbertas.map((item) => (
                 <div key={item.id} className="relative">
-                  <CardComanda comanda={item} temaNoturno={temaNoturno} onClick={() => modoExclusao ? toggleSelecaoExclusao(item.id) : setIdSelecionado(item.id)} />{modoExclusao && <div className={`absolute inset-0 rounded-3xl border-4 pointer-events-none transition ${selecionadasExclusao.includes(item.id) ? 'border-red-500 bg-red-500/20' : 'border-transparent bg-black/5'}`} />}
+                  <CardComanda comanda={item} temaNoturno={temaNoturno} onClick={() => modoExclusao ? toggleSelecaoExclusao(item.id) : setIdSelecionado(item.id)} />
+                  {modoExclusao && <div className={`absolute inset-0 rounded-3xl border-4 pointer-events-none transition ${selecionadasExclusao.includes(item.id) ? 'border-red-500 bg-red-500/20' : 'border-transparent bg-black/5'}`} />}
                 </div>
               ))}
             </div>
@@ -599,14 +691,12 @@ export default function Home() {
         )
       ) : (
         <div className="flex-1 flex flex-col w-full h-full">
-          {/* TELA DA COMANDA ATIVA COM MODO NOTURNO */}
           <div className={`md:hidden flex p-1 rounded-xl mb-4 w-full border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-gray-200 border-gray-200'}`}>
             <button onClick={() => setAbaDetalheMobile('menu')} className={`flex-1 py-3 text-sm font-bold rounded-lg transition ${abaDetalheMobile === 'menu' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-700 shadow-sm') : (temaNoturno ? 'text-gray-400' : 'text-gray-500')}`}>Cardápio</button>
             <button onClick={() => setAbaDetalheMobile('resumo')} className={`flex-1 py-3 text-sm font-bold rounded-lg transition flex items-center justify-center gap-2 ${abaDetalheMobile === 'resumo' ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-900 text-white shadow-sm') : (temaNoturno ? 'text-gray-400' : 'text-gray-500')}`}>Resumo</button>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 h-full">
-            {/* LADO ESQUERDO: CARDÁPIO */}
             <div className={`p-4 md:p-6 rounded-3xl shadow-sm border overflow-y-auto ${abaDetalheMobile === 'menu' ? 'block' : 'hidden md:block'} pb-24 md:pb-6 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
               <div className="flex overflow-x-auto gap-2 mb-4 pb-2 scrollbar-hide">
                 <button onClick={() => setFiltroCategoriaCardapio('Favoritos')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition border ${filtroCategoriaCardapio === 'Favoritos' ? (temaNoturno ? 'bg-yellow-900/30 text-yellow-400 border-yellow-700' : 'bg-yellow-50 text-yellow-700 border-yellow-200 shadow-sm') : (temaNoturno ? 'bg-gray-900 text-gray-400 border-gray-700' : 'bg-gray-50 text-gray-500 border-gray-100 hover:bg-gray-100')}`}>⭐ Favoritos</button>
@@ -621,7 +711,6 @@ export default function Home() {
               {renderCardapioComanda()}
             </div>
             
-            {/* LADO DIREITO: RESUMO DA COMANDA */}
             <div className={`text-white p-4 md:p-6 rounded-3xl shadow-2xl flex flex-col h-[calc(100vh-180px)] md:h-auto border ${abaDetalheMobile === 'resumo' ? 'flex' : 'hidden md:flex'} ${temaNoturno ? 'bg-gray-900 border-gray-700' : 'bg-purple-900 border-purple-700'}`}>
               <div className="flex-1 overflow-y-auto pr-2 pb-4">
                 <div className="mb-4">
@@ -659,13 +748,13 @@ export default function Home() {
         </div>
       )}
 
-      {/* RENDERIZAÇÃO DOS COMPONENTES EXTERNOS (Modais e Painéis) */}
+      {/* RENDERIZAÇÃO DOS COMPONENTES EXTERNOS */}
       {mostrarAdminUsuarios && sessao && <AdminUsuarios empresaId={sessao.empresa_id} usuarioAtualId={sessao.id} onFechar={() => setMostrarAdminUsuarios(false)} />}
       {mostrarAdminProdutos && sessao && <AdminProdutos empresaId={sessao.empresa_id} onFechar={() => { setMostrarAdminProdutos(false); fetchData(); }} />}
       {mostrarModalPeso && <ModalPeso opcoesPeso={configPeso} onAdicionar={adicionarProdutoNaComanda} onCancelar={() => setMostrarModalPeso(false)} />}
       {mostrarModalPagamento && <ModalPagamento comanda={comandaAtiva} onConfirmar={processarPagamento} onCancelar={() => setMostrarModalPagamento(false)} />}
       
-      {/* MODAL DE CONFIGURAÇÃO DE TAGS (Integrado com o Design) */}
+      {/* MODAL DE CONFIGURAÇÃO DE TAGS */}
       {mostrarConfigTags && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]">
           <div className={`rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in zoom-in-95 border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
@@ -733,7 +822,6 @@ export default function Home() {
           </div>
         </div>
       )}
-
     </main>
   );
 }

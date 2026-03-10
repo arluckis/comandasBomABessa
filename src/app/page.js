@@ -343,9 +343,9 @@ export default function Home() {
           <div className="flex items-center gap-4">
             <span className="text-3xl drop-shadow-sm">💡</span>
             <div>
-              <p className="font-black text-sm">Alimente a sua Inteligência de Negócio!</p>
-              <p className={`text-xs mt-0.5 font-medium leading-relaxed ${temaNoturno ? 'text-yellow-400/80' : 'text-yellow-700/80'}`}>
-                As suas últimas comandas estão sem tags. Para classificar os seus clientes, abra uma comanda e <b>clique nas tags abaixo do cardápio</b>.
+              <p className="font-black text-s">Alimente a sua Inteligência de Negócio!</p>
+              <p className={`text-sm mt-0.5 font-medium leading-relaxed ${temaNoturno ? 'text-yellow-400/80' : 'text-yellow-700/80'}`}>
+                As suas últimas comandas estão sem tags. Para classificar os seus clientes, <b>clique nas tags pre-configuradas do cardápio.</b>
               </p>
             </div>
           </div>

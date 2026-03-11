@@ -18,15 +18,18 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
     return new Date(isoString).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
   };
 
+  // 1. Carrega as movimentações da gaveta (Só atualiza se o ID do caixa mudar ou trocar de aba interna)
   useEffect(() => {
     if (sessao?.empresa_id && caixaAtual?.id) {
       carregarDadosCaixa();
-      // === A GAMBIARRA DO "F5 INVISÍVEL" ===
-      // Toda vez que você clicar na aba Caixa, ele atualiza as comandas do banco silenciosamente!
-      if (fetchData) fetchData(); 
     }
+  }, [sessao?.empresa_id, caixaAtual?.id, abaInterna]);
+
+  // 2. A MÁGICA DO F5 INVISÍVEL: Roda APENAS UMA VEZ no exato momento que você clica na aba Caixa no menu
+  useEffect(() => {
+    if (fetchData) fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessao, caixaAtual, abaInterna]);
+  }, []);
 
   const carregarDadosCaixa = async () => {
     const { data: movData } = await supabase.from('caixa_movimentacoes').select('*').eq('caixa_id', caixaAtual.id);

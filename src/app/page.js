@@ -271,6 +271,12 @@ export default function Home() {
     setComandas(comandas.map(c => c.id === idSelecionado ? { ...c, produtos: c.produtos.filter(p => p.id !== idProduto) } : c));
   };
 
+  const alternarTipoComanda = async (id, tipoAtual) => {
+    const novoTipo = tipoAtual === 'Balcão' ? 'Delivery' : 'Balcão';
+    await supabase.from('comandas').update({ tipo: novoTipo }).eq('id', id);
+    setComandas(comandas.map(c => c.id === id ? { ...c, tipo: novoTipo } : c));
+  };
+
   const editarProduto = async (idProduto, obsAtual) => {
     const novaObs = prompt("Digite a observação:", obsAtual || "");
     if (novaObs !== null) {
@@ -508,6 +514,7 @@ export default function Home() {
             adicionarProdutoNaComanda={adicionarProdutoNaComanda} setMostrarModalPeso={setMostrarModalPeso} 
             tagsGlobais={tagsGlobais} toggleTag={toggleTag} editarProduto={editarProduto} 
             excluirProduto={excluirProduto} setMostrarModalPagamento={setMostrarModalPagamento} encerrarMesa={encerrarMesa} 
+            alternarTipoComanda={alternarTipoComanda}
           />
         ) : abaAtiva === 'comandas' ? (
           <TabComandas 

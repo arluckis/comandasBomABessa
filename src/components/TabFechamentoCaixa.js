@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, comandas, fetchData }) {
-  const [abaInterna, setAbaInterna] = useState('atual'); // 'atual' ou 'historico'
+  const [abaInterna, setAbaInterna] = useState('atual'); 
   const [movimentacoes, setMovimentacoes] = useState([]);
   const [bairros, setBairros] = useState([]);
   const [motoboyAtivo, setMotoboyAtivo] = useState(false);
@@ -13,10 +13,19 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
   const [valorInformadoCartao, setValorInformadoCartao] = useState('');
   const [valorInformadoPix, setValorInformadoPix] = useState('');
 
+  const formatarDataSegura = (isoString) => {
+    if (!isoString) return '---';
+    return new Date(isoString).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  };
+
   useEffect(() => {
     if (sessao?.empresa_id && caixaAtual?.id) {
       carregarDadosCaixa();
+      // === A GAMBIARRA DO "F5 INVISÍVEL" ===
+      // Toda vez que você clicar na aba Caixa, ele atualiza as comandas do banco silenciosamente!
+      if (fetchData) fetchData(); 
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessao, caixaAtual, abaInterna]);
 
   const carregarDadosCaixa = async () => {
@@ -73,7 +82,6 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
     }
   };
 
-  // --- Lógica Automática do Motoboy ---
   const calcularPendenteMotoboy = () => {
     if (!comandas || comandas.length === 0) return 0;
     
@@ -81,13 +89,15 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
 
     const totalTaxas = comandas
       .filter(c => {
-         const isMesmoDia = c.data && caixaAtual?.data_abertura && c.data.substring(0,10) === dataCaixa;
-         return isMesmoDia && c.status === 'fechada';
+         // Lógica cruzada para não perder dinheiro de comandas feitas num dia e pagas no outro!
+         const pagoNesteCaixa = c.pagamentos?.some(p => p.data?.substring(0, 10) === dataCaixa);
+         const criadaNesteCaixa = c.data?.substring(0, 10) === dataCaixa;
+         return c.status === 'fechada' && (pagoNesteCaixa || criadaNesteCaixa);
       })
       .reduce((acc, c) => {
         let taxa = parseFloat(c.taxa_entrega || 0);
         if (taxa === 0 && c.bairro_id && bairros.length > 0) {
-          const b = bairros.find(b => b.id === c.bairro_id);
+          const b = bairros.find(b => String(b.id) === String(c.bairro_id));
           if (b) taxa = parseFloat(b.taxa || 0);
         }
         return acc + taxa;
@@ -103,16 +113,16 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
   const pendenteMotoboy = calcularPendenteMotoboy();
 
   const pagarMotoboys = async () => {
-    if (confirm(`Registrar pagamento de R$ ${pendenteMotoboy.toFixed(2)} para os motoboys? (Isto fará uma retirada automática no fluxo de caixa).`)) {
+    if (confirm(`Registrar pagamento de R$ ${pendenteMotoboy.toFixed(2)} para os motoboys?`)) {
       await registrarMovimentacao('sangria', pendenteMotoboy, 'Pagamento Motoboys (Entregas)');
       alert('Pagamento registrado com sucesso!');
     }
   };
 
   const entradasVendasDinheiro = comandas
-    .filter(c => c.data?.substring(0, 10) === caixaAtual?.data_abertura?.substring(0, 10) && c.status === 'fechada')
-    .flatMap(c => c.pagamentos)
-    .filter(p => p.forma === 'Dinheiro')
+    .filter(c => c.status === 'fechada')
+    .flatMap(c => c.pagamentos || [])
+    .filter(p => p.forma === 'Dinheiro' && p.data?.substring(0, 10) === caixaAtual?.data_abertura?.substring(0, 10))
     .reduce((acc, p) => acc + parseFloat(p.valor), 0);
 
   const totalSuprimentos = movimentacoes.filter(m => m.tipo === 'suprimento').reduce((acc, m) => acc + parseFloat(m.valor), 0);
@@ -135,7 +145,6 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
         sangrias: totalSangrias
       };
 
-      // Adicionamos a captura de ERRO aqui
       const { error } = await supabase.from('caixas').update({ 
         status: 'fechado', 
         data_fechamento: new Date().toISOString(),
@@ -143,8 +152,8 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
       }).eq('id', caixaAtual.id);
       
       if (error) {
-        alert("ERRO AO FECHAR NO BANCO DE DADOS:\n\n" + error.message + "\n\nVocê esqueceu de criar a coluna 'relatorio_fechamento' (tipo JSONB) na tabela 'caixas'?");
-        return; // Pára a execução aqui para não fingir sucesso
+        alert("❌ ERRO NO SUPABASE:\n\n" + error.message);
+        return; 
       }
       
       alert("Caixa encerrado com sucesso! Um novo caixa será aberto.");
@@ -159,14 +168,10 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
     <div className={`max-w-4xl mx-auto w-full animate-in slide-in-from-bottom-4 duration-500 p-4 rounded-3xl shadow-sm border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
       
       <div className="flex gap-4 mb-6 border-b border-gray-200/20 pb-2">
-        <button 
-          onClick={() => setAbaInterna('atual')} 
-          className={`font-bold px-4 py-2 transition ${abaInterna === 'atual' ? (temaNoturno ? 'text-purple-400 border-b-2 border-purple-400' : 'text-purple-600 border-b-2 border-purple-600') : 'text-gray-500 hover:text-gray-400'}`}>
+        <button onClick={() => setAbaInterna('atual')} className={`font-bold px-4 py-2 transition ${abaInterna === 'atual' ? (temaNoturno ? 'text-purple-400 border-b-2 border-purple-400' : 'text-purple-600 border-b-2 border-purple-600') : 'text-gray-500 hover:text-gray-400'}`}>
           Fechamento de Caixa
         </button>
-        <button 
-          onClick={() => setAbaInterna('historico')} 
-          className={`font-bold px-4 py-2 transition ${abaInterna === 'historico' ? (temaNoturno ? 'text-purple-400 border-b-2 border-purple-400' : 'text-purple-600 border-b-2 border-purple-600') : 'text-gray-500 hover:text-gray-400'}`}>
+        <button onClick={() => setAbaInterna('historico')} className={`font-bold px-4 py-2 transition ${abaInterna === 'historico' ? (temaNoturno ? 'text-purple-400 border-b-2 border-purple-400' : 'text-purple-600 border-b-2 border-purple-600') : 'text-gray-500 hover:text-gray-400'}`}>
           Histórico de Fechamentos
         </button>
       </div>
@@ -176,7 +181,7 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <div>
               <h2 className={`text-xl font-black ${temaNoturno ? 'text-white' : 'text-purple-900'}`}>Fechamento de Caixa</h2>
-              <p className={`text-sm font-medium ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Aberto em: {caixaAtual?.data_abertura?.split('-').reverse().join('/')}</p>
+              <p className={`text-sm font-medium ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Aberto em: {formatarDataSegura(caixaAtual?.data_abertura)}</p>
             </div>
             <div className="flex gap-2 w-full md:w-auto">
               <button onClick={() => registrarMovimentacao('suprimento')} className="flex-1 md:flex-none px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl text-sm transition shadow-sm">+ Suprimento</button>
@@ -280,7 +285,7 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
                     <div className="flex flex-col sm:flex-row justify-between mb-4 border-b border-gray-200/20 pb-3 gap-2">
                       <div>
                         <p className="text-xs uppercase font-bold text-gray-500">Data de Operação</p>
-                        <p className={`font-black ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>{caixa.data_abertura?.split('-').reverse().join('/')}</p>
+                        <p className={`font-black ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>{formatarDataSegura(caixa.data_abertura)}</p>
                       </div>
                       <div className="sm:text-right">
                         <p className="text-xs uppercase font-bold text-gray-500">Status da Gaveta</p>

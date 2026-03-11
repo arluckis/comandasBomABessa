@@ -9,7 +9,6 @@ export default function ModalPagamento({ comanda, onConfirmar, onCancelar, temaN
   const [modoDivisao, setModoDivisao] = useState(false);
   const [itensSelecionados, setItensSelecionados] = useState([]);
 
-  // --- LÓGICA DO MOTOBOY ---
   const [precisaBairro, setPrecisaBairro] = useState(false);
   const [bairros, setBairros] = useState([]);
   const [bairroSelecionado, setBairroSelecionado] = useState('');
@@ -17,7 +16,7 @@ export default function ModalPagamento({ comanda, onConfirmar, onCancelar, temaN
   useEffect(() => {
     const verificarMotoboy = async () => {
       const { data: empData } = await supabase.from('empresas').select('motoboy_ativo').eq('id', comanda.empresa_id).single();
-      if (empData?.motoboy_ativo && (comanda.tipo === 'Delivery' || comanda.tipo === 'iFood')) {
+      if (empData?.motoboy_ativo && (comanda.tipo === 'Delivery' || comanda.tipo === 'iFood' || comanda.tipo === 'Balcão')) {
         setPrecisaBairro(true);
         const { data: bairrosData } = await supabase.from('bairros_entrega').select('*').eq('empresa_id', comanda.empresa_id).order('nome');
         if (bairrosData) setBairros(bairrosData);
@@ -26,25 +25,23 @@ export default function ModalPagamento({ comanda, onConfirmar, onCancelar, temaN
     verificarMotoboy();
   }, [comanda.empresa_id, comanda.tipo]);
 
-  // CÁLCULO DA TAXA DE ENTREGA PARA EMBUTIR NO VALOR FINAL
   const bairroObj = bairros.find(b => String(b.id) === String(bairroSelecionado));
   const taxaEntrega = bairroObj ? parseFloat(bairroObj.taxa) : 0;
 
   const handleConfirmar = async () => {
-    // Se for delivery, salva a taxa na comanda para podermos abater do faturamento
     if (precisaBairro && bairroSelecionado) {
       await supabase.from('comandas').update({ 
         bairro_id: bairroSelecionado,
         taxa_entrega: taxaEntrega 
       }).eq('id', comanda.id);
     }
-    onConfirmar(valorFinal, formaPagamento, itensSelecionados, modoDivisao);
+    // AQUI ESTÁ A MÁGICA: Passamos o bairro e a taxa para o page.js atualizar a memória!
+    onConfirmar(valorFinal, formaPagamento, itensSelecionados, modoDivisao, bairroSelecionado, taxaEntrega);
   };
 
   const itensPendentes = comanda.produtos.filter(p => !p.pago);
   const totalPendente = itensPendentes.reduce((acc, p) => acc + p.preco, 0);
   
-  // Adiciona a taxa de entrega ao subtotal a ser cobrado do cliente
   const subtotalItens = modoDivisao 
     ? itensSelecionados.reduce((acc, index) => acc + comanda.produtos[index].preco, 0)
     : totalPendente;
@@ -60,11 +57,8 @@ export default function ModalPagamento({ comanda, onConfirmar, onCancelar, temaN
   const nadaSelecionado = modoDivisao && itensSelecionados.length === 0;
 
   const toggleItem = (index) => {
-    if (itensSelecionados.includes(index)) {
-      setItensSelecionados(itensSelecionados.filter(i => i !== index));
-    } else {
-      setItensSelecionados([...itensSelecionados, index]);
-    }
+    if (itensSelecionados.includes(index)) setItensSelecionados(itensSelecionados.filter(i => i !== index));
+    else setItensSelecionados([...itensSelecionados, index]);
   };
 
   return (
@@ -91,12 +85,7 @@ export default function ModalPagamento({ comanda, onConfirmar, onCancelar, temaN
                   return (
                     <label key={index} className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition ${temaNoturno ? 'hover:bg-gray-700' : 'hover:bg-white'}`}>
                       <div className="flex items-center gap-3">
-                        <input 
-                          type="checkbox" 
-                          checked={itensSelecionados.includes(index)}
-                          onChange={() => toggleItem(index)}
-                          className="w-5 h-5 accent-green-600 rounded"
-                        />
+                        <input type="checkbox" checked={itensSelecionados.includes(index)} onChange={() => toggleItem(index)} className="w-5 h-5 accent-green-600 rounded" />
                         <span className={`text-sm ${itensSelecionados.includes(index) ? (temaNoturno ? 'font-bold text-green-400' : 'font-bold text-green-700') : (temaNoturno ? 'text-gray-300' : 'text-gray-600')}`}>{p.nome}</span>
                       </div>
                       <span className={`text-sm font-medium ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>R$ {p.preco.toFixed(2)}</span>
@@ -109,11 +98,7 @@ export default function ModalPagamento({ comanda, onConfirmar, onCancelar, temaN
 
           <div className="grid grid-cols-2 gap-3 mb-4">
             {['Dinheiro', 'Pix', 'Cartão', 'iFood'].map(forma => (
-              <button 
-                key={forma}
-                onClick={() => { setFormaPagamento(forma); if (forma !== 'Dinheiro') setValorRecebido(''); }}
-                className={`p-3 rounded-xl border-2 font-bold text-sm transition ${formaPagamento === forma ? (temaNoturno ? 'border-green-500 bg-green-900/20 text-green-400' : 'border-green-500 bg-green-50 text-green-700') : (temaNoturno ? 'border-gray-700 text-gray-400 hover:border-green-500/50' : 'border-gray-200 text-gray-500 hover:border-green-300')}`}
-              >
+              <button key={forma} onClick={() => { setFormaPagamento(forma); if (forma !== 'Dinheiro') setValorRecebido(''); }} className={`p-3 rounded-xl border-2 font-bold text-sm transition ${formaPagamento === forma ? (temaNoturno ? 'border-green-500 bg-green-900/20 text-green-400' : 'border-green-500 bg-green-50 text-green-700') : (temaNoturno ? 'border-gray-700 text-gray-400 hover:border-green-500/50' : 'border-gray-200 text-gray-500 hover:border-green-300')}`}>
                 {forma}
               </button>
             ))}
@@ -122,11 +107,7 @@ export default function ModalPagamento({ comanda, onConfirmar, onCancelar, temaN
           {precisaBairro && (
             <div className={`flex flex-col gap-2 p-3 rounded-xl mb-4 border ${temaNoturno ? 'bg-blue-900/10 border-blue-800/50' : 'bg-blue-50 border-blue-200'}`}>
               <label className={`text-xs font-bold uppercase tracking-wider ${temaNoturno ? 'text-blue-400' : 'text-blue-700'}`}>🚚 Bairro da Entrega:</label>
-              <select 
-                value={bairroSelecionado} 
-                onChange={(e) => setBairroSelecionado(e.target.value)}
-                className={`w-full p-2 rounded-lg outline-none text-sm transition border ${temaNoturno ? 'bg-gray-900 border-gray-600 text-white focus:border-blue-500' : 'bg-white border-gray-300 focus:border-blue-500'}`}
-              >
+              <select value={bairroSelecionado} onChange={(e) => setBairroSelecionado(e.target.value)} className={`w-full p-2 rounded-lg outline-none text-sm transition border ${temaNoturno ? 'bg-gray-900 border-gray-600 text-white focus:border-blue-500' : 'bg-white border-gray-300 focus:border-blue-500'}`}>
                 <option value="">-- Selecione o Bairro --</option>
                 {bairros.map(b => (
                   <option key={b.id} value={b.id}>{b.nome} (Taxa: R$ {parseFloat(b.taxa).toFixed(2)})</option>
@@ -135,7 +116,6 @@ export default function ModalPagamento({ comanda, onConfirmar, onCancelar, temaN
             </div>
           )}
 
-          {/* MOSTRA A TAXA DE ENTREGA ADICIONADA VISUALMENTE SE HOUVER */}
           {taxaEntrega > 0 && (
             <div className={`flex items-center justify-between p-3 rounded-xl mb-4 border ${temaNoturno ? 'bg-blue-900/20 border-blue-800/50' : 'bg-blue-50 border-blue-100'}`}>
               <span className={`text-sm font-bold ${temaNoturno ? 'text-blue-400' : 'text-blue-700'}`}>Taxa de Entrega:</span>

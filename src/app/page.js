@@ -528,6 +528,7 @@ export default function Home() {
             getHoje={getHoje} getMesAtual={getMesAtual} getAnoAtual={getAnoAtual} 
             faturamentoTotal={faturamentoTotal} lucroEstimado={lucroEstimado} 
             dadosPizza={dadosPizza} rankingProdutos={rankingProdutos} comandasFiltradas={comandasFiltradas} 
+            comandas={comandas} 
           />
         ) : abaAtiva === 'analises' ? (
           <TabAnalises 

@@ -75,10 +75,12 @@ export default function PainelComanda({
         <div className={`p-4 md:p-5 rounded-3xl shadow-sm border flex flex-col h-full min-h-0 ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'} ${abaDetalheMobile === 'menu' ? 'flex' : 'hidden md:flex'}`}>
           
           <div className="flex overflow-x-auto gap-2 mb-4 pb-2 shrink-0 scrollbar-hide">
-            <button onClick={() => setFiltroCategoriaCardapio('Favoritos')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition border ${filtroCategoriaCardapio === 'Favoritos' ? (temaNoturno ? 'bg-yellow-900/20 text-yellow-400 border-yellow-800/50' : 'bg-yellow-50 text-yellow-600 border-yellow-200') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100')}`}>⭐ Favoritos</button>
-            <button onClick={() => setFiltroCategoriaCardapio('Todas')} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition border ${filtroCategoriaCardapio === 'Todas' ? (temaNoturno ? 'bg-purple-900/30 text-purple-400 border-purple-800' : 'bg-purple-100 text-purple-700 border-purple-200') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100')}`}>Todas</button>
+            <button onClick={() => setFiltroCategoriaCardapio('Favoritos')} className={`uppercase px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition border ${filtroCategoriaCardapio === 'Favoritos' ? (temaNoturno ? 'bg-yellow-900/20 text-yellow-400 border-yellow-800/50' : 'bg-yellow-50 text-yellow-600 border-yellow-200') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100')}`}>⭐ FAVORITOS</button>
+            <button onClick={() => setFiltroCategoriaCardapio('Todas')} className={`uppercase px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition border ${filtroCategoriaCardapio === 'Todas' ? (temaNoturno ? 'bg-purple-900/30 text-purple-400 border-purple-800' : 'bg-purple-100 text-purple-700 border-purple-200') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100')}`}>TODAS</button>
             {menuCategorias.map(c => (
-              <button key={c.id} onClick={() => setFiltroCategoriaCardapio(c.id)} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition border ${filtroCategoriaCardapio === c.id ? (temaNoturno ? 'bg-purple-900/30 text-purple-400 border-purple-800' : 'bg-purple-100 text-purple-700 border-purple-200') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100')}`}>{c.nome}</button>
+              <button key={c.id} onClick={() => setFiltroCategoriaCardapio(c.id)} className={`uppercase px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition border ${filtroCategoriaCardapio === c.id ? (temaNoturno ? 'bg-purple-900/30 text-purple-400 border-purple-800' : 'bg-purple-100 text-purple-700 border-purple-200') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100')}`}>
+                {c.nome.toUpperCase()}
+              </button>
             ))}
           </div>
 
@@ -86,7 +88,6 @@ export default function PainelComanda({
             Açaí no Peso
           </button>
           
-          {/* A lista de produtos agora rola aqui dentro! min-h-0 é essencial aqui */}
           <div className="flex-1 overflow-y-auto min-h-0 pr-2 pb-6 md:pb-0 scrollbar-hide">
             {renderCardapioComanda()}
           </div>

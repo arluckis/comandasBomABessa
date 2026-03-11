@@ -2,58 +2,100 @@
 import CardComanda from '@/components/CardComanda';
 
 export default function TabComandas({
-  temaNoturno,
-  comandasAbertas,
-  modoExclusao,
-  setModoExclusao,
-  selecionadasExclusao,
-  toggleSelecaoExclusao,
-  confirmarExclusaoEmMassa,
-  adicionarComanda,
-  setIdSelecionado,
-  caixaAtual // <- Precisamos receber o caixaAtual para a verificação de data
+  temaNoturno, comandasAbertas, modoExclusao, setModoExclusao,
+  selecionadasExclusao, toggleSelecaoExclusao, confirmarExclusaoEmMassa,
+  adicionarComanda, setIdSelecionado, caixaAtual
 }) {
+
   return (
-    <div className="flex flex-col animate-in fade-in duration-300">
-      {comandasAbertas.length > 0 && (
-        <div className="flex justify-end mb-4">
-          {!modoExclusao ? <button onClick={() => setModoExclusao(true)} className={`font-bold text-sm px-4 py-2 rounded-xl border transition ${temaNoturno ? 'bg-red-900/20 text-red-400 border-red-900/50 hover:bg-red-900/40' : 'bg-red-50 text-red-500 border-red-100 hover:bg-red-100'}`}>Gerenciar Exclusões</button> : (
-            <div className={`flex items-center gap-3 px-4 py-2 rounded-xl border ${temaNoturno ? 'bg-red-900/20 border-red-900/50' : 'bg-red-50 border-red-100'}`}>
-              <span className={`font-bold text-sm ${temaNoturno ? 'text-red-400' : 'text-red-500'}`}>{selecionadasExclusao.length} selecionadas</span>
-              <button onClick={() => { setModoExclusao(false); setSelecionadasExclusao([]); }} className={`font-bold text-sm hover:underline ${temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-700'}`}>Cancelar</button>
-              <button onClick={confirmarExclusaoEmMassa} disabled={selecionadasExclusao.length === 0} className="bg-red-500 text-white font-bold text-sm px-4 py-1.5 rounded-lg disabled:opacity-50 transition">Confirmar Exclusão</button>
-            </div>
-          )}
-        </div>
-      )}
-      <div className="flex flex-wrap gap-4 md:gap-6">
-        <button onClick={() => adicionarComanda('Balcão')} disabled={modoExclusao} className={`w-32 h-44 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center font-bold transition ${temaNoturno ? 'border-purple-500/50 text-purple-400 bg-purple-900/10 hover:bg-purple-900/30' : 'border-purple-300 text-purple-600 bg-purple-50 hover:bg-purple-100'} hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100`}>
-          <span className="text-4xl mb-2 font-light">+</span><span>Balcão</span>
-        </button>
-        <button onClick={() => adicionarComanda('Delivery')} disabled={modoExclusao} className={`w-32 h-44 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center font-bold transition ${temaNoturno ? 'border-orange-500/50 text-orange-400 bg-orange-900/10 hover:bg-orange-900/30' : 'border-orange-300 text-orange-500 bg-orange-50 hover:bg-orange-100'} hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100`}>
-          <span className="text-4xl mb-2 font-light">+</span><span>Delivery</span>
-        </button>
+    <div className="flex-1 animate-in fade-in duration-500">
+      
+      {/* CABEÇALHO ORIGINAL COM O BOTÃO DE EXCLUIR VÁRIAS */}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className={`text-xl font-black ${temaNoturno ? 'text-white' : 'text-purple-900'}`}>
+          Comandas em Aberto ({comandasAbertas.length})
+        </h2>
+        {comandasAbertas.length > 0 && (
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setModoExclusao(!modoExclusao)} 
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs uppercase transition ${modoExclusao ? (temaNoturno ? 'bg-gray-700 text-gray-300' : 'bg-gray-300 text-gray-700') : (temaNoturno ? 'bg-red-900/20 text-red-400 hover:bg-red-900/40' : 'bg-red-50 text-red-600 hover:bg-red-100')}`}
+            >
+              {modoExclusao ? 'Cancelar' : 'Excluir Várias'}
+            </button>
+            {modoExclusao && (
+              <button 
+                onClick={confirmarExclusaoEmMassa} 
+                disabled={selecionadasExclusao.length === 0} 
+                className="px-4 py-2.5 rounded-xl font-bold text-xs uppercase bg-red-600 hover:bg-red-700 text-white transition disabled:opacity-50 shadow-md"
+              >
+                Confirmar ({selecionadasExclusao.length})
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-4 md:gap-6 justify-start">
         
-        {comandasAbertas.map((item) => {
-          // Correção do Bug de Data: Compara usando substring(0, 10) para garantir que "2026-03-10" não seja confundido.
-          const isTurnoAnterior = caixaAtual?.data_abertura && item.data && 
-                                  item.data.substring(0, 10) !== caixaAtual.data_abertura.substring(0, 10);
+        {/* BOTOES DE CRIAR COMANDA - TAMANHO NOVO (w-36 h-48) COM ÍCONES FINOS */}
+        {!modoExclusao && caixaAtual?.status === 'aberto' && (
+          <>
+            <button 
+              onClick={() => adicionarComanda('Balcão')} 
+              className={`w-36 h-48 rounded-3xl p-4 flex flex-col justify-center items-center gap-3 border-2 border-dashed transition-all hover:scale-105 active:scale-95 ${temaNoturno ? 'border-purple-500/30 text-purple-400 bg-purple-900/10 hover:bg-purple-900/30' : 'border-purple-300 text-purple-600 bg-purple-50 hover:bg-purple-100'}`}
+            >
+              <svg className="w-10 h-10 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+              <span className="text-xs font-black text-center uppercase tracking-widest leading-tight mt-1">Nova Comanda<br/>Balcão</span>
+            </button>
+            
+            <button 
+              onClick={() => adicionarComanda('Delivery')} 
+              className={`w-36 h-48 rounded-3xl p-4 flex flex-col justify-center items-center gap-3 border-2 border-dashed transition-all hover:scale-105 active:scale-95 ${temaNoturno ? 'border-orange-500/30 text-orange-400 bg-orange-900/10 hover:bg-orange-900/30' : 'border-orange-300 text-orange-600 bg-orange-50 hover:bg-orange-100'}`}
+            >
+              <svg className="w-10 h-10 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 7h12m0 0l3 5v6H8m12-11v11M8 7V5a2 2 0 00-2-2H3v14h1m4-12v12m0 0a2 2 0 11-4 0m4 0a2 2 0 10-4 0m16 0a2 2 0 11-4 0m4 0a2 2 0 10-4 0m-8-2h4"></path></svg>
+              <span className="text-xs font-black text-center uppercase tracking-widest leading-tight mt-1">Nova Comanda<br/>Delivery</span>
+            </button>
+          </>
+        )}
 
-          return (
-            <div key={item.id} className="relative">
-              {/* Etiqueta elegante e discreta sem emoji */}
-              {isTurnoAnterior && (
-                <div className={`absolute -top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm whitespace-nowrap border flex items-center gap-1.5 backdrop-blur-md transition-colors ${temaNoturno ? 'bg-gray-800/95 border-gray-700 text-gray-400' : 'bg-white/95 border-gray-200 text-gray-500'}`}>
-                  <svg className="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                  {item.data.substring(0,10).split('-').reverse().join('/')}
-                </div>
-              )}
-
-              <CardComanda comanda={item} temaNoturno={temaNoturno} onClick={() => modoExclusao ? toggleSelecaoExclusao(item.id) : setIdSelecionado(item.id)} />
-              {modoExclusao && <div className={`absolute inset-0 rounded-3xl border-4 pointer-events-none transition ${selecionadasExclusao.includes(item.id) ? 'border-red-500 bg-red-500/20' : 'border-transparent bg-black/5'}`} />}
+        {/* LISTA DAS COMANDAS EXISTENTES */}
+        {comandasAbertas.map(comanda => (
+          <div key={comanda.id} className="relative group">
+            {modoExclusao && (
+              <div className="absolute -top-2 -right-2 z-20">
+                <input 
+                  type="checkbox" 
+                  checked={selecionadasExclusao.includes(comanda.id)}
+                  onChange={() => toggleSelecaoExclusao(comanda.id)}
+                  className="w-6 h-6 rounded-full border-2 border-red-500 text-red-500 cursor-pointer shadow-sm"
+                />
+              </div>
+            )}
+            <div className={modoExclusao ? 'opacity-50 scale-95 transition-all' : 'transition-all'}>
+              <CardComanda 
+                comanda={comanda} 
+                onClick={() => { if (!modoExclusao) setIdSelecionado(comanda.id); else toggleSelecaoExclusao(comanda.id); }} 
+                temaNoturno={temaNoturno} 
+              />
             </div>
-          );
-        })}
+          </div>
+        ))}
+        
+        {comandasAbertas.length === 0 && caixaAtual?.status === 'aberto' && (
+          <div className={`w-full p-10 mt-2 text-center rounded-3xl border border-dashed flex-1 ${temaNoturno ? 'border-gray-700 text-gray-500' : 'border-gray-300 text-gray-400'}`}>
+            <p className="font-bold">Nenhuma comanda aberta.</p>
+            <p className="text-sm mt-1">Clique nos botões acima para criar uma nova.</p>
+          </div>
+        )}
+        
+        {caixaAtual?.status !== 'aberto' && (
+          <div className={`w-full p-10 mt-2 text-center rounded-3xl border border-dashed flex-1 ${temaNoturno ? 'border-gray-700 text-red-400 bg-red-900/10' : 'border-red-200 text-red-600 bg-red-50'}`}>
+            <p className="font-black text-lg mb-2">O Caixa está Fechado!</p>
+            <p className="text-sm font-medium">Abra o caixa na aba "Caixa" para criar novas comandas.</p>
+          </div>
+        )}
+
       </div>
     </div>
   );

@@ -350,8 +350,8 @@ export default function Home() {
 
   // 6. Preparação de Variáveis e Cálculos para a Renderização
   const comandaAtiva = comandas.find(c => c.id === idSelecionado);
-  const ultimasComandas = comandas.slice(-3);
-  const alertaTags = ultimasComandas.length === 3 && ultimasComandas.every(c => c.tags && c.tags.length === 0);
+  // Só alerta se houver 3 ou mais comandas abertas e absolutamente NENHUMA tiver tag
+  const alertaTags = comandas.filter(c => c.status === 'aberta').length >= 3 && comandas.filter(c => c.status === 'aberta').every(c => !c.tags || c.tags.length === 0);
 
   const comandasFiltradas = comandas.filter(c => isComandaInFiltro(c.data));
   const comandasAbertas = comandas.filter(c => c.status === 'aberta');

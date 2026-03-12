@@ -13,7 +13,8 @@ export default function CardComanda({ comanda, onClick, temaNoturno }) {
       }`}
     >
       <div className="flex justify-between items-start mb-3 w-full">
-        <h3 className={`font-black text-base leading-snug line-clamp-2 pr-2 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
+        {/* Foi adicionada a classe 'uppercase' aqui no h3 */}
+        <h3 className={`font-black text-base uppercase leading-snug line-clamp-2 pr-2 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
           {comanda.nome}
         </h3>
         <span className={`text-[8px] font-bold uppercase px-2 py-1 rounded-md shrink-0 border ${

@@ -58,6 +58,10 @@ export default function PainelComanda({
 
   if (!comandaAtiva) return null;
 
+  // VARIÁVEIS DE SEGURANÇA ANTICRASH
+  const produtosSeguros = comandaAtiva.produtos || [];
+  const tagsSeguras = comandaAtiva.tags || [];
+
   return (
     // Altura rigorosamente calculada e bloqueada para nunca rolar a página inteira
     <div className="flex flex-col w-full h-[calc(100vh-140px)] min-h-[450px] animate-in zoom-in-95 duration-300">
@@ -65,7 +69,7 @@ export default function PainelComanda({
       {/* Botões Mobile (Escondidos no Desktop) - Shrink 0 para não amassar */}
       <div className={`md:hidden flex p-1 rounded-xl mb-4 shrink-0 w-full border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-gray-200 border-gray-300'}`}>
         <button onClick={() => setAbaDetalheMobile('menu')} className={`flex-1 py-3 text-sm font-bold rounded-lg transition ${abaDetalheMobile === 'menu' ? (temaNoturno ? 'bg-gray-700 text-purple-400 shadow-sm' : 'bg-white text-purple-700 shadow-sm') : (temaNoturno ? 'text-gray-500' : 'text-gray-500')}`}>Cardápio</button>
-        <button onClick={() => setAbaDetalheMobile('resumo')} className={`flex-1 py-3 text-sm font-bold rounded-lg transition flex items-center justify-center gap-2 ${abaDetalheMobile === 'resumo' ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-600 text-white shadow-sm') : (temaNoturno ? 'text-gray-500' : 'text-gray-500')}`}>Resumo <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-[10px]">{comandaAtiva?.produtos.length || 0}</span></button>
+        <button onClick={() => setAbaDetalheMobile('resumo')} className={`flex-1 py-3 text-sm font-bold rounded-lg transition flex items-center justify-center gap-2 ${abaDetalheMobile === 'resumo' ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-600 text-white shadow-sm') : (temaNoturno ? 'text-gray-500' : 'text-gray-500')}`}>Resumo <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-[10px]">{produtosSeguros.length}</span></button>
       </div>
       
       {/* O Grid com overflow-hidden obriga as colunas a respeitarem a altura máxima */}
@@ -103,7 +107,7 @@ export default function PainelComanda({
               <p className={`text-[10px] uppercase tracking-widest font-bold mb-2 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>Classificação do Cliente:</p>
               <div className="flex flex-wrap gap-1.5">
                 {tagsGlobais.map(tagObj => (
-                  <button key={tagObj.id} onClick={() => toggleTag(tagObj.nome)} className={`px-2 py-1 rounded-md text-[10px] font-bold transition border ${comandaAtiva?.tags.includes(tagObj.nome) ? (temaNoturno ? 'bg-purple-900/50 text-purple-300 border-purple-700' : 'bg-purple-600 text-white border-purple-700') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100')}`}>
+                  <button key={tagObj.id} onClick={() => toggleTag(tagObj.nome)} className={`px-2 py-1 rounded-md text-[10px] font-bold transition border ${tagsSeguras.includes(tagObj.nome) ? (temaNoturno ? 'bg-purple-900/50 text-purple-300 border-purple-700' : 'bg-purple-600 text-white border-purple-700') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100')}`}>
                     {tagObj.nome}
                   </button>
                 ))}
@@ -115,7 +119,7 @@ export default function PainelComanda({
             </div>
             
             {/* Lista dos produtos da comanda em Maiúsculas */}
-            {comandaAtiva?.produtos.map((p) => (
+            {produtosSeguros.map((p) => (
               <div key={p.id} className={`flex justify-between items-center border-b py-3 text-sm transition ${p.pago ? 'opacity-40 line-through' : 'opacity-100'} ${temaNoturno ? 'border-gray-800' : 'border-purple-800/40'}`}>
                 <div className="flex flex-col">
                   <span className={`font-bold uppercase text-[11px] sm:text-sm ${temaNoturno ? 'text-gray-100' : 'text-gray-800'}`}>
@@ -141,11 +145,11 @@ export default function PainelComanda({
           <div className={`shrink-0 pt-4 border-t relative z-10 ${temaNoturno ? 'border-gray-800 bg-gray-900' : 'border-purple-100 bg-white'}`}>
             <div className="flex justify-between items-end mb-4 px-2">
               <span className={`text-xs font-bold uppercase ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Restante a Pagar</span>
-              <span className="text-green-500 text-3xl font-black tracking-tighter">R$ {comandaAtiva?.produtos.filter(p => !p.pago).reduce((acc, p) => acc + p.preco, 0).toFixed(2)}</span>
+              <span className="text-green-500 text-3xl font-black tracking-tighter">R$ {produtosSeguros.filter(p => !p.pago).reduce((acc, p) => acc + p.preco, 0).toFixed(2)}</span>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setMostrarModalPagamento(true)} disabled={comandaAtiva?.produtos.filter(p=>!p.pago).length === 0} className="flex-[2] bg-green-500 py-3 sm:py-4 rounded-2xl font-black text-white text-lg hover:bg-green-600 transition shadow-lg disabled:opacity-50 active:scale-95">COBRAR</button>
-              <button onClick={encerrarMesa} disabled={!comandaAtiva || comandaAtiva?.produtos.length === 0 || comandaAtiva?.produtos.some(p => !p.pago)} className={`flex-1 py-3 sm:py-4 rounded-2xl font-bold text-xs uppercase transition disabled:opacity-30 active:scale-95 ${temaNoturno ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'}`}>Encerrar Mesa</button>
+              <button onClick={() => setMostrarModalPagamento(true)} disabled={produtosSeguros.filter(p=>!p.pago).length === 0} className="flex-[2] bg-green-500 py-3 sm:py-4 rounded-2xl font-black text-white text-lg hover:bg-green-600 transition shadow-lg disabled:opacity-50 active:scale-95">COBRAR</button>
+              <button onClick={encerrarMesa} disabled={!comandaAtiva || produtosSeguros.length === 0 || produtosSeguros.some(p => !p.pago)} className={`flex-1 py-3 sm:py-4 rounded-2xl font-bold text-xs uppercase transition disabled:opacity-30 active:scale-95 ${temaNoturno ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'}`}>Encerrar Mesa</button>
             </div>
           </div>
         </div>

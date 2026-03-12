@@ -1,6 +1,9 @@
 export default function CardComanda({ comanda, onClick, temaNoturno }) {
-  const valorTotal = comanda.produtos?.reduce((acc, p) => acc + p.preco, 0) || 0;
-  const valorPago = comanda.produtos?.filter(p => p.pago).reduce((acc, p) => acc + p.preco, 0) || 0;
+  // VARIÁVEL DE SEGURANÇA ANTICRASH
+  const produtosSeguros = comanda?.produtos || [];
+
+  const valorTotal = produtosSeguros.reduce((acc, p) => acc + p.preco, 0);
+  const valorPago = produtosSeguros.filter(p => p.pago).reduce((acc, p) => acc + p.preco, 0);
   const restante = valorTotal - valorPago;
 
   const formatarAbertura = (isoDate) => {
@@ -85,7 +88,7 @@ export default function CardComanda({ comanda, onClick, temaNoturno }) {
 
       <div className={`mt-auto pt-3 border-t w-full ${temaNoturno ? 'border-gray-700/50' : 'border-gray-300/50'}`}>
         <div className={`flex justify-between items-center text-[10px] font-bold mb-1 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>
-          <span>Itens: {comanda.produtos?.length || 0}</span>
+          <span>Itens: {produtosSeguros.length}</span>
         </div>
         <p className={`font-black text-xl tracking-tight ${temaNoturno ? 'text-green-400' : 'text-green-600'}`}>
           <span className="text-[10px] opacity-70">R$</span> {restante.toFixed(2)}

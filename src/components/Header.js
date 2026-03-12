@@ -18,35 +18,33 @@ export default function Header({
   };
 
   const salvarNome = async () => {
-    if (!tempNome.trim() || tempNome === comandaAtiva.nome) {
+    if (!tempNome || !tempNome.trim() || tempNome === comandaAtiva?.nome) {
       setEditandoNome(false);
       return;
     }
-    const { error } = await supabase.from('comandas').update({ nome: tempNome }).eq('id', comandaAtiva.id);
+    const { error } = await supabase.from('comandas').update({ nome: tempNome }).eq('id', comandaAtiva?.id);
     if (!error && fetchData) await fetchData();
     setEditandoNome(false);
   };
 
   const alternarTipoComanda = async () => {
     if (!comandaAtiva) return;
-    const novoTipo = comandaAtiva.tipo === 'Balcão' ? 'Delivery' : 'Balcão';
-    const { error } = await supabase.from('comandas').update({ tipo: novoTipo }).eq('id', comandaAtiva.id);
+    const novoTipo = comandaAtiva?.tipo === 'Balcão' ? 'Delivery' : 'Balcão';
+    const { error } = await supabase.from('comandas').update({ tipo: novoTipo }).eq('id', comandaAtiva?.id);
     if (!error && fetchData) await fetchData();
   };
 
   const isCaixaAberto = caixaAtual?.status === 'aberto';
 
-  // Função para redirecionar direto pro menu de Abrir Caixa no topo da tela
   const irParaAberturaDeCaixa = () => {
     setAbaAtiva('comandas');
     setIdSelecionado(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' }); // Rola para o topo suavemente
+    window.scrollTo({ top: 0, behavior: 'smooth' }); 
   };
 
   return (
     <header className={`flex items-center justify-between p-3 xl:p-4 rounded-3xl shadow-sm border mb-6 sticky top-0 z-40 transition-colors duration-500 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
       
-      {/* --- ESQUERDA: Botão Voltar ou Status do Caixa --- */}
       <div className="flex flex-1 justify-start items-center gap-3">
         {comandaAtiva ? (
           <button onClick={() => { setIdSelecionado(null); setEditandoNome(false); }} className={`flex items-center gap-2 font-bold px-4 py-2 rounded-xl transition ${temaNoturno ? 'bg-gray-700 text-purple-300 hover:bg-gray-600' : 'bg-purple-50 text-purple-700 hover:bg-purple-100'}`}>
@@ -67,7 +65,6 @@ export default function Header({
         )}
       </div>
 
-      {/* --- CENTRO: Navegação Principal ou Nome da Comanda --- */}
       <div className="flex justify-center shrink-0">
         {!comandaAtiva ? (
           <>
@@ -80,7 +77,7 @@ export default function Header({
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Encerradas
               </button>
 
-              {(sessao.role === 'dono' || sessao.perm_faturamento) && (
+              {(sessao?.role === 'dono' || sessao?.perm_faturamento) && (
                 <button onClick={() => setAbaAtiva('faturamento')} className={`px-4 py-2 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-2 ${abaAtiva === 'faturamento' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Faturamento
                 </button>
@@ -92,7 +89,7 @@ export default function Header({
                 </svg> Fechamento
               </button>
 
-              {(sessao.role === 'dono' || sessao.perm_estudo) && (
+              {(sessao?.role === 'dono' || sessao?.perm_estudo) && (
                 <button onClick={() => setAbaAtiva('analises')} className={`px-4 py-2 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-2 ${abaAtiva === 'analises' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg> Público-Alvo
                 </button>
@@ -118,21 +115,21 @@ export default function Header({
                 onKeyDown={e => e.key === 'Enter' && salvarNome()}
               />
             ) : (
-              <h2 onClick={() => { setTempNome(comandaAtiva.nome); setEditandoNome(true); }} className={`text-lg font-black truncate text-center cursor-pointer hover:opacity-70 transition uppercase ${temaNoturno ? 'text-purple-300' : 'text-purple-900'}`}>
-                {comandaAtiva?.nome} ✏️
+              <h2 onClick={() => { setTempNome(comandaAtiva?.nome || ''); setEditandoNome(true); }} className={`text-lg font-black truncate text-center cursor-pointer hover:opacity-70 transition uppercase ${temaNoturno ? 'text-purple-300' : 'text-purple-900'}`}>
+                {comandaAtiva?.nome || 'Comanda'} ✏️
               </h2>
             )}
 
             <button 
               onClick={alternarTipoComanda}
-              title={`Mudar para ${comandaAtiva.tipo === 'Balcão' ? 'Delivery' : 'Balcão'}`}
+              title={`Mudar para ${comandaAtiva?.tipo === 'Balcão' ? 'Delivery' : 'Balcão'}`}
               className={`flex items-center gap-1.5 px-2 py-1 xl:px-3 xl:py-1.5 rounded-lg text-xs font-bold transition border active:scale-95 ${
-                comandaAtiva.tipo === 'Delivery' 
+                comandaAtiva?.tipo === 'Delivery' 
                   ? (temaNoturno ? 'bg-orange-900/30 text-orange-400 border-orange-800/50 hover:bg-orange-900/50' : 'bg-orange-50 text-orange-700 border-orange-100 hover:bg-orange-100') 
                   : (temaNoturno ? 'bg-purple-900/30 text-purple-300 border-purple-800/50 hover:bg-purple-900/50' : 'bg-purple-50 text-purple-700 border-purple-100 hover:bg-purple-100')
               }`}
             >
-              {comandaAtiva.tipo === 'Delivery' ? (
+              {comandaAtiva?.tipo === 'Delivery' ? (
                 <>
                   <svg className="w-5 h-5 xl:w-4 xl:h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l3 5v6H8m12-11v11M8 7V5a2 2 0 00-2-2H3v14h1m4-12v12m0 0a2 2 0 11-4 0m4 0a2 2 0 10-4 0m16 0a2 2 0 11-4 0m4 0a2 2 0 10-4 0m-8-2h4"></path></svg>
                   <span className="hidden xl:inline">Delivery</span>
@@ -148,7 +145,6 @@ export default function Header({
         )}
       </div>
       
-      {/* --- DIREITA: Tema e Perfil --- */}
       <div className="flex flex-1 justify-end items-center gap-2 xl:gap-6">
         <button onClick={() => setTemaNoturno(!temaNoturno)} className={`p-2 rounded-full border transition ${temaNoturno ? 'bg-gray-700 border-gray-600 text-yellow-400' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
           {temaNoturno ? '🌙' : '☀️'}
@@ -158,7 +154,7 @@ export default function Header({
           <div className="flex items-center gap-3 hover:opacity-80 transition">
             <div className="flex flex-col text-right">
               <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 leading-none mb-1">{nomeEmpresa}</span>
-              <span className={`font-black text-sm leading-none ${temaNoturno ? 'text-purple-300' : 'text-purple-900'}`}>{sessao.nome_usuario}</span>
+              <span className={`font-black text-sm leading-none ${temaNoturno ? 'text-purple-300' : 'text-purple-900'}`}>{sessao?.nome_usuario || 'Usuário'}</span>
             </div>
             <div className={`w-10 h-10 rounded-full border-2 overflow-hidden shrink-0 ${temaNoturno ? 'border-gray-600 bg-gray-700' : 'border-purple-200 bg-purple-50'}`}>
                <img src={logoEmpresa} alt="Logo" className="w-full h-full object-cover" />
@@ -168,19 +164,19 @@ export default function Header({
           
           {mostrarMenuPerfil && (
             <div className={`absolute top-14 right-0 shadow-2xl rounded-2xl p-2 w-56 border z-50 transition-colors ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-              {sessao.role === 'dono' && (
+              {sessao?.role === 'dono' && (
                 <button onClick={() => { setMostrarConfigEmpresa(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center gap-3 rounded-xl transition ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Configurar Loja</button>
               )}
-              {sessao.role === 'dono' && (
+              {sessao?.role === 'dono' && (
                 <button onClick={() => { setMostrarAdminUsuarios(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center gap-3 rounded-xl transition ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Equipe</button>
               )}
-              {(sessao.role === 'dono' || sessao.perm_cardapio) && (
+              {(sessao?.role === 'dono' || sessao?.perm_cardapio) && (
                 <button onClick={() => { setMostrarAdminProdutos(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center gap-3 rounded-xl transition ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Cardápio</button>
               )}
-              {sessao.role === 'dono' && (
+              {sessao?.role === 'dono' && (
                 <button onClick={() => { setMostrarConfigTags(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center gap-3 rounded-xl transition ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Tags</button>
               )}
-              {sessao.role === 'dono' && (
+              {sessao?.role === 'dono' && (
                 <button onClick={() => { setMostrarAdminDelivery(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center gap-3 rounded-xl transition ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Delivery</button>
               )}
               <div className="h-px my-1 bg-gray-500/10"></div>

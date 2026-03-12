@@ -205,11 +205,19 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
           <button onClick={onFechar} className={`p-3 rounded-full font-bold transition ${temaNoturno ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200'}`}>✕</button>
         </div>
 
-        <div className={`flex gap-2 p-1 rounded-xl mb-6 overflow-x-auto border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
-          <button onClick={() => setAbaConfig('produtos')} className={`px-4 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap ${abaConfig === 'produtos' ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-white text-purple-700 shadow-sm') : (temaNoturno ? 'text-gray-400' : 'text-gray-500')}`}>Cardápio Padrão</button>
-          <button onClick={() => setAbaConfig('peso')} className={`px-4 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap flex items-center gap-2 ${abaConfig === 'peso' ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-white text-purple-700 shadow-sm') : (temaNoturno ? 'text-gray-400' : 'text-gray-500')}`}>⚖️ Venda no Peso</button>
-          <button onClick={() => setAbaConfig('categorias')} className={`px-4 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap ${abaConfig === 'categorias' ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-white text-purple-700 shadow-sm') : (temaNoturno ? 'text-gray-400' : 'text-gray-500')}`}>Categorias</button>
-          <button onClick={() => setAbaConfig('importacao')} className={`px-4 py-2 rounded-lg font-bold text-sm transition whitespace-nowrap flex items-center gap-2 ${abaConfig === 'importacao' ? (temaNoturno ? 'bg-green-600 text-white shadow-sm' : 'bg-green-500 text-white shadow-sm') : (temaNoturno ? 'text-green-500' : 'text-green-600')}`}>⚡ Importação em Massa</button>
+        <div className={`flex flex-col sm:flex-row gap-2 p-1 rounded-xl mb-6 border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
+          <button onClick={() => setAbaConfig('produtos')} className={`flex-1 px-4 py-2 rounded-lg font-bold text-sm text-center transition ${abaConfig === 'produtos' ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-white text-purple-700 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-purple-700')}`}>
+            Cardápio Padrão
+          </button>
+          <button onClick={() => setAbaConfig('peso')} className={`flex-1 px-4 py-2 rounded-lg font-bold text-sm text-center transition ${abaConfig === 'peso' ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-white text-purple-700 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-purple-700')}`}>
+            Venda no Peso
+          </button>
+          <button onClick={() => setAbaConfig('categorias')} className={`flex-1 px-4 py-2 rounded-lg font-bold text-sm text-center transition ${abaConfig === 'categorias' ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-white text-purple-700 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-purple-700')}`}>
+            Categorias
+          </button>
+          <button onClick={() => setAbaConfig('importacao')} className={`flex-1 px-4 py-2 rounded-lg font-bold text-sm text-center transition ${abaConfig === 'importacao' ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-white text-purple-700 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-purple-700')}`}>
+            Importação em Massa
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto pr-2 scrollbar-hide">

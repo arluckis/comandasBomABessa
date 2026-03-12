@@ -28,7 +28,7 @@ export default function Home() {
   useEffect(() => {
     // TODA VEZ QUE VOCÊ SUBIR UMA ATUALIZAÇÃO PARA O CLIENTE, MUDE ESTE NÚMERO
     // Ex: mude para '1.0.2', depois '1.0.3', etc.
-    const VERSAO_ATUAL = '1.0.1'; 
+    const VERSAO_ATUAL = '1.0.2'; 
     const versaoNoNavegador = localStorage.getItem('bessa_versao_sistema');
 
     if (versaoNoNavegador !== VERSAO_ATUAL) {

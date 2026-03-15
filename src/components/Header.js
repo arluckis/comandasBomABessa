@@ -38,15 +38,18 @@ export default function Header({
 
   let statusCaixa = isCaixaAberto ? 'aberto' : 'fechado';
   if (isCaixaAberto && caixaAtual?.data_abertura) {
-    const dataAbertura = new Date(caixaAtual.data_abertura);
-    const agora = new Date();
+    // Extrai exatamente a data (YYYY-MM-DD) do banco de dados para evitar bugs de fuso horário (-3h)
+    const dataAberturaDB = caixaAtual.data_abertura.substring(0, 10);
     
-    // Zera as horas para comparar apenas o dia
-    const hojeZerado = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
-    const aberturaZerada = new Date(dataAbertura.getFullYear(), dataAbertura.getMonth(), dataAbertura.getDate());
-
-    // Se a data de abertura for menor que hoje E já passou das 5h da manhã de hoje
-    if (hojeZerado > aberturaZerada && agora.getHours() >= 5) {
+    // Pega a data exata de "hoje" no sistema
+    const agora = new Date();
+    const ano = agora.getFullYear();
+    const mes = String(agora.getMonth() + 1).padStart(2, '0');
+    const dia = String(agora.getDate()).padStart(2, '0');
+    const dataHojeStr = `${ano}-${mes}-${dia}`;
+    
+    // Se a data que está no banco for menor (anterior) a data de hoje E já passou das 5h da manhã
+    if (dataAberturaDB < dataHojeStr && agora.getHours() >= 5) {
       statusCaixa = 'esquecido';
     }
   }

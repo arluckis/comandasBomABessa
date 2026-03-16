@@ -7,10 +7,15 @@ export default function Header({
   caixaAtual, abaAtiva, setAbaAtiva, logoEmpresa, setTemaNoturno,
   mostrarMenuPerfil, setMostrarMenuPerfil, nomeEmpresa, sessao,
   setMostrarConfigEmpresa, setMostrarAdminUsuarios, setMostrarAdminProdutos,
-  setMostrarConfigTags, setMostrarAdminDelivery, fazerLogout, fetchData
+  setMostrarConfigTags, setMostrarAdminDelivery, fazerLogout, fetchData,
+  clientesFidelidade, vincularClienteFidelidade
 }) {
   const [editandoNome, setEditandoNome] = useState(false);
   const [tempNome, setTempNome] = useState('');
+  
+  const [buscaFidelidade, setBuscaFidelidade] = useState('');
+  const [mostrarResultadosFidelidade, setMostrarResultadosFidelidade] = useState(false);
+  const [buscaMobileAberta, setBuscaMobileAberta] = useState(false);
 
   const formatarDataCaixa = (data) => {
     if (!data) return "---";
@@ -38,17 +43,12 @@ export default function Header({
 
   let statusCaixa = isCaixaAberto ? 'aberto' : 'fechado';
   if (isCaixaAberto && caixaAtual?.data_abertura) {
-    // Extrai exatamente a data (YYYY-MM-DD) do banco de dados para evitar bugs de fuso horário (-3h)
     const dataAberturaDB = caixaAtual.data_abertura.substring(0, 10);
-    
-    // Pega a data exata de "hoje" no sistema
     const agora = new Date();
     const ano = agora.getFullYear();
     const mes = String(agora.getMonth() + 1).padStart(2, '0');
     const dia = String(agora.getDate()).padStart(2, '0');
     const dataHojeStr = `${ano}-${mes}-${dia}`;
-    
-    // Se a data que está no banco for menor (anterior) a data de hoje E já passou das 5h da manhã
     if (dataAberturaDB < dataHojeStr && agora.getHours() >= 5) {
       statusCaixa = 'esquecido';
     }
@@ -115,14 +115,12 @@ export default function Header({
               )}
 
               <button onClick={() => setAbaAtiva('caixa')} className={`px-4 py-2 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-2 ${abaAtiva === 'caixa' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>
-                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                </svg> Fechamento
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> Fechamento
               </button>
 
-              {(sessao?.role === 'dono' || sessao?.perm_estudo) && (
-                <button onClick={() => setAbaAtiva('analises')} className={`px-4 py-2 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-2 ${abaAtiva === 'analises' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>
-                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg> Público-Alvo
+              {(sessao?.role === 'dono' || sessao?.perm_fidelidade || sessao?.perm_estudo) && (
+                <button onClick={() => setAbaAtiva('fidelidade')} className={`px-4 py-2 rounded-lg font-bold transition whitespace-nowrap flex items-center gap-2 ${abaAtiva === 'fidelidade' ? (temaNoturno ? 'bg-gray-700 text-white shadow-sm' : 'bg-white text-purple-800 shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-purple-600')}`}>
+                  <svg className={`w-4 h-4 shrink-0 ${abaAtiva === 'fidelidade' ? 'text-purple-400' : 'opacity-70'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg> Clientes
                 </button>
               )}
             </div>
@@ -133,25 +131,18 @@ export default function Header({
               (temaNoturno ? 'bg-red-900/20 border-red-800/50' : 'bg-red-50 border-red-100')
             }`}>
               <span className={`w-2 h-2 rounded-full ${statusCaixa === 'aberto' ? 'bg-green-500 animate-pulse' : statusCaixa === 'esquecido' ? 'bg-orange-500 animate-pulse' : 'bg-red-500'}`}></span>
-              <span className={`text-[10px] font-black uppercase tracking-widest ${
-                statusCaixa === 'aberto' ? (temaNoturno ? 'text-green-400' : 'text-green-700') : 
-                statusCaixa === 'esquecido' ? (temaNoturno ? 'text-orange-400' : 'text-orange-700') : 
-                (temaNoturno ? 'text-red-400' : 'text-red-700')
-              }`}>
+              <span className={`text-[10px] font-black uppercase tracking-widest ${statusCaixa === 'aberto' ? (temaNoturno ? 'text-green-400' : 'text-green-700') : statusCaixa === 'esquecido' ? (temaNoturno ? 'text-orange-400' : 'text-orange-700') : (temaNoturno ? 'text-red-400' : 'text-red-700')}`}>
                 {statusCaixa === 'aberto' ? formatarDataCaixa(caixaAtual?.data_abertura) : statusCaixa === 'esquecido' ? '⚠️ CAIXA ESQUECIDO!' : 'FECHADO'}
               </span>
             </div>
           </>
         ) : (
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center justify-center gap-2 relative">
             {editandoNome ? (
               <input 
                 autoFocus
-                className={`text-center font-black text-lg p-1 rounded-lg border-2 border-purple-500 outline-none w-full max-w-[200px] uppercase ${temaNoturno ? 'bg-gray-900 text-white' : 'bg-white text-purple-900'}`}
-                value={tempNome}
-                onChange={e => setTempNome(e.target.value)}
-                onBlur={salvarNome}
-                onKeyDown={e => e.key === 'Enter' && salvarNome()}
+                className={`text-center font-black text-lg p-1 rounded-lg border-2 border-purple-500 outline-none w-full max-w-[160px] sm:max-w-[200px] uppercase ${temaNoturno ? 'bg-gray-900 text-white' : 'bg-white text-purple-900'}`}
+                value={tempNome} onChange={e => setTempNome(e.target.value)} onBlur={salvarNome} onKeyDown={e => e.key === 'Enter' && salvarNome()}
               />
             ) : (
               <h2 onClick={() => { setTempNome(comandaAtiva?.nome || ''); setEditandoNome(true); }} className={`text-lg font-black truncate text-center cursor-pointer hover:opacity-70 transition uppercase ${temaNoturno ? 'text-purple-300' : 'text-purple-900'}`}>
@@ -160,9 +151,47 @@ export default function Header({
             )}
 
             <button 
+              onClick={() => setBuscaMobileAberta(!buscaMobileAberta)}
+              className={`sm:hidden flex items-center justify-center p-2 rounded-lg transition-all active:scale-95 shadow-sm ml-1 border ${buscaMobileAberta ? (temaNoturno ? 'bg-purple-900/30 text-purple-400 border-purple-800/50' : 'bg-purple-50 text-purple-600 border-purple-200') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-gray-50 text-gray-500 border-gray-200')}`}
+            >
+              <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+            </button>
+
+            <div className={`absolute top-full left-1/2 -translate-x-1/2 mt-3 sm:mt-0 sm:translate-x-0 sm:relative sm:top-auto sm:left-auto sm:block z-50 ${buscaMobileAberta ? 'block w-64' : 'hidden'}`}>
+              <div className="flex items-center relative">
+                <svg className={`absolute left-3 w-4 h-4 ${temaNoturno ? 'text-gray-400' : 'text-purple-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                <input 
+                  type="text" placeholder="Vincular Cliente..." value={buscaFidelidade} onChange={(e) => { setBuscaFidelidade(e.target.value); setMostrarResultadosFidelidade(true); }} onFocus={() => setMostrarResultadosFidelidade(true)}
+                  className={`pl-9 pr-3 py-2.5 sm:py-1.5 text-sm sm:text-xs font-bold rounded-xl sm:rounded-lg border transition outline-none w-full sm:w-48 shadow-lg sm:shadow-none ${temaNoturno ? 'bg-gray-800 border-gray-600 text-white focus:border-purple-500' : 'bg-white sm:bg-gray-50 border-gray-200 focus:border-purple-500'}`}
+                />
+              </div>
+              
+              {mostrarResultadosFidelidade && buscaFidelidade.length > 0 && (
+                <div className={`absolute top-full mt-2 sm:mt-1 left-0 w-full sm:w-64 max-h-48 overflow-y-auto rounded-xl border shadow-2xl z-[60] animate-in fade-in zoom-in-95 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                  {(clientesFidelidade || []).filter(c => c.nome.toLowerCase().includes(buscaFidelidade.toLowerCase())).length === 0 ? (
+                    <div className={`p-3 text-xs font-bold text-center ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>Cliente não encontrado.</div>
+                  ) : (
+                    (clientesFidelidade || []).filter(c => c.nome.toLowerCase().includes(buscaFidelidade.toLowerCase())).map(cliente => (
+                      <div 
+                        key={cliente.id} onClick={() => { if(vincularClienteFidelidade) vincularClienteFidelidade(comandaAtiva.id, cliente); setBuscaFidelidade(''); setMostrarResultadosFidelidade(false); setBuscaMobileAberta(false); }}
+                        className={`p-3 sm:p-2 cursor-pointer border-b last:border-0 flex justify-between items-center transition ${temaNoturno ? 'border-gray-700 hover:bg-gray-700' : 'border-gray-100 hover:bg-gray-50'}`}
+                      >
+                        <div>
+                          <p className={`text-sm sm:text-xs font-bold ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>{cliente.nome}</p>
+                          <p className="text-[10px] text-gray-500 font-bold mt-0.5">{cliente.pontos} pontos acumulados</p>
+                        </div>
+                        <span className={`text-sm sm:text-xs font-black px-2 py-1 rounded-md ${temaNoturno ? 'text-gray-400 bg-gray-700' : 'text-gray-600 bg-gray-100'}`}>+</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button 
               onClick={alternarTipoComanda}
               title={`Mudar para ${comandaAtiva?.tipo === 'Balcão' ? 'Delivery' : 'Balcão'}`}
-              className={`flex items-center gap-1.5 px-2 py-1 xl:px-3 xl:py-1.5 rounded-lg text-xs font-bold transition border active:scale-95 ${
+              className={`flex items-center gap-1.5 px-2 py-1 xl:px-3 xl:py-1.5 rounded-lg text-xs font-bold transition border active:scale-95 ml-2 ${
                 comandaAtiva?.tipo === 'Delivery' 
                   ? (temaNoturno ? 'bg-orange-900/30 text-orange-400 border-orange-800/50 hover:bg-orange-900/50' : 'bg-orange-50 text-orange-700 border-orange-100 hover:bg-orange-100') 
                   : (temaNoturno ? 'bg-purple-900/30 text-purple-300 border-purple-800/50 hover:bg-purple-900/50' : 'bg-purple-50 text-purple-700 border-purple-100 hover:bg-purple-100')
@@ -195,29 +224,19 @@ export default function Header({
               <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 leading-none mb-1">{nomeEmpresa}</span>
               <span className={`font-black text-sm leading-none ${temaNoturno ? 'text-purple-300' : 'text-purple-900'}`}>{sessao?.nome_usuario || 'Usuário'}</span>
             </div>
-            <div className={`w-10 h-10 rounded-full border-2 overflow-hidden shrink-0 ${temaNoturno ? 'border-gray-600 bg-gray-700' : 'border-purple-200 bg-purple-50'}`}>
-               <img src={logoEmpresa} alt="Logo" className="w-full h-full object-cover" />
+            <div className={`w-10 h-10 rounded-full border-2 overflow-hidden shrink-0 flex items-center justify-center ${temaNoturno ? 'border-gray-600 bg-gray-700' : 'border-purple-200 bg-purple-50'}`}>
+               <img src={logoEmpresa} alt="Logo" className="w-full h-full object-cover" onError={(e) => e.target.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} />
             </div>
             <span className={`text-xs ml-1 ${temaNoturno ? 'text-gray-500' : 'text-gray-300'}`}>▼</span>
           </div>
           
           {mostrarMenuPerfil && (
             <div className={`absolute top-14 right-0 shadow-2xl rounded-2xl p-2 w-56 border z-50 transition-colors ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-              {sessao?.role === 'dono' && (
-                <button onClick={() => { setMostrarConfigEmpresa(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center gap-3 rounded-xl transition ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Configurar Loja</button>
-              )}
-              {sessao?.role === 'dono' && (
-                <button onClick={() => { setMostrarAdminUsuarios(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center gap-3 rounded-xl transition ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Equipe</button>
-              )}
-              {(sessao?.role === 'dono' || sessao?.perm_cardapio) && (
-                <button onClick={() => { setMostrarAdminProdutos(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center gap-3 rounded-xl transition ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Cardápio</button>
-              )}
-              {sessao?.role === 'dono' && (
-                <button onClick={() => { setMostrarConfigTags(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center gap-3 rounded-xl transition ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Tags</button>
-              )}
-              {sessao?.role === 'dono' && (
-                <button onClick={() => { setMostrarAdminDelivery(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold flex items-center gap-3 rounded-xl transition ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Delivery</button>
-              )}
+              {sessao?.role === 'dono' && <button onClick={() => { setMostrarConfigEmpresa(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold transition rounded-xl ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Configurar Loja</button>}
+              {sessao?.role === 'dono' && <button onClick={() => { setMostrarAdminUsuarios(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold transition rounded-xl ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Equipe</button>}
+              {(sessao?.role === 'dono' || sessao?.perm_cardapio) && <button onClick={() => { setMostrarAdminProdutos(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold transition rounded-xl ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Cardápio</button>}
+              {sessao?.role === 'dono' && <button onClick={() => { setMostrarConfigTags(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold transition rounded-xl ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Tags</button>}
+              {sessao?.role === 'dono' && <button onClick={() => { setMostrarAdminDelivery(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold transition rounded-xl ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Delivery</button>}
               <div className="h-px my-1 bg-gray-500/10"></div>
               <button onClick={fazerLogout} className="w-full text-left p-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl">Sair do Sistema</button>
             </div>

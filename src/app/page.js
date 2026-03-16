@@ -12,6 +12,7 @@ import TabFaturamento from '@/components/TabFaturamento';
 import TabAnalises from '@/components/TabAnalises';
 import PainelComanda from '@/components/PainelComanda';
 import TabFechamentoCaixa from '@/components/TabFechamentoCaixa';
+import TabFidelidade from '@/components/TabFidelidade';
 
 // Modais
 import ModalConfigEmpresa from '@/components/ModalConfigEmpresa';
@@ -28,7 +29,7 @@ export default function Home() {
   useEffect(() => {
     // TODA VEZ QUE VOCÊ SUBIR UMA ATUALIZAÇÃO PARA O CLIENTE, MUDE ESTE NÚMERO
     // Ex: mude para '1.0.2', depois '1.0.3', etc.
-    const VERSAO_ATUAL = '1.0.2'; 
+    const VERSAO_ATUAL = '1.0.8'; 
     const versaoNoNavegador = localStorage.getItem('bessa_versao_sistema');
 
     if (versaoNoNavegador !== VERSAO_ATUAL) {
@@ -100,6 +101,7 @@ export default function Home() {
   const [selecionadasExclusao, setSelecionadasExclusao] = useState([]);
 
   const [filtroTempo, setFiltroTempo] = useState({ tipo: 'dia', valor: getHoje(), inicio: '', fim: '' });
+  const [clientesFidelidade, setClientesFidelidade] = useState([]); // Novo estado para fidelidade
 
   const [modalGlobal, setModalGlobal] = useState({ visivel: false, tipo: 'alerta', titulo: '', mensagem: '', valorInput: '', acaoConfirmar: null });
 
@@ -199,17 +201,17 @@ export default function Home() {
       }
       
       // Busca as comandas mais recentes primeiro para não ser cortado pelo limite de 1000 do Supabase
-const { data: comData } = await supabase
-  .from('comandas')
-  .select('*, produtos:comanda_produtos(*), pagamentos(*)')
-  .eq('empresa_id', sessao.empresa_id)
-  .order('id', { ascending: false }) // Traz as mais novas primeiro
-  .limit(3000); // Aumenta o limite para não afetar os gráficos de faturamento do mês
+      const { data: comData } = await supabase
+        .from('comandas')
+        .select('*, produtos:comanda_produtos(*), pagamentos(*)')
+        .eq('empresa_id', sessao.empresa_id)
+        .order('id', { ascending: false }) // Traz as mais novas primeiro
+        .limit(3000); // Aumenta o limite para não afetar os gráficos de faturamento do mês
 
-if (comData) {
-  // Reverte o array para manter a ordem cronológica que o restante do sistema espera
-  setComandas(comData.reverse());
-}
+      if (comData) {
+        // Reverte o array para manter a ordem cronológica que o restante do sistema espera
+        setComandas(comData.reverse());
+      }
 
       const { data: pesoData } = await supabase.from('config_peso').select('*').eq('empresa_id', sessao.empresa_id);
       if (pesoData) setConfigPeso(pesoData.map(p => ({ id: p.id, nome: p.nome, preco: parseFloat(p.preco_kg), custo: parseFloat(p.custo_kg || 0) })));
@@ -311,6 +313,18 @@ if (comData) {
     const novasTags = tagsAtuais.includes(tagNome) ? tagsAtuais.filter(t => t !== tagNome) : [...tagsAtuais, tagNome];
     await supabase.from('comandas').update({ tags: novasTags }).eq('id', idSelecionado);
     setComandas(comandas.map(c => c.id === idSelecionado ? { ...c, tags: novasTags } : c));
+  };
+
+  const vincularClienteFidelidade = async (idComanda, cliente) => {
+    const novoNome = `${cliente.nome}`;
+    const comandaAtual = comandas.find(c => c.id === idComanda);
+    const tagsAtuais = comandaAtual?.tags || [];
+    const novasTags = tagsAtuais.includes("Fidelidade") ? tagsAtuais : [...tagsAtuais, "Fidelidade"];
+    const { error } = await supabase.from('comandas').update({ nome: novoNome, tags: novasTags }).eq('id', idComanda);
+    if (!error) {
+      setComandas(comandas.map(c => c.id === idComanda ? { ...c, nome: novoNome, tags: novasTags } : c));
+      mostrarAlerta("Fidelidade Vinculada", `${cliente.nome} vinculado à comanda com sucesso!`);
+    }
   };
 
   const excluirProduto = async (idProduto) => {
@@ -438,14 +452,14 @@ if (comData) {
   });
   
   const rankingProdutos = Object.keys(contagemProdutos).map(nome => ({ nome, valor: contagemProdutos[nome].faturamento, volume: contagemProdutos[nome].volume, isPeso: contagemProdutos[nome].isPeso })).sort((a, b) => b.valor - a.valor).slice(0, 7);
+  
+  // DADOS PÚBLICO ALVO
   const contagemTipos = { Balcão: 0, Delivery: 0, iFood: 0 };
   const contagemTags = {};
-  
   comandasFiltradas.forEach(c => {
     if ((c.pagamentos || []).some(p => p.forma === 'iFood')) contagemTipos['iFood'] += 1; else contagemTipos[c.tipo] = (contagemTipos[c.tipo] || 0) + 1;
     (c.tags || []).forEach(t => { contagemTags[t] = (contagemTags[t] || 0) + 1; });
   });
-
   const dadosTipos = Object.keys(contagemTipos).map(k => ({ nome: k, qtd: contagemTipos[k] })).filter(d => d.qtd > 0);
   const dadosTags = Object.keys(contagemTags).map(k => ({ nome: k, qtd: contagemTags[k] })).sort((a, b) => b.qtd - a.qtd);
 
@@ -456,7 +470,7 @@ if (comData) {
       <div className={`min-h-screen flex flex-col items-center justify-center gap-8 ${temaNoturno ? 'bg-gray-900' : 'bg-gray-50'}`}>
         <div className="relative">
           <div className={`absolute inset-0 rounded-full blur-2xl opacity-20 animate-pulse ${temaNoturno ? 'bg-purple-500' : 'bg-purple-600'}`}></div>
-          <div className={`relative w-32 h-32 rounded-full border-4 overflow-hidden shadow-2xl animate-in zoom-in duration-500 ${temaNoturno ? 'border-gray-800 bg-gray-800' : 'border-white bg-white'}`}>
+          <div className={`relative w-32 h-32 rounded-full border-4 overflow-hidden shadow-2xl animate-in zoom-in duration-500 flex items-center justify-center ${temaNoturno ? 'border-gray-800 bg-gray-800' : 'border-white bg-white'}`}>
             <img src={logoEmpresa} alt="A carregar" className="w-full h-full object-cover" />
           </div>
         </div>
@@ -483,7 +497,7 @@ if (comData) {
         setMostrarAdminDelivery={setMostrarAdminDelivery}
         setMostrarConfigEmpresa={setMostrarConfigEmpresa} setMostrarAdminUsuarios={setMostrarAdminUsuarios}
         setMostrarAdminProdutos={setMostrarAdminProdutos} setMostrarConfigTags={setMostrarConfigTags} fazerLogout={fazerLogout}
-        fetchData={fetchData}
+        fetchData={fetchData} clientesFidelidade={clientesFidelidade} vincularClienteFidelidade={vincularClienteFidelidade}
       />
 
       <div className="max-w-7xl mx-auto w-full flex flex-col gap-3 mb-6 px-4 xl:px-0">
@@ -513,20 +527,6 @@ if (comData) {
             <button onClick={() => setIgnorarAvisoAntigas(true)} className={`shrink-0 px-5 py-2.5 text-xs font-bold rounded-xl transition ${temaNoturno ? 'bg-orange-900/40 hover:bg-orange-900/60 text-orange-300' : 'bg-orange-200/50 hover:bg-orange-200 text-orange-800'}`}>Manter Abertas</button>
           </div>
         )}
-
-        {!comandaAtiva && alertaTags && abaAtiva === 'comandas' && (
-          <div className={`p-4 rounded-3xl flex items-center justify-between border shadow-sm transition-colors duration-300 ${temaNoturno ? 'bg-yellow-900/10 border-yellow-800/30 text-yellow-500' : 'bg-yellow-50 border-yellow-200 text-yellow-800'}`}>
-            <div className="flex items-center gap-4">
-              <div className={`p-2.5 rounded-full shrink-0 ${temaNoturno ? 'bg-yellow-900/30 text-yellow-500' : 'bg-yellow-100 text-yellow-600'}`}>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
-              </div>
-              <div>
-                <p className="font-black text-sm uppercase tracking-widest">Inteligência de Negócio</p>
-                <p className={`text-sm mt-0.5 font-medium leading-relaxed ${temaNoturno ? 'text-yellow-500/70' : 'text-yellow-800/80'}`}>As suas últimas comandas estão sem tags. <b>Clique nas tags pré-configuradas</b> para classificar o perfil dos seus clientes.</p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       <Sidebar 
@@ -539,44 +539,24 @@ if (comData) {
       <div className="flex-1">
         {comandaAtiva ? (
           <PainelComanda 
-            temaNoturno={temaNoturno} comandaAtiva={comandaAtiva} abaDetalheMobile={abaDetalheMobile} 
-            setAbaDetalheMobile={setAbaDetalheMobile} filtroCategoriaCardapio={filtroCategoriaCardapio} 
-            setFiltroCategoriaCardapio={setFiltroCategoriaCardapio} menuCategorias={menuCategorias} 
-            adicionarProdutoNaComanda={adicionarProdutoNaComanda} setMostrarModalPeso={setMostrarModalPeso} 
-            tagsGlobais={tagsGlobais} toggleTag={toggleTag} editarProduto={editarProduto} 
-            excluirProduto={excluirProduto} setMostrarModalPagamento={setMostrarModalPagamento} encerrarMesa={encerrarMesa} 
+            temaNoturno={temaNoturno} comandaAtiva={comandaAtiva} abaDetalheMobile={abaDetalheMobile} setAbaDetalheMobile={setAbaDetalheMobile} filtroCategoriaCardapio={filtroCategoriaCardapio} setFiltroCategoriaCardapio={setFiltroCategoriaCardapio} menuCategorias={menuCategorias} adicionarProdutoNaComanda={adicionarProdutoNaComanda} setMostrarModalPeso={setMostrarModalPeso} tagsGlobais={tagsGlobais} toggleTag={toggleTag} editarProduto={editarProduto} excluirProduto={excluirProduto} setMostrarModalPagamento={setMostrarModalPagamento} encerrarMesa={encerrarMesa} 
           />
         ) : abaAtiva === 'comandas' ? (
           <TabComandas 
-            temaNoturno={temaNoturno} comandasAbertas={comandasAbertas} modoExclusao={modoExclusao} 
-            setModoExclusao={setModoExclusao} selecionadasExclusao={selecionadasExclusao} 
-            toggleSelecaoExclusao={toggleSelecaoExclusao} confirmarExclusaoEmMassa={confirmarExclusaoEmMassa} 
-            adicionarComanda={adicionarComanda} setIdSelecionado={setIdSelecionado} 
-            caixaAtual={caixaAtual} abrirCaixaManual={abrirCaixaManual} mostrarAlerta={mostrarAlerta}
+            temaNoturno={temaNoturno} comandasAbertas={comandasAbertas} modoExclusao={modoExclusao} setModoExclusao={setModoExclusao} selecionadasExclusao={selecionadasExclusao} toggleSelecaoExclusao={toggleSelecaoExclusao} confirmarExclusaoEmMassa={confirmarExclusaoEmMassa} adicionarComanda={adicionarComanda} setIdSelecionado={setIdSelecionado} caixaAtual={caixaAtual} abrirCaixaManual={abrirCaixaManual} mostrarAlerta={mostrarAlerta}
           />
         ) : abaAtiva === 'fechadas' ? (
-          <TabFechadas 
-            temaNoturno={temaNoturno} comandasFechadasHoje={comandasFechadasHoje} 
-            reabrirComandaFechada={reabrirComandaFechada} excluirComandaFechada={excluirComandaFechada} 
-          />
+          <TabFechadas temaNoturno={temaNoturno} comandasFechadasHoje={comandasFechadasHoje} reabrirComandaFechada={reabrirComandaFechada} excluirComandaFechada={excluirComandaFechada} />
         ) : abaAtiva === 'faturamento' ? (
           <TabFaturamento 
-            temaNoturno={temaNoturno} filtroTempo={filtroTempo} setFiltroTempo={setFiltroTempo} 
-            getHoje={getHoje} getMesAtual={getMesAtual} getAnoAtual={getAnoAtual} 
-            faturamentoTotal={faturamentoTotal} lucroEstimado={lucroEstimado} 
-            dadosPizza={dadosPizza} rankingProdutos={rankingProdutos} comandasFiltradas={comandasFiltradas} 
-            comandas={comandas} 
-          />
-        ) : abaAtiva === 'analises' ? (
-          <TabAnalises 
-            temaNoturno={temaNoturno} filtroTempo={filtroTempo} setFiltroTempo={setFiltroTempo} 
-            getHoje={getHoje} getMesAtual={getMesAtual} getAnoAtual={getAnoAtual} 
-            dadosTipos={dadosTipos} dadosTags={dadosTags} 
+            temaNoturno={temaNoturno} filtroTempo={filtroTempo} setFiltroTempo={setFiltroTempo} getHoje={getHoje} getMesAtual={getMesAtual} getAnoAtual={getAnoAtual} faturamentoTotal={faturamentoTotal} lucroEstimado={lucroEstimado} dadosPizza={dadosPizza} rankingProdutos={rankingProdutos} comandasFiltradas={comandasFiltradas} comandas={comandas} 
           />
         ) : abaAtiva === 'caixa' ? (
-          <TabFechamentoCaixa 
-            temaNoturno={temaNoturno} sessao={sessao} caixaAtual={caixaAtual} comandas={comandas} fetchData={fetchData} 
-            mostrarAlerta={mostrarAlerta} mostrarConfirmacao={mostrarConfirmacao}
+          <TabFechamentoCaixa temaNoturno={temaNoturno} sessao={sessao} caixaAtual={caixaAtual} comandas={comandas} fetchData={fetchData} mostrarAlerta={mostrarAlerta} mostrarConfirmacao={mostrarConfirmacao} />
+        ) : abaAtiva === 'fidelidade' ? (
+          <TabFidelidade 
+            temaNoturno={temaNoturno} sessao={sessao} mostrarAlerta={mostrarAlerta} mostrarConfirmacao={mostrarConfirmacao}
+            dadosTipos={dadosTipos} dadosTags={dadosTags} clientesFidelidade={clientesFidelidade} setClientesFidelidade={setClientesFidelidade}
           />
         ) : null}
       </div>
@@ -592,58 +572,22 @@ if (comData) {
       {modalGlobal.visivel && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in">
           <div className={`rounded-3xl p-6 w-full max-w-sm shadow-2xl flex flex-col border text-center ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
-            
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${temaNoturno ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-600'}`}>
-               {modalGlobal.tipo === 'alerta' ? (
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-               ) : modalGlobal.tipo === 'confirmacao' ? (
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-               ) : (
-                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-               )}
-            </div>
-
             <h2 className={`text-xl font-black mb-2 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>{modalGlobal.titulo}</h2>
             <p className={`text-sm mb-6 ${temaNoturno ? 'text-gray-400' : 'text-gray-600'}`}>{modalGlobal.mensagem}</p>
-            
             {modalGlobal.tipo === 'prompt' && (
-              <input 
-                type="text" 
-                autoFocus
-                className={`w-full p-3 rounded-xl border mb-6 outline-none font-bold text-center ${temaNoturno ? 'bg-gray-800 border-gray-700 text-white focus:border-purple-500' : 'bg-gray-50 border-gray-300 focus:border-purple-500'}`} 
-                value={modalGlobal.valorInput} 
-                onChange={e => setModalGlobal({...modalGlobal, valorInput: e.target.value})} 
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    if (modalGlobal.acaoConfirmar) modalGlobal.acaoConfirmar(modalGlobal.valorInput);
-                    fecharModalGlobal();
-                  }
-                }}
-              />
+              <input type="text" autoFocus className={`w-full p-3 rounded-xl border mb-6 outline-none font-bold text-center ${temaNoturno ? 'bg-gray-800 border-gray-700 text-white focus:border-purple-500' : 'bg-gray-50 border-gray-300 focus:border-purple-500'}`} value={modalGlobal.valorInput} onChange={e => setModalGlobal({...modalGlobal, valorInput: e.target.value})} onKeyDown={e => { if (e.key === 'Enter') { if (modalGlobal.acaoConfirmar) modalGlobal.acaoConfirmar(modalGlobal.valorInput); fecharModalGlobal(); } }} />
             )}
-
             <div className="flex gap-3">
               {(modalGlobal.tipo === 'confirmacao' || modalGlobal.tipo === 'prompt') && (
                 <button onClick={fecharModalGlobal} className={`flex-1 p-3 rounded-xl font-bold transition ${temaNoturno ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Cancelar</button>
               )}
-              
-              <button 
-                onClick={() => {
-                  if (modalGlobal.acaoConfirmar) {
-                    if (modalGlobal.tipo === 'prompt') modalGlobal.acaoConfirmar(modalGlobal.valorInput);
-                    else modalGlobal.acaoConfirmar();
-                  }
-                  fecharModalGlobal();
-                }} 
-                className={`flex-1 p-3 rounded-xl font-bold text-white transition shadow-lg ${modalGlobal.titulo.toLowerCase().includes('excluir') || modalGlobal.titulo.toLowerCase().includes('atenção') ? 'bg-red-600 hover:bg-red-700' : 'bg-purple-600 hover:bg-purple-700'}`}
-              >
+              <button onClick={() => { if (modalGlobal.acaoConfirmar) { if (modalGlobal.tipo === 'prompt') modalGlobal.acaoConfirmar(modalGlobal.valorInput); else modalGlobal.acaoConfirmar(); } fecharModalGlobal(); }} className={`flex-1 p-3 rounded-xl font-bold text-white transition shadow-lg ${modalGlobal.titulo.toLowerCase().includes('excluir') || modalGlobal.titulo.toLowerCase().includes('atenção') ? 'bg-red-600 hover:bg-red-700' : 'bg-purple-600 hover:bg-purple-700'}`}>
                 {modalGlobal.tipo === 'alerta' ? 'OK' : 'Confirmar'}
               </button>
             </div>
           </div>
         </div>
       )}
-
     </main>
   );
 }

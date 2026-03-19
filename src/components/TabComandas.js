@@ -30,11 +30,10 @@ export default function TabComandas({
   };
 
   return (
-    <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 px-2 lg:px-0 pb-10">
+    <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
       
-      {/* TÍTULO FUNDIDO AO HEADER */}
-      <div className={`p-5 lg:p-6 pt-4 lg:pt-5 rounded-b-3xl shadow-sm border-x border-b border-t-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative transition-colors duration-500 mb-6 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-          <div className={`absolute top-0 left-6 right-6 border-t border-dashed ${temaNoturno ? 'border-gray-700' : 'border-gray-200'}`}></div>
+      {/* TÍTULO FUNDIDO AO HEADER COM BORDAS CONECTADAS */}
+      <div className={`p-5 md:p-6 pt-4 md:pt-5 rounded-b-2xl shadow-sm border-x border-b border-t-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative transition-colors duration-500 mb-6 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
           <div className="mt-2 md:mt-0">
             <h2 className={`text-xl font-black flex items-center gap-2 uppercase tracking-wide ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
               Comandas em Aberto

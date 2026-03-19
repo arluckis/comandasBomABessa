@@ -240,7 +240,7 @@ export default function Home() {
     const { error } = await supabase.from('comandas').update({ nome: novoNome, tags: novasTags }).eq('id', idComanda);
     if (!error) {
       setComandas(comandas.map(c => c.id === idComanda ? { ...c, nome: novoNome, tags: novasTags } : c));
-      mostrarAlerta("Fidelidade Vinculada", `${cliente.nome} vinculado à comanda com sucesso!`);
+      // Popup removido conforme solicitado para manter agilidade!
     }
   };
 
@@ -420,8 +420,8 @@ export default function Home() {
   return (
     <main className={`min-h-screen flex flex-col transition-colors duration-500 ${temaNoturno ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
       
-      {/* HEADER E ABAS FUNDIDOS SEM DIVISÓRIA (PAINEL ÚNICO) */}
-      <div className="w-full p-2 xl:p-6 pb-0 xl:pb-0 flex flex-col max-w-7xl mx-auto">
+      {/* Retornada a margem nas laterais e topos que o cliente pediu (p-3 md:p-6) */}
+      <div className="w-full p-3 md:p-6 pb-0 md:pb-0 flex flex-col max-w-7xl mx-auto">
         <Header 
           comandaAtiva={comandaAtiva} setIdSelecionado={setIdSelecionado} setMenuMobileAberto={setMenuMobileAberto}
           temaNoturno={temaNoturno} caixaAtual={caixaAtual} abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva}

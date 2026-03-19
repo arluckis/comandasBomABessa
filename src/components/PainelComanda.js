@@ -1,4 +1,5 @@
 'use client';
+import { useMemo, useState } from 'react';
 
 export default function PainelComanda({
   temaNoturno,
@@ -18,152 +19,206 @@ export default function PainelComanda({
   encerrarMesa
 }) {
   
-  // BLINDAGEM MÁXIMA CONTRA DADOS NULOS DO BANCO
+  const [mostrarTags, setMostrarTags] = useState(false);
+
   const categoriasSeguras = Array.isArray(menuCategorias) ? menuCategorias : [];
   const produtosSeguros = Array.isArray(comandaAtiva?.produtos) ? comandaAtiva.produtos : [];
   const tagsSeguras = Array.isArray(comandaAtiva?.tags) ? comandaAtiva.tags : [];
   const tagsDoSistema = Array.isArray(tagsGlobais) ? tagsGlobais : [];
 
-  const renderCardapioComanda = () => {
-    let categoriasParaRenderizar = [];
-    
-    if (filtroCategoriaCardapio === 'Favoritos') {
-      const todosFavoritos = categoriasSeguras.flatMap(c => c?.itens || []).filter(p => p && p?.favorito);
-      if (todosFavoritos.length > 0) {
-        categoriasParaRenderizar = [{ id: 'favs', nome: '⭐ Favoritos', itens: todosFavoritos }];
-      }
-    } else if (filtroCategoriaCardapio === 'Todas') {
-      categoriasParaRenderizar = categoriasSeguras;
-    } else {
-      const catEspecifica = categoriasSeguras.find(c => c?.id === filtroCategoriaCardapio);
-      if (catEspecifica) categoriasParaRenderizar = [catEspecifica];
-    }
+  // Pega a categoria atual. Como removemos "Todas", o padrão vai ser sempre a primeira caso esteja inválido
+  const categoriaSelecionada = categoriasSeguras.find(c => c.id === filtroCategoriaCardapio) || categoriasSeguras[0];
 
-    return categoriasParaRenderizar.map(cat => {
-      if (!cat) return null;
-      const itensDaCategoria = Array.isArray(cat?.itens) ? cat.itens : [];
+  // Identifica os favoritos dinamicamente para exibí-los sempre no topo
+  const produtosFavoritos = useMemo(() => {
+    return categoriasSeguras.flatMap(c => c?.itens || []).filter(p => p && p.favorito).slice(0, 6); // Max 6 para não lotar
+  }, [categoriasSeguras]);
 
-      return (
-        <div key={cat.id || Math.random()} className="mb-6">
-          <h3 className={`text-xs font-black uppercase tracking-widest mb-3 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>
-            {cat?.nome || 'Sem Nome'}
-          </h3>
-          {itensDaCategoria.length === 0 ? (
-            <p className={`text-sm italic ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Nenhum produto encontrado nesta categoria.</p>
-          ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-              {itensDaCategoria.map(item => {
-                if (!item) return null;
-                return (
-                  <button 
-                    key={item.id || Math.random()} 
-                    onClick={() => adicionarProdutoNaComanda(item)} 
-                    className={`p-3 rounded-2xl text-[10px] sm:text-xs font-bold transition text-left flex flex-col gap-1 active:scale-95 shadow-sm border ${temaNoturno ? 'bg-gray-800 border-gray-700 text-gray-200 hover:border-purple-500' : 'bg-white border-gray-100 text-gray-800 hover:border-purple-400'}`}
-                  >
-                    <span className="uppercase">{item?.nome || 'Produto'}</span>
-                    <span className="text-green-500 font-black text-xs sm:text-sm">R$ {Number(item?.preco || 0).toFixed(2)}</span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
+  // Agrupamento de itens para + e -
+  const produtosAgrupados = useMemo(() => {
+    const grupos = [];
+    produtosSeguros.forEach(p => {
+      const index = grupos.findIndex(g => 
+        g.nome === p.nome && g.precoUnitario === Number(p.preco) && g.observacao === p.observacao && g.pago === p.pago
       );
+      if (index >= 0) {
+        grupos[index].quantidade += 1;
+        grupos[index].ids.push(p.id);
+        grupos[index].precoTotal += Number(p.preco);
+      } else {
+        grupos.push({
+          nome: p.nome,
+          precoUnitario: Number(p.preco),
+          precoTotal: Number(p.preco),
+          observacao: p.observacao,
+          pago: p.pago,
+          quantidade: 1,
+          ids: [p.id],
+          custo: p.custo || 0
+        });
+      }
     });
+    return grupos;
+  }, [produtosSeguros]);
+
+  const handleAdicionarItem = (item) => adicionarProdutoNaComanda(item);
+  
+  const handleIncrementarGrupo = (grupo) => {
+    adicionarProdutoNaComanda({ nome: grupo.nome, preco: grupo.precoUnitario, custo: grupo.custo });
   };
+  
+  const handleDecrementarGrupo = (grupo) => {
+    excluirProduto(grupo.ids[grupo.ids.length - 1]);
+  };
+
+  // Botão elegante corporativo para renderizar produtos
+  const renderBotaoProduto = (item) => (
+    <button 
+      key={item.id || Math.random()} 
+      onClick={() => handleAdicionarItem(item)} 
+      className={`p-3.5 rounded-xl border flex justify-between items-center gap-3 transition-all active:scale-95 text-left group ${temaNoturno ? 'bg-gray-800 border-gray-700 hover:border-purple-500 hover:bg-gray-800/80' : 'bg-white border-gray-200 hover:border-purple-400 hover:shadow-sm'}`}
+    >
+      <span className={`font-bold text-[13px] leading-snug group-hover:text-purple-600 transition-colors ${temaNoturno ? 'text-gray-200' : 'text-gray-800'}`}>
+        {item?.nome || 'Produto'}
+      </span>
+      <span className={`px-2 py-1 rounded-md text-[11px] font-black whitespace-nowrap ${temaNoturno ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-700'}`}>
+        R$ {Number(item?.preco || 0).toFixed(2)}
+      </span>
+    </button>
+  );
 
   if (!comandaAtiva) return null;
 
   return (
-    <div className="flex flex-col w-full h-[calc(100vh-140px)] min-h-[450px] animate-in zoom-in-95 duration-300">
+    <div className={`flex flex-col md:flex-row w-full h-[calc(100vh-140px)] min-h-[500px] animate-in zoom-in-95 duration-300 rounded-b-2xl overflow-hidden shadow-xl border-x border-b border-t-0 ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
       
-      <div className={`md:hidden flex p-1 rounded-xl mb-4 shrink-0 w-full border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-gray-200 border-gray-300'}`}>
-        <button onClick={() => setAbaDetalheMobile('menu')} className={`flex-1 py-3 text-sm font-bold rounded-lg transition ${abaDetalheMobile === 'menu' ? (temaNoturno ? 'bg-gray-700 text-purple-400 shadow-sm' : 'bg-white text-purple-700 shadow-sm') : (temaNoturno ? 'text-gray-500' : 'text-gray-500')}`}>Cardápio</button>
-        <button onClick={() => setAbaDetalheMobile('resumo')} className={`flex-1 py-3 text-sm font-bold rounded-lg transition flex items-center justify-center gap-2 ${abaDetalheMobile === 'resumo' ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-600 text-white shadow-sm') : (temaNoturno ? 'text-gray-500' : 'text-gray-500')}`}>Resumo <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-[10px]">{produtosSeguros.length}</span></button>
+      {/* NAVEGAÇÃO MOBILE */}
+      <div className={`md:hidden flex p-1 mx-4 mt-4 rounded-xl shrink-0 border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
+        <button onClick={() => setAbaDetalheMobile('menu')} className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${abaDetalheMobile === 'menu' ? (temaNoturno ? 'bg-gray-700 text-purple-400 shadow-sm' : 'bg-white text-purple-700 shadow-sm') : 'text-gray-500'}`}>Cardápio</button>
+        <button onClick={() => setAbaDetalheMobile('resumo')} className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2 ${abaDetalheMobile === 'resumo' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500'}`}>
+          Resumo <span className="bg-black/20 text-white px-2 py-0.5 rounded-full">{produtosSeguros.length}</span>
+        </button>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 flex-1 min-h-0 overflow-hidden">
+      {/* LADO ESQUERDO: CARDÁPIO */}
+      <div className={`w-full md:w-[60%] lg:w-[65%] flex flex-col h-full min-h-0 border-r ${abaDetalheMobile === 'menu' ? 'flex' : 'hidden md:flex'} ${temaNoturno ? 'border-gray-800' : 'border-gray-100'}`}>
         
-        <div className={`p-4 md:p-5 rounded-3xl shadow-sm border flex flex-col h-full min-h-0 ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'} ${abaDetalheMobile === 'menu' ? 'flex' : 'hidden md:flex'}`}>
-          <div className="flex overflow-x-auto gap-2 mb-4 pb-2 shrink-0 scrollbar-hide">
-            <button onClick={() => setFiltroCategoriaCardapio('Favoritos')} className={`uppercase px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition border ${filtroCategoriaCardapio === 'Favoritos' ? (temaNoturno ? 'bg-yellow-900/20 text-yellow-400 border-yellow-800/50' : 'bg-yellow-50 text-yellow-600 border-yellow-200') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100')}`}>⭐ FAVORITOS</button>
-            <button onClick={() => setFiltroCategoriaCardapio('Todas')} className={`uppercase px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition border ${filtroCategoriaCardapio === 'Todas' ? (temaNoturno ? 'bg-purple-900/30 text-purple-400 border-purple-800' : 'bg-purple-100 text-purple-700 border-purple-200') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100')}`}>TODAS</button>
-            {categoriasSeguras.map(c => {
-              if (!c) return null;
-              return (
-              <button key={c.id || Math.random()} onClick={() => setFiltroCategoriaCardapio(c.id)} className={`uppercase px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap transition border ${filtroCategoriaCardapio === c.id ? (temaNoturno ? 'bg-purple-900/30 text-purple-400 border-purple-800' : 'bg-purple-100 text-purple-700 border-purple-200') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100')}`}>
-                {(c?.nome || 'CAT').toUpperCase()}
-              </button>
-            )})}
-          </div>
+        {/* Categorias - Agora em Flex Wrap para fácil acesso, sem rolagens chatas */}
+        <div className={`p-4 border-b flex flex-wrap gap-2 sticky top-0 z-10 shadow-sm ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-gray-50/80 backdrop-blur-md border-gray-200'}`}>
+          {categoriasSeguras.map(c => c ? (
+            <button key={c.id} onClick={() => setFiltroCategoriaCardapio(c.id)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all border ${(categoriaSelecionada?.id === c.id) ? (temaNoturno ? 'bg-purple-900/50 text-purple-300 border-purple-700' : 'bg-purple-600 text-white border-purple-600 shadow-sm') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100')}`}>
+              {c.nome}
+            </button>
+          ) : null)}
+        </div>
 
-          <button onClick={() => setMostrarModalPeso(true)} className={`w-full p-4 mb-4 shrink-0 border-2 border-dashed rounded-2xl font-bold uppercase tracking-wide transition active:scale-95 shadow-sm ${temaNoturno ? 'border-purple-500/50 text-purple-400 bg-purple-900/10 hover:bg-purple-900/30' : 'border-purple-300 text-purple-600 bg-purple-50 hover:bg-purple-100'}`}>
-            Açaí no Peso
+        <div className="flex-1 overflow-y-auto min-h-0 p-4 pb-10 scrollbar-hide">
+          
+          {/* BOTÃO PESO CORPORATIVO (Substituiu o Emoji do WhatsApp) */}
+          <button onClick={() => setMostrarModalPeso(true)} className={`w-full flex justify-between items-center p-4 mb-6 rounded-xl border transition-all active:scale-95 shadow-sm group ${temaNoturno ? 'bg-gray-800 border-gray-700 hover:border-purple-500 text-gray-200' : 'bg-white border-gray-200 hover:border-purple-400 text-gray-800'}`}>
+             <div className="flex flex-col text-left">
+               <span className="font-bold text-sm">Adicionar Produto por Peso</span>
+               <span className={`text-[10px] font-medium uppercase tracking-widest ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>Pesagem Manual Integrada</span>
+             </div>
+             <span className={`w-8 h-8 rounded-full flex items-center justify-center font-bold transition-colors ${temaNoturno ? 'bg-gray-700 group-hover:bg-purple-600 text-white' : 'bg-gray-100 group-hover:bg-purple-100 group-hover:text-purple-700'}`}>+</span>
           </button>
-          
-          <div className="flex-1 overflow-y-auto min-h-0 pr-2 pb-6 md:pb-0 scrollbar-hide">
-            {renderCardapioComanda()}
+
+          {/* SESSÃO FAVORITOS DINÂMICA (Aparece no topo sempre) */}
+          {produtosFavoritos.length > 0 && (
+             <div className="mb-6">
+               <h3 className={`text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-2 ${temaNoturno ? 'text-yellow-500/70' : 'text-yellow-600/80'}`}>⭐ Favoritos Frequentes</h3>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                 {produtosFavoritos.map(renderBotaoProduto)}
+               </div>
+             </div>
+          )}
+
+          {/* SESSÃO CATEGORIA ATUAL */}
+          {categoriaSelecionada && (
+            <div>
+              <h3 className={`text-[10px] font-black uppercase tracking-widest mb-3 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>
+                {categoriaSelecionada.nome}
+              </h3>
+              {(!categoriaSelecionada.itens || categoriaSelecionada.itens.length === 0) ? (
+                <p className={`text-sm italic ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Nenhum produto cadastrado.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {categoriaSelecionada.itens.map(renderBotaoProduto)}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+        
+      {/* LADO DIREITO: RESUMO DO CARRINHO */}
+      <div className={`w-full md:w-[40%] lg:w-[35%] flex flex-col h-full min-h-0 relative ${abaDetalheMobile === 'resumo' ? 'flex' : 'hidden md:flex'} ${temaNoturno ? 'bg-gray-900/50' : 'bg-gray-50/50'}`}>
+        
+        {/* Sessão de Tags Discreta (Oculta por Padrão) */}
+        <div className={`p-4 border-b shrink-0 flex flex-col gap-2 ${temaNoturno ? 'border-gray-800' : 'border-gray-200'}`}>
+          <div className="flex justify-between items-center">
+             <span className={`text-[10px] uppercase tracking-widest font-bold ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>Classificação (Tags)</span>
+             <button onClick={() => setMostrarTags(!mostrarTags)} className="text-[10px] font-black uppercase tracking-widest text-purple-600 hover:text-purple-700 transition-colors">
+               {mostrarTags ? 'Ocultar Opções' : 'Editar Classificação'}
+             </button>
           </div>
+          
+          {(mostrarTags || tagsSeguras.length > 0) && (
+            <div className="flex flex-wrap gap-1.5 mt-2 animate-in fade-in slide-in-from-top-2">
+              {tagsDoSistema.map(tagObj => tagObj?.nome ? (
+                <button key={tagObj.id} onClick={() => toggleTag(tagObj.nome)} className={`px-2 py-1 rounded-md text-[10px] font-bold transition-colors border ${tagsSeguras.includes(tagObj.nome) ? (temaNoturno ? 'bg-purple-900/50 text-purple-300 border-purple-700' : 'bg-purple-600 text-white border-purple-700') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100')} ${!mostrarTags && !tagsSeguras.includes(tagObj.nome) ? 'hidden' : ''}`}>
+                  {tagObj.nome}
+                </button>
+              ) : null)}
+            </div>
+          )}
         </div>
         
-        <div className={`p-4 md:p-5 rounded-3xl shadow-2xl flex flex-col h-full min-h-0 border relative overflow-hidden ${temaNoturno ? 'bg-gray-900 border-gray-700' : 'bg-white border-purple-100'} ${abaDetalheMobile === 'resumo' ? 'flex' : 'hidden md:flex'}`}>
-          <div className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-20 ${temaNoturno ? 'bg-purple-900/50' : 'bg-purple-200'}`}></div>
-          
-          <div className="flex-1 overflow-y-auto min-h-0 pr-2 pb-4 relative z-10 scrollbar-hide">
-            <div className="mb-4 shrink-0">
-              <p className={`text-[10px] uppercase tracking-widest font-bold mb-2 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>Classificação do Cliente:</p>
-              <div className="flex flex-wrap gap-1.5">
-                {tagsDoSistema.map(tagObj => {
-                  if (!tagObj || !tagObj.nome) return null;
-                  return (
-                  <button key={tagObj.id || Math.random()} onClick={() => toggleTag(tagObj.nome)} className={`px-2 py-1 rounded-md text-[10px] font-bold transition border ${tagsSeguras.includes(tagObj.nome) ? (temaNoturno ? 'bg-purple-900/50 text-purple-300 border-purple-700' : 'bg-purple-600 text-white border-purple-700') : (temaNoturno ? 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100')}`}>
-                    {tagObj.nome}
-                  </button>
-                )})}
-              </div>
+        <div className="flex-1 overflow-y-auto min-h-0 scrollbar-hide">
+          {produtosAgrupados.length === 0 ? (
+            <div className={`p-8 text-center text-sm font-bold mt-10 ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>
+               O carrinho está vazio.<br/>Adicione produtos ao lado.
             </div>
-            
-            <div className={`flex justify-between items-center p-3 rounded-xl mb-4 shrink-0 border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-purple-50/50 border-purple-100'}`}>
-              <span className={`text-xs font-bold ${temaNoturno ? 'text-gray-300' : 'text-purple-900'}`}>ITENS LANÇADOS</span>
-            </div>
-            
-            {produtosSeguros.map((p) => {
-              if (!p) return null;
-              return (
-              <div key={p.id || Math.random()} className={`flex justify-between items-center border-b py-3 text-sm transition ${p?.pago ? 'opacity-40 line-through' : 'opacity-100'} ${temaNoturno ? 'border-gray-800' : 'border-purple-800/40'}`}>
-                <div className="flex flex-col">
-                  <span className={`font-bold uppercase text-[11px] sm:text-sm ${temaNoturno ? 'text-gray-100' : 'text-gray-800'}`}>
-                    {p?.nome || 'Produto sem nome'} 
-                    {p?.pago && <span className={`text-[9px] px-1 py-0.5 rounded ml-2 no-underline align-middle ${temaNoturno ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-700'}`}>PAGO</span>}
-                  </span>
-                  {p?.observacao && <span className={`text-xs font-medium uppercase mt-0.5 ${temaNoturno ? 'text-gray-400' : 'text-purple-500'}`}>↳ {p.observacao}</span>}
+          ) : (
+            produtosAgrupados.map((grupo, idx) => (
+              <div key={idx} className={`flex flex-col p-4 border-b transition-colors ${grupo.pago ? 'opacity-40' : ''} ${temaNoturno ? 'border-gray-800/80 hover:bg-gray-800' : 'border-gray-200 hover:bg-white'}`}>
+                <div className="flex justify-between items-start mb-1">
+                  <div className="flex flex-col">
+                    <span className={`font-bold uppercase text-[11px] sm:text-xs ${temaNoturno ? 'text-gray-200' : 'text-gray-900'}`}>
+                       {grupo.nome} {grupo.pago && <span className={`text-[9px] px-1 py-0.5 rounded ml-2 align-middle ${temaNoturno ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-700'}`}>PAGO</span>}
+                    </span>
+                    {grupo.observacao && <span className={`text-[10px] font-black tracking-widest uppercase mt-0.5 ${temaNoturno ? 'text-orange-400' : 'text-orange-500'}`}>↳ {grupo.observacao}</span>}
+                  </div>
+                  <span className={`font-black tracking-tight ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>R$ {grupo.precoTotal.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`font-black tracking-tight ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>R$ {Number(p?.preco || 0).toFixed(2)}</span>
-                  {!p?.pago && (
-                    <div className="flex gap-1 ml-2">
-                      <button onClick={() => editarProduto(p.id, p.observacao)} className={`p-1.5 rounded-lg text-xs transition ${temaNoturno ? 'bg-gray-700 hover:bg-gray-600' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}>✏️</button>
-                      <button onClick={() => excluirProduto(p.id)} className={`p-1.5 rounded-lg text-xs transition ${temaNoturno ? 'bg-red-500/20 text-red-400 hover:text-red-100 hover:bg-red-500' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}>🗑️</button>
+                
+                {!grupo.pago && (
+                  <div className="flex justify-between items-center mt-3">
+                    <div className={`flex items-center rounded-lg border overflow-hidden ${temaNoturno ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white shadow-sm'}`}>
+                      <button onClick={() => handleDecrementarGrupo(grupo)} className={`w-9 h-8 flex items-center justify-center font-bold text-lg transition-colors active:scale-95 ${temaNoturno ? 'text-red-400 hover:bg-red-900/30' : 'text-red-500 hover:bg-red-50'}`}>-</button>
+                      <div className={`w-10 h-8 flex items-center justify-center font-black text-sm border-x ${temaNoturno ? 'border-gray-700 text-gray-200' : 'border-gray-200 text-gray-800'}`}>{grupo.quantidade}</div>
+                      <button onClick={() => handleIncrementarGrupo(grupo)} className={`w-9 h-8 flex items-center justify-center font-bold text-lg transition-colors active:scale-95 ${temaNoturno ? 'text-green-400 hover:bg-green-900/30' : 'text-green-600 hover:bg-green-50'}`}>+</button>
                     </div>
-                  )}
-                </div>
+                    <button onClick={() => editarProduto(grupo.ids[0], grupo.observacao)} className={`text-[10px] font-black uppercase px-3 py-2 rounded-md transition-colors ${temaNoturno ? 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-gray-200'}`}>Editar Obs</button>
+                  </div>
+                )}
               </div>
-            )})}
+            ))
+          )}
+        </div>
+        
+        <div className={`p-4 border-t shrink-0 relative z-10 ${temaNoturno ? 'border-gray-800 bg-gray-900' : 'border-gray-200 bg-white'}`}>
+          <div className="flex justify-between items-end mb-4 px-1">
+            <span className={`text-[10px] font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>A Pagar</span>
+            <span className="text-3xl font-black text-green-600 dark:text-green-400 tracking-tighter">R$ {produtosSeguros.filter(p => !p.pago).reduce((acc, p) => acc + Number(p.preco || 0), 0).toFixed(2)}</span>
           </div>
-          
-          <div className={`shrink-0 pt-4 border-t relative z-10 ${temaNoturno ? 'border-gray-800 bg-gray-900' : 'border-purple-100 bg-white'}`}>
-            <div className="flex justify-between items-end mb-4 px-2">
-              <span className={`text-xs font-bold uppercase ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Restante a Pagar</span>
-              <span className="text-green-500 text-3xl font-black tracking-tighter">R$ {produtosSeguros.filter(p => !(p?.pago)).reduce((acc, p) => acc + Number(p?.preco || 0), 0).toFixed(2)}</span>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setMostrarModalPagamento(true)} disabled={produtosSeguros.filter(p=>!(p?.pago)).length === 0} className="flex-[2] bg-green-500 py-3 sm:py-4 rounded-2xl font-black text-white text-lg hover:bg-green-600 transition shadow-lg disabled:opacity-50 active:scale-95">COBRAR</button>
-              <button onClick={encerrarMesa} disabled={!comandaAtiva || produtosSeguros.length === 0 || produtosSeguros.some(p => !(p?.pago))} className={`flex-1 py-3 sm:py-4 rounded-2xl font-bold text-xs uppercase transition disabled:opacity-30 active:scale-95 ${temaNoturno ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'}`}>Encerrar Mesa</button>
-            </div>
+          <div className="flex gap-2">
+            <button onClick={() => setMostrarModalPagamento(true)} disabled={produtosSeguros.filter(p=>!p.pago).length === 0} className="flex-[2] bg-green-600 hover:bg-green-700 py-4 rounded-xl font-black text-white text-sm uppercase tracking-widest transition-all shadow-lg disabled:opacity-50 active:scale-95">COBRAR</button>
+            <button onClick={encerrarMesa} disabled={!comandaAtiva || produtosSeguros.length === 0 || produtosSeguros.some(p => !p.pago)} className={`flex-1 py-4 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all disabled:opacity-30 active:scale-95 ${temaNoturno ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Encerrar</button>
           </div>
         </div>
-
       </div>
+
     </div>
   );
 }

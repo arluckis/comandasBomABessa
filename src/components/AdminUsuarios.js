@@ -31,7 +31,8 @@ export default function AdminUsuarios({ empresaId, usuarioAtualId, onFechar, tem
     } else {
       const { data } = await supabase.from('usuarios').select('id').eq('email', novoUser.email).single();
       if (data) return alert("Este e-mail já está em uso.");
-      await supabase.from('usuarios').insert([payload]);
+      // MÁGICA: Inserimos o garçom no banco já configurado para resetar a senha
+      await supabase.from('usuarios').insert([{ ...payload, primeiro_login: true }]);
     }
     
     setEditando(null);
@@ -66,7 +67,7 @@ export default function AdminUsuarios({ empresaId, usuarioAtualId, onFechar, tem
         <div className={`p-5 rounded-2xl mb-6 border grid grid-cols-1 md:grid-cols-2 gap-4 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-purple-50 border-purple-100'}`}>
           <input type="text" placeholder="Nome do Funcionário" className={`p-3 rounded-xl border outline-none text-sm focus:border-purple-500 transition ${temaNoturno ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200'}`} value={novoUser.nome_usuario} onChange={e => setNovoUser({...novoUser, nome_usuario: e.target.value})} />
           <input type="email" placeholder="E-mail de Login" className={`p-3 rounded-xl border outline-none text-sm focus:border-purple-500 transition ${temaNoturno ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200'}`} value={novoUser.email} onChange={e => setNovoUser({...novoUser, email: e.target.value})} />
-          <input type="text" placeholder="Senha de Acesso" className={`p-3 rounded-xl border outline-none text-sm focus:border-purple-500 transition ${temaNoturno ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200'}`} value={novoUser.senha} onChange={e => setNovoUser({...novoUser, senha: e.target.value})} />
+          <input type="text" placeholder="Senha Provisória" className={`p-3 rounded-xl border outline-none text-sm focus:border-purple-500 transition ${temaNoturno ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200'}`} value={novoUser.senha} onChange={e => setNovoUser({...novoUser, senha: e.target.value})} />
           
           <select className={`p-3 rounded-xl border outline-none text-sm font-bold transition disabled:opacity-50 ${temaNoturno ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-700'}`} value={novoUser.role} onChange={e => setNovoUser({...novoUser, role: e.target.value})} disabled={editando && editando.role === 'dono' && editando.id !== usuarioAtualId}>
             <option value="funcionario">Perfil: Funcionário (Restrito)</option>

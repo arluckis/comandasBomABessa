@@ -101,7 +101,8 @@ export default function SuperAdminPainel({ fazerLogout, temaNoturno, setTemaNotu
       const { data: novaEmpresa, error: errEmp } = await supabase.from('empresas').insert([{ nome: formData.nomeRestaurante, ativo: true, plano: planoFinal }]).select().single();
       if (errEmp) throw new Error(`Falha na empresa: ${errEmp.message}`);
 
-      const { error: errUsr } = await supabase.from('usuarios').insert([{ empresa_id: novaEmpresa.id, nome_usuario: formData.nomeDono, email: formData.email, senha: formData.senha, role: 'dono' }]);
+      // MÁGICA AQUI: Inserimos o primeiro_login: true no banco
+      const { error: errUsr } = await supabase.from('usuarios').insert([{ empresa_id: novaEmpresa.id, nome_usuario: formData.nomeDono, email: formData.email, senha: formData.senha, role: 'dono', primeiro_login: true }]);
       if (errUsr) throw new Error(`Falha no gestor: ${errUsr.message}`);
 
       await supabase.from('config_fidelidade').insert([{ empresa_id: novaEmpresa.id }]);
@@ -138,7 +139,8 @@ export default function SuperAdminPainel({ fazerLogout, temaNoturno, setTemaNotu
         const { error: errU } = await supabase.from('usuarios').update({ nome_usuario: dadosEdicao.nomeDono, email: dadosEdicao.email, senha: dadosEdicao.senha }).eq('id', dadosEdicao.usuarioId);
         if (errU) throw new Error(`Erro ao atualizar credenciais: ${errU.message}`);
       } else {
-         const { error: errU } = await supabase.from('usuarios').insert([{ empresa_id: empresaEditando, nome_usuario: dadosEdicao.nomeDono, email: dadosEdicao.email, senha: dadosEdicao.senha, role: 'dono' }]);
+         // MÁGICA AQUI TAMBÉM: Se estiver criando o dono pela edição
+         const { error: errU } = await supabase.from('usuarios').insert([{ empresa_id: empresaEditando, nome_usuario: dadosEdicao.nomeDono, email: dadosEdicao.email, senha: dadosEdicao.senha, role: 'dono', primeiro_login: true }]);
          if (errU) throw new Error(`Erro ao provisionar gestor: ${errU.message}`);
       }
 
@@ -406,22 +408,22 @@ export default function SuperAdminPainel({ fazerLogout, temaNoturno, setTemaNotu
           {abaAtiva === 'clientes' && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                <header className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4 md:gap-6 mb-6 md:mb-10">
-                  <div>
-                    <h2 className={`text-3xl md:text-4xl font-black tracking-tight ${temaNoturno ? 'text-white' : 'text-slate-900'}`}>Gestão de Contas</h2>
-                    <p className={`text-sm md:text-base mt-1 md:mt-2 font-medium ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Clique na conta para Inteligência de Mercado e Métricas.</p>
-                  </div>
-                  
-                  <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-                    <div className={`relative flex-1 flex items-center p-2 rounded-2xl border-2 transition-all focus-within:ring-4 focus-within:ring-purple-500/20 focus-within:border-purple-500 ${temaNoturno ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
-                      <svg className={`w-5 h-5 ml-3 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                      <input type="text" value={termoPesquisa} onChange={e => setTermoPesquisa(e.target.value)} placeholder="Buscar restaurante ou dono..." className={`w-full py-2 px-3 bg-transparent outline-none font-bold text-sm md:text-base ${temaNoturno ? 'text-white placeholder-gray-500' : 'text-slate-900 placeholder-gray-400'}`} />
-                    </div>
-                    
-                    <button onClick={carregarEmpresas} disabled={loading} className={`flex justify-center px-6 py-4 sm:py-0 text-sm font-black rounded-2xl border transition-all items-center gap-2 shadow-sm ${temaNoturno ? 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-white' : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-800'}`}>
-                      {loading ? <div className="animate-spin h-5 w-5 border-2 border-current border-t-transparent rounded-full"></div> : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>}
-                      <span className="hidden sm:inline">Atualizar</span>
-                    </button>
-                  </div>
+                 <div>
+                   <h2 className={`text-3xl md:text-4xl font-black tracking-tight ${temaNoturno ? 'text-white' : 'text-slate-900'}`}>Gestão de Contas</h2>
+                   <p className={`text-sm md:text-base mt-1 md:mt-2 font-medium ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Clique na conta para Inteligência de Mercado e Métricas.</p>
+                 </div>
+                 
+                 <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                   <div className={`relative flex-1 flex items-center p-2 rounded-2xl border-2 transition-all focus-within:ring-4 focus-within:ring-purple-500/20 focus-within:border-purple-500 ${temaNoturno ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+                     <svg className={`w-5 h-5 ml-3 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                     <input type="text" value={termoPesquisa} onChange={e => setTermoPesquisa(e.target.value)} placeholder="Buscar restaurante ou dono..." className={`w-full py-2 px-3 bg-transparent outline-none font-bold text-sm md:text-base ${temaNoturno ? 'text-white placeholder-gray-500' : 'text-slate-900 placeholder-gray-400'}`} />
+                   </div>
+                   
+                   <button onClick={carregarEmpresas} disabled={loading} className={`flex justify-center px-6 py-4 sm:py-0 text-sm font-black rounded-2xl border transition-all items-center gap-2 shadow-sm ${temaNoturno ? 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-white' : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-800'}`}>
+                     {loading ? <div className="animate-spin h-5 w-5 border-2 border-current border-t-transparent rounded-full"></div> : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>}
+                     <span className="hidden sm:inline">Atualizar</span>
+                   </button>
+                 </div>
                </header>
 
                {loading ? (
@@ -522,7 +524,7 @@ export default function SuperAdminPainel({ fazerLogout, temaNoturno, setTemaNotu
                                 <span className="text-xs font-black truncate">{getNomePlano(emp.plano)}</span>
                              </div>
                              <div className={`p-4 rounded-2xl border flex items-center gap-2.5 ${temaNoturno ? 'bg-gray-900/50 border-gray-800 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>
-                                <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
+                                <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>
                                 <span className="text-xs font-black truncate">~{mbUsados} MB</span>
                              </div>
                            </div>

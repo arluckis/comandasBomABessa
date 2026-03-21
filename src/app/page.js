@@ -20,6 +20,7 @@ import ModalPagamento from '@/components/ModalPagamento';
 import AdminProdutos from '@/components/AdminProdutos';
 import AdminUsuarios from '@/components/AdminUsuarios';
 import AdminDelivery from '@/components/AdminDelivery'; 
+import SuperAdminPainel from '@/components/SuperAdminPainel';
 
 export default function Home() {
 
@@ -411,6 +412,11 @@ export default function Home() {
     .sort((a, b) => b.valor - a.valor);
   
   if (!sessao) { return <Login getHoje={getHoje} setSessao={setSessao} temaNoturno={temaNoturno} setTemaNoturno={setTemaNoturno} />; }
+
+  // Redireciona para o Painel Master se for o teu utilizador Super Admin
+if (sessao.role === 'super_admin') {
+  return <SuperAdminPainel fazerLogout={fazerLogout} temaNoturno={temaNoturno} setTemaNoturno={setTemaNoturno} />;
+}
 
   if (isLoading && comandas.length === 0) {
     return (

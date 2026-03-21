@@ -17,18 +17,31 @@ export default function Login({ getHoje, setSessao }) {
     }
 
     setLoadingLogin(true);
+    
+    // AQUI: Buscamos o usuário e também o status 'ativo' da empresa dele
     const { data, error } = await supabase
       .from('usuarios')
-      .select('*')
+      .select('*, empresas ( ativo )')
       .eq('email', credenciais.email.trim())
       .eq('senha', credenciais.senha)
       .single();
 
     if (data && !error) { 
+      
+      // --- VERIFICAÇÃO DE BLOQUEIO DE INADIMPLÊNCIA ---
+      if (data.role !== 'super_admin' && data.empresas && data.empresas.ativo === false) {
+        setErro("Acesso temporariamente suspenso. Por favor, entre em contato com o suporte ou setor financeiro para regularizar sua assinatura.");
+        setLoadingLogin(false);
+        return;
+      }
+      // ------------------------------------------------
+
       const sessionObj = { ...data, data: getHoje() };
+      // Removemos o objeto 'empresas' da sessão para não pesar no localStorage
+      delete sessionObj.empresas; 
+      
       setSessao(sessionObj);
       localStorage.setItem('bessa_session', JSON.stringify(sessionObj));
-
       // --- INÍCIO DO REGISTRO INVISÍVEL DE LOG ---
       (async () => {
         try {

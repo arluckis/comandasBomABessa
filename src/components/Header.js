@@ -1,3 +1,4 @@
+// src/components/Header.js
 'use client';
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -137,8 +138,9 @@ export default function Header({
                 value={tempNome} onChange={e => setTempNome(e.target.value)} onBlur={salvarNome} onKeyDown={e => e.key === 'Enter' && salvarNome()}
               />
             ) : (
-              <h2 onClick={() => { setTempNome(comandaAtiva?.nome || ''); setEditandoNome(true); }} className={`text-lg font-black truncate text-center cursor-pointer hover:opacity-70 transition uppercase w-full ${temaNoturno ? 'text-purple-300' : 'text-purple-900'}`}>
-                {comandaAtiva?.nome || 'Comanda'} ✏️
+              <h2 onClick={() => { setTempNome(comandaAtiva?.nome || ''); setEditandoNome(true); }} className={`text-lg font-black truncate text-center cursor-pointer hover:opacity-70 transition uppercase w-full flex items-center justify-center gap-2 ${temaNoturno ? 'text-purple-300' : 'text-purple-900'}`}>
+                {comandaAtiva?.nome || 'Comanda'} 
+                <svg className="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
               </h2>
             )}
 
@@ -230,12 +232,15 @@ export default function Header({
           {mostrarMenuPerfil && (
             <div className={`absolute top-14 right-0 shadow-2xl rounded-2xl p-2 w-56 border z-50 animate-in slide-in-from-top-2 fade-in duration-200 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
               {sessao?.role === 'dono' && <button onClick={() => { setMostrarConfigEmpresa(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold transition rounded-xl ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Configurar Loja</button>}
-              {sessao?.role === 'dono' && <button onClick={() => { setMostrarAdminUsuarios(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold transition rounded-xl ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Equipe</button>}
-              {(sessao?.role === 'dono' || sessao?.perm_cardapio) && <button onClick={() => { setMostrarAdminProdutos(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold transition rounded-xl ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Cardápio</button>}
+              {(sessao?.role === 'dono' || sessao?.perm_cardapio) && <button onClick={() => { setMostrarAdminProdutos(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold transition rounded-xl flex items-center gap-2 ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>
+                  Catálogo
+              </button>}
               {sessao?.role === 'dono' && <button onClick={() => { setMostrarConfigTags(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold transition rounded-xl ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Tags</button>}
               {sessao?.role === 'dono' && <button onClick={() => { setMostrarAdminDelivery(true); setMostrarMenuPerfil(false); }} className={`w-full text-left p-3 text-sm font-bold transition rounded-xl ${temaNoturno ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-50'}`}>Delivery</button>}
               <div className="h-px my-1 bg-gray-500/10"></div>
-              <button onClick={fazerLogout} className="w-full text-left p-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition">Sair do Sistema</button>
+              <button onClick={fazerLogout} className="w-full text-left p-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg> Sair do Sistema
+              </button>
             </div>
           )}
         </div>

@@ -57,6 +57,10 @@ export default function Home() {
   const [nomeEmpresaEdicao, setNomeEmpresaEdicao] = useState('');
   const [logoEmpresa, setLogoEmpresa] = useState('https://cdn-icons-png.flaticon.com/512/3135/3135715.png');
   const [logoEmpresaEdicao, setLogoEmpresaEdicao] = useState('');
+  const [nomeUsuarioEdicao, setNomeUsuarioEdicao] = useState('');
+  
+  // NOVO: Estado para armazenar os dados do plano direto da tabela Empresas
+  const [dadosPlano, setDadosPlano] = useState({ nome: 'Free', validade: null });
 
   const [ignorarAvisoAntigas, setIgnorarAvisoAntigas] = useState(false);
   const [caixaAtual, setCaixaAtual] = useState({ data_abertura: getHoje(), status: 'aberto' });
@@ -141,7 +145,7 @@ export default function Home() {
     setSessao(null); setCredenciais({ email: '', senha: '' }); setMostrarMenuPerfil(false); setMenuMobileAberto(false); setAbaAtiva('comandas'); setLogoEmpresa('https://cdn-icons-png.flaticon.com/512/3135/3135715.png');
   };
 
-  // 1. FUNÇÃO PARA DADOS ESTÁTICOS (Baixa apenas 1 vez)
+  // 1. FUNÇÃO PARA DADOS ESTÁTICOS - ATUALIZADA PARA PEGAR O PLANO
   const fetchDadosEstaticos = async () => {
     if (!sessao?.empresa_id) return;
     try {
@@ -149,6 +153,13 @@ export default function Home() {
       if (empData) {
         setNomeEmpresa(empData.nome || "A Minha Loja");
         setNomeEmpresaEdicao(empData.nome || "");
+        
+        // Puxando o plano da empresa
+        setDadosPlano({
+          nome: empData.plano || 'Free',
+          validade: empData.validade_plano || null
+        });
+
         const urlLogo = empData.logo || empData.logo_url;
         if (urlLogo) {
           setLogoEmpresa(urlLogo); 
@@ -175,36 +186,28 @@ export default function Home() {
     } catch (err) { console.error("Fetch estático falhou:", err); }
   };
 
-  // 2. FUNÇÃO DE CARGA INICIAL (Traz o histórico completo 1 VEZ para o Faturamento funcionar)
+  // 2. FUNÇÃO DE CARGA INICIAL
   const fetchHistoricoCompleto = async () => {
     if (!sessao?.empresa_id) return;
     setIsLoading(true);
-    
     try {
-      // Atualiza o Caixa na carga inicial
       const { data: caixasAbertos } = await supabase.from('caixas').select('*').eq('empresa_id', sessao.empresa_id).eq('status', 'aberto').order('id', { ascending: false }).limit(1); 
       let caixaData = caixasAbertos && caixasAbertos.length > 0 ? caixasAbertos[0] : null;
       if (caixaData) setCaixaAtual(caixaData); else setCaixaAtual({ status: 'fechado' });
       
-      // Traz as comandas para alimentar os gráficos
       const { data: comData } = await supabase.from('comandas').select('*, produtos:comanda_produtos(*), pagamentos(*)').eq('empresa_id', sessao.empresa_id).order('id', { ascending: false }).limit(3000);
       if (comData) setComandas(comData.reverse());
-
     } catch (err) { console.error("Fetch falhou:", err); } finally { setIsLoading(false); }
   };
 
-  // 3. FUNÇÃO SUPER LEVE PARA POLLING (Roda a cada 30s e gasta quase zero dados)
+  // 3. FUNÇÃO SUPER LEVE PARA POLLING
   const fetchApenasAtualizacoes = async () => {
     if (!sessao?.empresa_id) return;
-    
     try {
-      // Verifica só se fecharam/abriram o caixa
       const { data: caixasAbertos } = await supabase.from('caixas').select('*').eq('empresa_id', sessao.empresa_id).eq('status', 'aberto').order('id', { ascending: false }).limit(1); 
       if (caixasAbertos && caixasAbertos.length > 0) setCaixaAtual(caixasAbertos[0]); 
       else setCaixaAtual({ status: 'fechado' });
 
-      // O PULO DO GATO: Busca no Supabase APENAS as comandas que estão ABERTAS hoje ou FECHADAS HOJE. 
-      // Ignora todo o histórico antigo, pois ele já está salvo no estado da tela.
       const { data: comDataHoje } = await supabase.from('comandas')
         .select('*, produtos:comanda_produtos(*), pagamentos(*)')
         .eq('empresa_id', sessao.empresa_id)
@@ -212,31 +215,20 @@ export default function Home() {
 
       if (comDataHoje) {
         setComandas(comandasAntigas => {
-          // Filtra da memória as comandas antigas que não mudam mais (fechadas de dias anteriores)
           const historicoIntacto = comandasAntigas.filter(c => c.status === 'fechada' && c.data !== getHoje());
-          
-          // Junta o histórico intacto com as comandas fresquinhas que acabaram de chegar do banco
           const novoEstado = [...historicoIntacto, ...comDataHoje.reverse()];
-          
-          // Reordena pelo ID para não bagunçar a tela
           return novoEstado.sort((a, b) => a.id - b.id);
         });
       }
-
     } catch (err) { console.error("Erro no polling leve:", err); }
   };
 
-  // 4. EFFECT ATUALIZADO
   useEffect(() => {
     if (!sessao?.empresa_id) return;
-    
-    // Na hora que o utilizador inicia sessão, carrega tudo 1 vez
+    setNomeUsuarioEdicao(sessao.nome_usuario || '');
     fetchDadosEstaticos();
     fetchHistoricoCompleto(); 
-    
-    // Depois, a cada 30 segundos, roda apenas a função super leve
     const intervaloPolling = setInterval(() => { fetchApenasAtualizacoes(); }, 30000); 
-    
     return () => clearInterval(intervaloPolling);
   }, [sessao]);
 
@@ -251,11 +243,40 @@ export default function Home() {
     } catch (err) { mostrarAlerta("Erro", "Erro ao abrir caixa: " + err.message); } finally { setIsLoading(false); }
   };
 
+  // FUNÇÃO SALVAR EMPRESA
   const salvarConfigEmpresa = async () => {
-    if (nomeEmpresaEdicao.trim() === '') return mostrarAlerta("Aviso", "O nome não pode estar vazio.");
-    const { error } = await supabase.from('empresas').update({ nome: nomeEmpresaEdicao, logo_url: logoEmpresaEdicao }).eq('id', sessao.empresa_id);
-    if (error) return mostrarAlerta("Erro", "Erro ao salvar no banco de dados: " + error.message);
-    setNomeEmpresa(nomeEmpresaEdicao); setLogoEmpresa(logoEmpresaEdicao || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'); setMostrarConfigEmpresa(false);
+    if (nomeEmpresaEdicao.trim() === '') return mostrarAlerta("Aviso", "O nome do estabelecimento não pode estar vazio.");
+    
+    const { error: errorEmpresa } = await supabase.from('empresas').update({ nome: nomeEmpresaEdicao, logo_url: logoEmpresaEdicao }).eq('id', sessao.empresa_id);
+    const { error: errorUsuario } = await supabase.from('usuarios').update({ nome_usuario: nomeUsuarioEdicao }).eq('id', sessao.id);
+
+    if (errorEmpresa || errorUsuario) {
+      return mostrarAlerta("Erro", "Erro ao salvar no banco de dados: " + (errorEmpresa?.message || errorUsuario?.message));
+    }
+
+    setNomeEmpresa(nomeEmpresaEdicao); 
+    setLogoEmpresa(logoEmpresaEdicao || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'); 
+    
+    const novaSessao = { ...sessao, nome_usuario: nomeUsuarioEdicao };
+    setSessao(novaSessao);
+    localStorage.setItem('bessa_session', JSON.stringify(novaSessao));
+
+    setMostrarConfigEmpresa(false);
+    mostrarAlerta("Sucesso", "Configurações atualizadas com sucesso!");
+  };
+
+  // NOVA FUNÇÃO: ALTERAR SENHA
+  const alterarSenhaConta = async (senhaAtualInformada, novaSenhaDesejada) => {
+    try {
+      const { data: usuarioAuth, error: errorAuth } = await supabase.auth.updateUser({
+        password: novaSenhaDesejada
+      });
+      
+      if (errorAuth) throw errorAuth;
+      mostrarAlerta("Segurança", "Sua senha foi atualizada com sucesso no banco de dados.");
+    } catch (err) {
+      mostrarAlerta("Erro de Segurança", "Não foi possível atualizar a senha. " + err.message);
+    }
   };
 
   const adicionarComanda = async (tipo) => {
@@ -427,7 +448,6 @@ export default function Home() {
   const pagamentosAgrupados = pagamentosFiltrados.reduce((acc, p) => { acc[p.forma] = (acc[p.forma] || 0) + p.valor; return acc; }, {});
   const dadosPizza = Object.keys(pagamentosAgrupados).map(key => ({ name: key, value: pagamentosAgrupados[key] })).filter(d => d.value > 0);
 
-  // AGRUPAMENTO DE PRODUTOS PARA RANKING (AGORA IGNORANDO ACENTOS E CASE)
   const contagemProdutos = {};
   comandasFiltradas.forEach(c => {
     (c.produtos || []).forEach(p => {
@@ -435,12 +455,11 @@ export default function Home() {
       const isPeso = nomeOriginal.toLowerCase().includes('peso') || nomeOriginal.toLowerCase().includes('balança');
       let nomeDisplay = isPeso ? nomeOriginal.replace(/\s*\(\d+(?:\.\d+)?\s*g\)/i, '').trim() : nomeOriginal;
       
-      // Remove acentos (diacríticos) e joga para maiúsculo para ser a chave de agrupamento
       const nomeChave = nomeDisplay.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 
       if (!contagemProdutos[nomeChave]) { 
         contagemProdutos[nomeChave] = { 
-          nomeDisplay: nomeDisplay.toUpperCase(), // Mantemos a versão formatada e bonita para o gráfico
+          nomeDisplay: nomeDisplay.toUpperCase(),
           faturamento: 0, 
           volume: 0, 
           isPeso: isPeso 
@@ -551,7 +570,23 @@ export default function Home() {
         />
       )}
 
-      {mostrarConfigEmpresa && <ModalConfigEmpresa temaNoturno={temaNoturno} nomeEmpresaEdicao={nomeEmpresaEdicao} setNomeEmpresaEdicao={setNomeEmpresaEdicao} logoEmpresaEdicao={logoEmpresaEdicao} setLogoEmpresaEdicao={setLogoEmpresaEdicao} salvarConfigEmpresa={salvarConfigEmpresa} setMostrarConfigEmpresa={setMostrarConfigEmpresa} />}
+      {/* --- O NOVO MODAL DE CONFIGURAÇÃO PREMIUM AQUI --- */}
+      {mostrarConfigEmpresa && (
+        <ModalConfigEmpresa 
+          temaNoturno={temaNoturno} 
+          nomeEmpresaEdicao={nomeEmpresaEdicao} 
+          setNomeEmpresaEdicao={setNomeEmpresaEdicao} 
+          logoEmpresaEdicao={logoEmpresaEdicao} 
+          setLogoEmpresaEdicao={setLogoEmpresaEdicao} 
+          nomeUsuarioEdicao={nomeUsuarioEdicao} 
+          setNomeUsuarioEdicao={setNomeUsuarioEdicao} 
+          planoUsuario={dadosPlano} // <-- Aqui agora ele usa o state que puxou da tabela 'empresas'
+          salvarConfigEmpresa={salvarConfigEmpresa} 
+          setMostrarConfigEmpresa={setMostrarConfigEmpresa} 
+          alterarSenhaConta={alterarSenhaConta} // <-- Nova função de Auth
+        />
+      )}
+      
       {mostrarConfigTags && <ModalConfigTags temaNoturno={temaNoturno} tagsGlobais={tagsGlobais} setTagsGlobais={setTagsGlobais} sessao={sessao} setMostrarConfigTags={setMostrarConfigTags} />}
 
       {modalGlobal.visivel && (

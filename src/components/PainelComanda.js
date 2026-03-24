@@ -299,7 +299,7 @@ export default function PainelComanda({
         
         <div className={`w-full md:w-[60%] lg:w-[65%] flex flex-col h-full min-h-0 border-r ${abaDetalheMobile === 'menu' ? 'flex' : 'hidden md:flex'} ${temaNoturno ? 'border-gray-800' : 'border-gray-100'}`}>
           
-          <div className={`p-4 shrink-0 flex gap-2 overflow-x-auto scrollbar-hide border-b ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
+          <div className={`p-4 shrink-0 flex gap-2 flex-wrap border-b ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
             {categoriasSeguras.map(c => c ? (
               <button key={c.id} onClick={() => { setFiltroCategoriaCardapio(c.id); setFiltroTexto(''); }} className={`px-5 py-2.5 rounded-full text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${categoriaSelecionada?.id === c.id ? (temaNoturno ? 'bg-purple-600 text-white shadow-md shadow-purple-900/50' : 'bg-purple-600 text-white shadow-md shadow-purple-200') : (temaNoturno ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}`}>
                 {c.nome}

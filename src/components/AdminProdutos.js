@@ -4,10 +4,9 @@ import { supabase } from '@/lib/supabase';
 
 export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
   // Estados de Exibição
-  // 'lista' | 'novo_produto' | 'peso' | 'categorias' | 'importacao'
   const [painelAtivo, setPainelAtivo] = useState('lista'); 
   const [loading, setLoading] = useState(true);
-  const [abaMobile, setAbaMobile] = useState('menu'); // No mobile: 'menu' | 'conteudo'
+  const [abaMobile, setAbaMobile] = useState('menu'); 
   
   const [notificacao, setNotificacao] = useState({ show: false, tipo: '', mensagem: '' });
   const [categorias, setCategorias] = useState([]);
@@ -18,7 +17,7 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
   const [filtroCategoria, setFiltroCategoria] = useState('');
 
   // Formulários
-  const [novoItem, setNovoItem] = useState({ nome: '', preco: '', custo: '', idCategoria: '' });
+  const [novoItem, setNovoItem] = useState({ nome: '', preco: '', custo: '', idCategoria: '', codigo: '' });
   const [editandoItem, setEditandoItem] = useState(null);
   
   const [novaCategoria, setNovaCategoria] = useState('');
@@ -53,6 +52,28 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
     setAbaMobile('conteudo');
   };
 
+  // --- NOVA FUNÇÃO: GERAR O MENOR NÚMERO DISPONÍVEL ---
+  const gerarMenorCodigoDisponivel = () => {
+    // 1. Coleta todos os códigos existentes na empresa e converte para número
+    const codigosExistentes = categorias
+      .flatMap(cat => cat.produtos || [])
+      .map(p => parseInt(p.codigo))
+      .filter(n => !isNaN(n))
+      .sort((a, b) => a - b);
+
+    // 2. Procura o primeiro número (começando do 1) que não está na lista
+    let candidato = 1;
+    for (let i = 0; i < codigosExistentes.length; i++) {
+      if (codigosExistentes[i] === candidato) {
+        candidato++;
+      } else if (codigosExistentes[i] > candidato) {
+        // Encontrou um "buraco" na sequência
+        break;
+      }
+    }
+    return candidato.toString();
+  };
+
   // --- LÓGICA DE PRODUTOS ---
   const calcularProgressoProduto = () => {
     let p = 0;
@@ -67,14 +88,22 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
     if (!novoItem.nome || !novoItem.preco || !novoItem.idCategoria || !novoItem.custo) {
       return mostrarAviso("Preencha todos os campos obrigatórios.");
     }
+
     const precoNum = parseFloat(novoItem.preco.toString().replace(',', '.'));
     const custoNum = parseFloat(novoItem.custo.toString().replace(',', '.'));
     
     if (custoNum < precoNum * 0.10) {
-      return mostrarAviso("O custo informado não pode ser menor que 10% do valor de venda para proteger seu caixa.");
+      return mostrarAviso("O custo informado não pode ser menor que 10% do valor de venda.");
     }
 
-    const payload = { nome: novoItem.nome, preco: precoNum, custo: custoNum, categoria_id: novoItem.idCategoria, empresa_id: empresaId };
+    const payload = { 
+      nome: novoItem.nome, 
+      preco: precoNum, 
+      custo: custoNum, 
+      categoria_id: novoItem.idCategoria, 
+      empresa_id: empresaId,
+      codigo: novoItem.codigo 
+    };
     
     if (editandoItem) { 
       await supabase.from('produtos').update(payload).eq('id', editandoItem.id); 
@@ -83,11 +112,23 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
       await supabase.from('produtos').insert([payload]); 
       mostrarAviso("Produto cadastrado!", "sucesso"); 
     }
-    setEditandoItem(null); setNovoItem({ nome: '', preco: '', custo: '', idCategoria: novoItem.idCategoria }); mudarPainel('lista'); fetchDados();
+
+    setEditandoItem(null); 
+    setNovoItem({ nome: '', preco: '', custo: '', idCategoria: novoItem.idCategoria, codigo: '' }); 
+    mudarPainel('lista'); 
+    fetchDados();
   };
 
   const carregarEdicaoProduto = (prod) => {
-    setEditandoItem(prod); setNovoItem({ nome: prod.nome, preco: prod.preco, custo: prod.custo || '', idCategoria: prod.categoria_id }); mudarPainel('novo_produto');
+    setEditandoItem(prod); 
+    setNovoItem({ 
+      nome: prod.nome, 
+      preco: prod.preco, 
+      custo: prod.custo || '', 
+      idCategoria: prod.categoria_id,
+      codigo: prod.codigo || gerarMenorCodigoDisponivel() 
+    }); 
+    mudarPainel('novo_produto');
   };
 
   const excluirProduto = async (id) => {
@@ -142,6 +183,9 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
     let categoriaAtual = '';
     const mapaCategorias = {}; 
 
+    // Para importação em massa, precisamos gerar códigos sequenciais dinamicamente
+    let proximoCodigoImportacao = parseInt(gerarMenorCodigoDisponivel());
+
     for (let linha of linhas) {
       linha = linha.trim();
       if (!linha) continue;
@@ -161,9 +205,14 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
         const custo = parseFloat((partes[2] || '0').replace(',', '.'));
 
         if (nome && !isNaN(preco)) {
-          // Força regra dos 10% se o custo não for preenchido ou for baixo
           const custoAplicado = (custo < preco * 0.1) ? preco * 0.1 : custo;
-          mapaCategorias[categoriaAtual].push({ nome, preco, custo: custoAplicado });
+          mapaCategorias[categoriaAtual].push({ 
+            nome, 
+            preco, 
+            custo: custoAplicado, 
+            codigo: proximoCodigoImportacao.toString() 
+          });
+          proximoCodigoImportacao++;
         }
       }
     }
@@ -185,7 +234,7 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
 
         if (catId) {
           const produtosParaInserir = mapaCategorias[catNome].map(p => ({
-            nome: p.nome, preco: p.preco, custo: p.custo, categoria_id: catId, empresa_id: empresaId
+            nome: p.nome, preco: p.preco, custo: p.custo, categoria_id: catId, empresa_id: empresaId, codigo: p.codigo
           }));
 
           if (produtosParaInserir.length > 0) {
@@ -204,7 +253,6 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
     }
   };
 
-  // Filtragem da Lista Principal
   const categoriasFiltradas = categorias.map(cat => ({
     ...cat, produtos: (cat.produtos || []).filter(p => p.nome.toLowerCase().includes(buscaProduto.toLowerCase()))
   })).filter(cat => (filtroCategoria === '' || cat.id === filtroCategoria) && (buscaProduto === '' || cat.produtos.length > 0));
@@ -213,14 +261,12 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
     <div className="fixed inset-0 bg-black/80 flex items-start sm:items-center justify-center p-4 sm:p-6 z-[60] backdrop-blur-md overflow-y-auto">
       <div className={`relative w-full max-w-7xl rounded-3xl shadow-2xl animate-in zoom-in-95 border flex flex-col overflow-hidden my-auto shrink-0 transition-colors duration-500 h-[85vh] ${temaNoturno ? 'bg-gradient-to-br from-[#15151e] to-[#0a0a0f] border-gray-800' : 'bg-white border-gray-200'}`}>
         
-        {/* Notificação Toast */}
         {notificacao.show && (
           <div className={`absolute top-6 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-full font-bold shadow-xl animate-in slide-in-from-top-4 fade-in duration-300 flex items-center gap-3 ${notificacao.tipo === 'erro' ? 'bg-red-500 text-white border border-red-400' : 'bg-green-500 text-white border border-green-400'}`}>
             {notificacao.mensagem}
           </div>
         )}
 
-        {/* Glow Effects Premium */}
         {temaNoturno ? (
           <>
             <div className="absolute -top-32 -right-32 w-96 h-96 bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none"></div>
@@ -230,7 +276,6 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
           <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-indigo-50/40 via-transparent to-purple-50/30 pointer-events-none"></div>
         )}
 
-        {/* Header Principal */}
         <div className={`flex justify-between items-center p-5 lg:p-7 border-b relative z-10 shrink-0 ${temaNoturno ? 'border-gray-800/80 bg-[#15151e]/50' : 'border-gray-100 bg-white/50'} backdrop-blur-md`}>
           <div className="flex items-center gap-4">
             <div className={`p-3 rounded-2xl shadow-inner ${temaNoturno ? 'bg-gradient-to-br from-purple-500/20 to-indigo-700/10 text-purple-400 border border-purple-500/20' : 'bg-gradient-to-br from-purple-100 to-indigo-50 text-purple-600 border border-purple-200'}`}>
@@ -246,7 +291,6 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
           </button>
         </div>
 
-        {/* Abas Mobile */}
         <div className={`lg:hidden flex border-b relative z-10 ${temaNoturno ? 'border-gray-800' : 'border-gray-200'}`}>
           {abaMobile === 'conteudo' && (
             <button onClick={() => setAbaMobile('menu')} className={`w-full py-4 text-xs font-black uppercase tracking-widest transition-colors flex items-center justify-center gap-2 ${temaNoturno ? 'text-purple-400 bg-gray-900/40' : 'text-purple-600 bg-gray-50/50'}`}>
@@ -258,7 +302,6 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
 
         <div className="flex flex-col lg:flex-row relative z-10 flex-1 min-h-0">
           
-          {/* COLUNA 1: MENU LATERAL */}
           <div className={`lg:w-72 shrink-0 border-r flex flex-col gap-2 p-4 overflow-y-auto ${abaMobile === 'menu' ? 'flex' : 'hidden lg:flex'} ${temaNoturno ? 'border-gray-800 bg-black/10' : 'border-gray-100 bg-gray-50/30'}`}>
             
             <p className={`text-[10px] font-black uppercase tracking-widest mb-2 px-2 pt-2 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>Visualização</p>
@@ -268,7 +311,12 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
             </button>
 
             <p className={`text-[10px] font-black uppercase tracking-widest mb-2 px-2 pt-4 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>Gerenciamento</p>
-            <button onClick={() => { setEditandoItem(null); mudarPainel('novo_produto'); }} className={`px-4 py-3.5 rounded-xl flex items-center gap-3 text-sm font-bold transition-all ${painelAtivo === 'novo_produto' ? (temaNoturno ? 'bg-purple-900/40 text-purple-400 border border-purple-700/50' : 'bg-white shadow-sm text-purple-700 border border-purple-100') : (temaNoturno ? 'text-gray-400 hover:bg-gray-800/60' : 'text-gray-600 hover:bg-gray-100/60')}`}>
+            
+            <button onClick={() => { 
+              setEditandoItem(null); 
+              setNovoItem({ nome: '', preco: '', custo: '', idCategoria: '', codigo: gerarMenorCodigoDisponivel() }); 
+              mudarPainel('novo_produto'); 
+            }} className={`px-4 py-3.5 rounded-xl flex items-center gap-3 text-sm font-bold transition-all ${painelAtivo === 'novo_produto' ? (temaNoturno ? 'bg-purple-900/40 text-purple-400 border border-purple-700/50' : 'bg-white shadow-sm text-purple-700 border border-purple-100') : (temaNoturno ? 'text-gray-400 hover:bg-gray-800/60' : 'text-gray-600 hover:bg-gray-100/60')}`}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
               Novo Produto
             </button>
@@ -288,12 +336,10 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
             </button>
           </div>
 
-          {/* COLUNA 2: CONTEÚDO ATIVO */}
           <div className={`flex-1 p-6 lg:p-8 overflow-y-auto custom-scrollbar ${abaMobile === 'conteudo' ? 'block' : 'hidden lg:block'} ${temaNoturno ? 'bg-transparent' : 'bg-transparent'}`}>
             
             {loading ? <p className="text-center font-bold mt-10 text-purple-500 animate-pulse">Carregando catálogo...</p> : (
               <>
-                {/* === ABA: LISTA === */}
                 {painelAtivo === 'lista' && (
                   <div className="animate-in fade-in duration-300">
                     <div className={`flex flex-col md:flex-row gap-3 p-3 rounded-2xl border mb-6 ${temaNoturno ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100 shadow-sm'}`}>
@@ -319,7 +365,14 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
                           {cat.produtos.map(p => (
                              <div key={p.id} className={`p-5 rounded-2xl border flex flex-col justify-between shadow-sm transition-all hover:scale-[1.02] ${temaNoturno ? 'bg-gray-800/80 border-gray-700 hover:border-gray-500' : 'bg-white border-gray-100 hover:border-purple-200 hover:shadow-md'}`}>
                                <div className="flex justify-between items-start mb-4">
-                                 <span className={`font-black text-sm tracking-tight ${temaNoturno ? 'text-gray-200' : 'text-gray-800'}`}>{p.nome}</span>
+                                 <div className="flex flex-col">
+                                   {p.codigo && (
+                                     <span className={`text-[9px] font-black uppercase tracking-tighter mb-1 px-1.5 py-0.5 rounded w-fit ${temaNoturno ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500'}`}>
+                                       #{p.codigo}
+                                     </span>
+                                   )}
+                                   <span className={`font-black text-sm tracking-tight ${temaNoturno ? 'text-gray-200' : 'text-gray-800'}`}>{p.nome}</span>
+                                 </div>
                                </div>
                                <div className="flex justify-between items-end">
                                  <div className="flex flex-col">
@@ -339,7 +392,6 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
                   </div>
                 )}
 
-                {/* === ABA: NOVO PRODUTO === */}
                 {painelAtivo === 'novo_produto' && (
                   <div className="max-w-2xl animate-in slide-in-from-bottom-4 fade-in duration-300">
                     <div className={`p-6 lg:p-8 rounded-3xl border shadow-xl ${temaNoturno ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}`}>
@@ -347,7 +399,6 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
                         {editandoItem ? 'Editar Produto do Catálogo' : 'Cadastrar Novo Produto'}
                       </h3>
 
-                      {/* Barra de Progresso */}
                       <div className="mb-8">
                         <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-2">
                           <span className={temaNoturno ? 'text-gray-400' : 'text-gray-500'}>Progresso do Cadastro</span>
@@ -365,6 +416,12 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
                             <option value="">Selecione o setor do produto...</option>
                             {categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                           </select>
+                        </div>
+
+                        {/* Código Numérico Sequencial Bloqueado */}
+                        <div className="group">
+                          <label className={`text-[10px] font-black uppercase tracking-widest mb-1.5 block transition-colors ${temaNoturno ? 'text-gray-400 group-focus-within:text-purple-400' : 'text-gray-500 group-focus-within:text-purple-600'}`}>Código de Identificação (Automático)</label>
+                          <input type="text" readOnly className={`w-full px-4 py-3.5 rounded-xl border outline-none text-sm font-bold transition-all cursor-not-allowed opacity-70 ${temaNoturno ? 'bg-gray-900/60 border-gray-700 text-gray-400' : 'bg-gray-100 border-gray-200 text-gray-500'}`} value={novoItem.codigo} />
                         </div>
 
                         <div className="group">
@@ -392,7 +449,6 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
                           </div>
                         </div>
 
-                        {/* Botão Salvar Condicional */}
                         <div className="pt-4">
                           <button disabled={calcularProgressoProduto() !== 100} onClick={salvarProduto} className={`w-full font-black py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 group ${calcularProgressoProduto() === 100 ? (temaNoturno ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-900/20 active:scale-95' : 'bg-gray-900 hover:bg-black text-white shadow-gray-900/20 active:scale-95') : (temaNoturno ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed')}`}>
                             {editandoItem ? 'Atualizar no Catálogo' : 'Finalizar Cadastro'}
@@ -403,10 +459,8 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
                   </div>
                 )}
 
-                {/* === ABA: CATEGORIAS === */}
                 {painelAtivo === 'categorias' && (
                   <div className="max-w-3xl animate-in slide-in-from-bottom-4 fade-in duration-300">
-                    
                     <div className={`p-6 rounded-3xl border mb-8 shadow-sm ${temaNoturno ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}`}>
                       <h3 className={`text-xs font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2 ${temaNoturno ? 'text-purple-400' : 'text-purple-600'}`}>Criar Nova Categoria</h3>
                       <div className="flex flex-col md:flex-row gap-3">
@@ -448,10 +502,8 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
                   </div>
                 )}
 
-                {/* === ABA: PESO/GRANEL === */}
                 {painelAtivo === 'peso' && (
                   <div className="max-w-4xl animate-in slide-in-from-bottom-4 fade-in duration-300">
-                    
                     <div className={`p-6 lg:p-8 rounded-3xl border mb-8 shadow-xl ${temaNoturno ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-100'}`}>
                       <h3 className={`text-xs font-black uppercase tracking-[0.2em] mb-1 flex items-center gap-2 ${temaNoturno ? 'text-purple-400' : 'text-purple-600'}`}>
                         {editandoPeso ? 'Editar Medida/Granel' : 'Cadastrar Item por Peso/Medida'}
@@ -513,11 +565,9 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
                       ))}
                       {configPeso.length === 0 && <p className={`col-span-full text-center py-10 font-bold ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Nenhum produto a granel/peso configurado.</p>}
                     </div>
-
                   </div>
                 )}
 
-                {/* === ABA: IMPORTAÇÃO EM MASSA === */}
                 {painelAtivo === 'importacao' && (
                   <div className="max-w-3xl animate-in slide-in-from-bottom-4 fade-in duration-300">
                     <div className={`p-6 md:p-8 rounded-3xl border mb-6 shadow-sm ${temaNoturno ? 'bg-gray-800/50 border-gray-700' : 'bg-indigo-50/50 border-indigo-100'}`}>
@@ -568,7 +618,6 @@ Cerveja Garrafa | 15.00`}
                     </button>
                   </div>
                 )}
-
               </>
             )}
           </div>

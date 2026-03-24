@@ -2,6 +2,15 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+// Componente de Loading Personalizado (Pontos Bounce)
+const LoadingDots = () => (
+  <div className="flex items-center gap-1.5">
+    <div className="w-2.5 h-2.5 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+    <div className="w-2.5 h-2.5 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+    <div className="w-2.5 h-2.5 bg-current rounded-full animate-bounce"></div>
+  </div>
+);
+
 export default function Login({ getHoje, setSessao }) {
   const [credenciais, setCredenciais] = useState({ email: '', senha: '' });
   const [loadingLogin, setLoadingLogin] = useState(false);
@@ -27,12 +36,12 @@ export default function Login({ getHoje, setSessao }) {
   // Calcula o "score" da senha (de 0 a 3)
   const pwdScore = [hasLength, hasNumber, hasSpecial].filter(Boolean).length;
   // Cor da barra de progresso
-  const progressColor = pwdScore === 0 ? 'bg-gray-200' : pwdScore === 1 ? 'bg-rose-500' : pwdScore === 2 ? 'bg-amber-400' : 'bg-emerald-500';
+  const progressColor = pwdScore === 0 ? 'bg-zinc-200' : pwdScore === 1 ? 'bg-rose-500' : pwdScore === 2 ? 'bg-amber-400' : 'bg-emerald-500';
 
   useEffect(() => {
     setIsMounted(true);
     try {
-      const saved = localStorage.getItem('bessa_last_login');
+      const saved = localStorage.getItem('arox_last_login');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.email) {
@@ -44,16 +53,16 @@ export default function Login({ getHoje, setSessao }) {
         setMostrarFormPadrao(true);
       }
     } catch (e) {
-      localStorage.removeItem('bessa_last_login');
+      localStorage.removeItem('arox_last_login');
       setMostrarFormPadrao(true);
     }
   }, []);
 
   const concluirAcesso = (data) => {
     const logoEmpresa = data.empresas?.logo_url || data.empresas?.logo || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
-    const nomeEmpresa = data.empresas?.nome || 'Painel de Gestão';
+    const nomeEmpresa = data.empresas?.nome || 'AROX';
 
-    localStorage.setItem('bessa_last_login', JSON.stringify({
+    localStorage.setItem('arox_last_login', JSON.stringify({
       email: data.email,
       senha: data.senha,
       nome_usuario: data.nome_usuario,
@@ -65,7 +74,7 @@ export default function Login({ getHoje, setSessao }) {
     delete sessionObj.empresas; 
     
     setSessao(sessionObj);
-    localStorage.setItem('bessa_session', JSON.stringify(sessionObj));
+    localStorage.setItem('bessa_session', JSON.stringify(sessionObj)); 
     
     (async () => {
       try {
@@ -95,7 +104,7 @@ export default function Login({ getHoje, setSessao }) {
 
     if (data && !error) { 
       if (data.role !== 'super_admin' && data.empresas && data.empresas.ativo === false) {
-        setErro("Acesso temporariamente suspenso. Por favor, entre em contato com o suporte ou setor financeiro.");
+        setErro("Acesso suspenso. Contate o suporte.");
         setLoadingLogin(false);
         return;
       }
@@ -109,14 +118,14 @@ export default function Login({ getHoje, setSessao }) {
 
       concluirAcesso(data);
     } else { 
-      setErro("E-mail ou senha incorretos. Tente novamente."); 
+      setErro("Credenciais incorretas."); 
       setLoadingLogin(false);
     }
   };
 
   const fazerLogin = (e) => {
     e.preventDefault(); 
-    if (!credenciais.email || !credenciais.senha) return setErro("Por favor, preencha o e-mail e a senha.");
+    if (!credenciais.email || !credenciais.senha) return setErro("Preencha email e senha.");
     processarAutenticacao(credenciais.email, credenciais.senha);
   };
 
@@ -132,7 +141,7 @@ export default function Login({ getHoje, setSessao }) {
     e.preventDefault();
     setErro('');
 
-    if (pwdScore < 3) return setErro("A senha não atende a todos os critérios de segurança.");
+    if (pwdScore < 3) return setErro("A senha não atende aos requisitos mínimos.");
     if (!matchPasswords) return setErro("As senhas não coincidem.");
 
     setLoadingLogin(true);
@@ -143,7 +152,7 @@ export default function Login({ getHoje, setSessao }) {
       .eq('id', tempUser.id);
 
     if (error) {
-      setErro("Ocorreu um erro ao atualizar sua senha.");
+      setErro("Erro ao atualizar senha.");
       setLoadingLogin(false);
     } else {
       const dataAtualizada = { ...tempUser, senha: novaSenha, primeiro_login: false };
@@ -151,231 +160,216 @@ export default function Login({ getHoje, setSessao }) {
     }
   };
 
-  // Previne Hydration Mismatch renderizando um loading elegante
   if (!isMounted) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-spin h-10 w-10 border-4 border-purple-600 border-t-transparent rounded-full"></div>
+    <div className="min-h-screen flex items-center justify-center bg-zinc-50">
+      <div className="text-zinc-900 scale-125">
+        <LoadingDots />
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-screen flex bg-zinc-50 font-sans selection:bg-purple-200 selection:text-purple-900">
       
-      {/* LADO ESQUERDO: Arte Abstrata  */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-[#0B0F19] overflow-hidden justify-center items-center">
-        <div className="absolute top-8 left-10 flex items-center gap-3 z-20">
-          <div className="w-8 h-8 bg-purple-500/20 border border-purple-500/30 rounded-lg flex items-center justify-center shadow-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-purple-300"><path d="M3 18h18" /><path d="M5 14c0-3.87 3.13-7 7-7s7 3.13 7 7" /><path d="M12 7V4" /><path d="M10 4h4" /></svg>
-          </div>
-          <span className="text-white/80 font-black tracking-widest text-sm uppercase">Comandas Bom a Bessa</span>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0B0F19] via-indigo-950/40 to-purple-900/20"></div>
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
-        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-purple-600/20 blur-[120px] mix-blend-screen pointer-events-none"></div>
-        <div className="absolute bottom-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-indigo-600/20 blur-[150px] mix-blend-screen pointer-events-none"></div>
+      {/* LADO ESQUERDO: Visual Premium com Parallax/Profundidade */}
+      <div className="hidden lg:flex lg:w-[55%] relative bg-[#09090b] overflow-hidden flex-col justify-between px-20 py-16">
         
-        <div className="relative z-10 w-full max-w-lg p-10 mx-16 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl">
-          <div className="w-14 h-14 bg-purple-500/20 border border-purple-500/30 rounded-2xl flex items-center justify-center mb-8 shadow-inner">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-300"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+        {/* Elementos de Fundo com Movimento (Parallax Simulado) */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] opacity-40 mix-blend-overlay pointer-events-none"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-[#09090b] to-[#120a1f] pointer-events-none"></div>
+        
+        {/* Blobs lentos simulando profundidade 3D */}
+        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-purple-600/10 blur-[120px] mix-blend-screen animate-[spin_60s_linear_infinite] [transform-origin:100%_100%] pointer-events-none"></div>
+        <div className="absolute bottom-[-20%] right-[-10%] w-[700px] h-[700px] rounded-full bg-indigo-600/10 blur-[150px] mix-blend-screen animate-[spin_50s_linear_infinite_reverse] [transform-origin:0%_0%] pointer-events-none"></div>
+
+        {/* Header AROX Esquerdo */}
+        <div className="relative z-20">
+          <span className="text-white font-black tracking-tighter text-3xl">AROX</span>
+        </div>
+        
+        {/* Conteúdo Central com Gráfico de Alto Impacto */}
+        <div className="relative z-20 w-full max-w-lg mt-8">
+          
+          {/* Elemento Gráfico / Dashboard Mock */}
+          <div className="mb-12 w-full h-40 flex items-end justify-between gap-3 p-6 rounded-2xl border border-white/5 bg-white/[0.02] backdrop-blur-sm shadow-2xl relative overflow-hidden group">
+            {/* Reflexo dinâmico */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.04] to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]"></div>
+            
+            {/* Barras animadas sutilmente */}
+            {[35, 60, 45, 80, 55, 100, 75].map((height, i) => (
+              <div key={i} className="w-full bg-gradient-to-t from-purple-600/60 to-indigo-500/80 rounded-t-sm transition-all duration-1000 ease-out" 
+                   style={{ height: `${height}%`, opacity: 0.8 + (i * 0.03) }}></div>
+            ))}
           </div>
-          <h3 className="text-3xl font-bold text-white mb-4 leading-tight">O controle do seu negócio na palma da mão.</h3>
-          <p className="text-indigo-100/70 text-lg leading-relaxed mb-8">Acompanhe o fluxo de comandas, gerencie sua equipe e tenha uma visão clara do seu faturamento em tempo real, com total segurança e performance.</p>
-          <div className="flex gap-4">
-            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full border border-white/5"><div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div><span className="text-xs font-semibold text-gray-300 tracking-wide uppercase">Tempo Real</span></div>
-            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full border border-white/5"><div className="w-2 h-2 rounded-full bg-blue-400"></div><span className="text-xs font-semibold text-gray-300 tracking-wide uppercase">Nuvem Segura</span></div>
+
+          <h1 className="text-[3.25rem] font-bold text-white leading-[1.05] tracking-tight mb-6">
+            Domine sua operação.
+          </h1>
+          <p className="text-zinc-400 text-lg leading-relaxed max-w-md font-medium">
+            Controle absoluto, métricas em tempo real e confiabilidade máxima para escalar seu negócio.
+          </p>
+        </div>
+
+        {/* Indicadores Footer Esquerdo */}
+        <div className="relative z-20 grid grid-cols-2 gap-x-12 gap-y-6 text-sm font-medium text-zinc-400 max-w-md border-t border-white/10 pt-8 mt-12">
+          <div className="flex items-center gap-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+              <span>Mais de 100 empresas</span>
+          </div>
+          <div className="flex items-center gap-3">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div>
+              <span className="text-zinc-300">99.9% Uptime</span>
+          </div>
+          <div className="flex items-center gap-3">
+              <svg className="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              <span>Criptografia ponta a ponta</span>
+          </div>
+           <div className="flex items-center gap-3">
+              <svg className="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              <span>Performance Otimizada</span>
           </div>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/50 to-transparent"></div>
+
       </div>
 
-      {/* LADO DIREITO: Componentes Interativos */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 lg:p-24 bg-white shadow-2xl z-10 relative">
+      {/* LADO DIREITO: Formulário Minimalista */}
+      <div className="w-full lg:w-[45%] flex flex-col justify-center items-center p-8 sm:p-12 lg:p-24 relative bg-white">
         
-        {/* Glow de fundo sutil no lado branco para ficar mais  */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-50 rounded-full blur-[100px] pointer-events-none opacity-60"></div>
-        
-        <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative z-10">
+        <div className="w-full max-w-[380px] animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-10">
           
-          <div className="text-center sm:text-left">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6">
-              <div className="h-14 w-14 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/30 shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7 text-white"><path d="M3 18h18" /><path d="M5 14c0-3.87 3.13-7 7-7s7 3.13 7 7" /><path d="M12 7V4" /><path d="M10 4h4" /></svg>
-              </div>
-              <div className="flex flex-col justify-center pt-1">
-                <h1 className="text-2xl font-black text-gray-900 tracking-tight">Comandas Bom a Bessa</h1>
-                <p className="text-sm font-semibold text-purple-600 uppercase tracking-widest mt-0.5">Painel de Gestão</p>
-              </div>
-            </div>
+          {/* Header Mobile AROX */}
+          <div className="lg:hidden mb-12">
+             <span className="text-zinc-950 font-black tracking-tighter text-3xl">AROX</span>
           </div>
 
           {stepTrocaSenha ? (
              
-            <div className="mt-8 animate-in slide-in-from-right-8 duration-500">
-              <div className="mb-6">
-                <h2 className="text-xl font-black text-gray-900 mb-2">Bem-vindo(a), {tempUser?.nome_usuario}!</h2>
-                <p className="text-sm text-gray-500 leading-relaxed">Por questões de segurança, altere a senha criada pelo administrador por uma definitiva para a sua conta.</p>
+            <div className="animate-in fade-in duration-500">
+              <div className="mb-10">
+                <h2 className="text-2xl font-semibold text-zinc-900 mb-2 tracking-tight">Crie sua senha</h2>
+                <p className="text-sm text-zinc-500 leading-relaxed">Defina uma nova senha para <span className="font-medium text-zinc-800">{tempUser?.nome_usuario}</span>.</p>
               </div>
 
-              <form onSubmit={salvarNovaSenha} className="space-y-5">
+              <form onSubmit={salvarNovaSenha} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Nova Senha</label>
-                  <input type="password" placeholder="Digite sua senha" className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl shadow-sm focus:bg-white focus:ring-2 focus:ring-purple-600 focus:border-purple-600 outline-none transition-all font-medium text-gray-800" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} autoFocus />
-                </div>
-                
-                {/* MEDIDOR DE FORÇA E REGRAS */}
-                <div className="p-4 bg-gray-50/80 border border-gray-100 rounded-2xl">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Força da Senha</span>
-                    <span className={`text-xs font-black uppercase tracking-wider ${pwdScore === 3 ? 'text-emerald-500' : pwdScore === 2 ? 'text-amber-500' : pwdScore === 1 ? 'text-rose-500' : 'text-gray-400'}`}>
-                      {pwdScore === 3 ? 'Forte' : pwdScore === 2 ? 'Média' : pwdScore === 1 ? 'Fraca' : 'Muito Fraca'}
-                    </span>
-                  </div>
+                  <input type="password" placeholder="Nova senha" className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg focus:border-zinc-400 focus:ring-0 outline-none transition-colors font-medium text-zinc-900 placeholder:text-zinc-400 shadow-sm" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} autoFocus />
                   
-                  {/* Barra de Progresso Animada */}
-                  <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden mb-4">
-                    <div className={`h-full transition-all duration-500 ease-out rounded-full ${progressColor}`} style={{ width: `${(pwdScore / 3) * 100}%` }}></div>
-                  </div>
-
-                  {/* Lista de Requisitos Dinâmica */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 transition-colors duration-300">
-                      <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${hasLength ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30' : 'bg-gray-200 text-transparent'}`}>
-                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                      </div>
-                      <span className={`text-xs font-semibold transition-colors duration-300 ${hasLength ? 'text-gray-800' : 'text-gray-400'}`}>Mínimo de 8 caracteres</span>
+                  {/* BARRA DE PROGRESSO E REQUISITOS MINIMALISTA */}
+                  <div className="mt-3">
+                    <div className="h-[3px] w-full bg-zinc-100 rounded-full overflow-hidden">
+                      <div className={`h-full transition-all duration-500 ease-out rounded-full ${progressColor}`} style={{ width: `${(pwdScore / 3) * 100}%` }}></div>
                     </div>
-
-                    <div className="flex items-center gap-2 transition-colors duration-300">
-                      <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${hasNumber ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30' : 'bg-gray-200 text-transparent'}`}>
-                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                    
+                    <div className="flex items-center gap-4 mt-3">
+                      <div className={`flex items-center gap-1.5 text-xs font-medium transition-colors duration-300 ${hasLength ? 'text-zinc-900' : 'text-zinc-400'}`}>
+                        <svg className={`w-3.5 h-3.5 transition-colors ${hasLength ? 'text-emerald-500' : 'text-zinc-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        8+ caracteres
                       </div>
-                      <span className={`text-xs font-semibold transition-colors duration-300 ${hasNumber ? 'text-gray-800' : 'text-gray-400'}`}>Pelo menos 1 número (0-9)</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 transition-colors duration-300">
-                      <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${hasSpecial ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30' : 'bg-gray-200 text-transparent'}`}>
-                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                      <div className={`flex items-center gap-1.5 text-xs font-medium transition-colors duration-300 ${hasNumber ? 'text-zinc-900' : 'text-zinc-400'}`}>
+                        <svg className={`w-3.5 h-3.5 transition-colors ${hasNumber ? 'text-emerald-500' : 'text-zinc-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        Número
                       </div>
-                      <span className={`text-xs font-semibold transition-colors duration-300 ${hasSpecial ? 'text-gray-800' : 'text-gray-400'}`}>Pelo menos 1 caractere especial (!@#$%)</span>
+                      <div className={`flex items-center gap-1.5 text-xs font-medium transition-colors duration-300 ${hasSpecial ? 'text-zinc-900' : 'text-zinc-400'}`}>
+                        <svg className={`w-3.5 h-3.5 transition-colors ${hasSpecial ? 'text-emerald-500' : 'text-zinc-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        Especial
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <div className="flex justify-between mb-1">
-                    <label className="block text-sm font-semibold text-gray-700">Confirmar Nova Senha</label>
-                    {confirmarNovaSenha.length > 0 && (
-                      <span className={`text-xs font-bold ${matchPasswords ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {matchPasswords ? 'As senhas coincidem' : 'As senhas não coincidem'}
-                      </span>
-                    )}
-                  </div>
-                  <input type="password" placeholder="Repita a senha" className={`mt-1 block w-full px-4 py-3 bg-gray-50 border rounded-xl shadow-sm focus:bg-white focus:ring-2 outline-none transition-all font-medium text-gray-800 ${confirmarNovaSenha.length > 0 && !matchPasswords ? 'border-rose-300 focus:ring-rose-500 focus:border-rose-500' : 'border-gray-200 focus:ring-purple-600 focus:border-purple-600'}`} value={confirmarNovaSenha} onChange={e => setConfirmarNovaSenha(e.target.value)} />
+                  <input type="password" placeholder="Confirmar senha" className={`w-full px-4 py-3 bg-white border rounded-lg focus:ring-0 outline-none transition-colors font-medium text-zinc-900 placeholder:text-zinc-400 shadow-sm ${confirmarNovaSenha.length > 0 && !matchPasswords ? 'border-rose-300 focus:border-rose-400 text-rose-900' : 'border-zinc-200 focus:border-zinc-400'}`} value={confirmarNovaSenha} onChange={e => setConfirmarNovaSenha(e.target.value)} />
                 </div>
 
                 {erro && (
-                  <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 animate-in fade-in">
-                    <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <p className="text-sm text-red-700 font-medium">{erro}</p>
+                  <div className="text-sm text-rose-600 font-medium animate-in fade-in">
+                    {erro}
                   </div>
                 )}
 
-                <button type="submit" disabled={loadingLogin || pwdScore < 3 || !matchPasswords} className={`w-full flex justify-center py-4 px-4 border border-transparent rounded-xl shadow-lg text-sm font-black text-white transition-all duration-300 active:scale-[0.98] ${pwdScore === 3 && matchPasswords ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-500/30' : 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'}`}>
-                  {loadingLogin ? (
-                    <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Salvando...</span>
-                  ) : 'Salvar e Acessar'}
+                <button type="submit" disabled={loadingLogin || pwdScore < 3 || !matchPasswords} className={`w-full flex justify-center items-center py-3.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${pwdScore === 3 && matchPasswords ? 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-md active:scale-[0.98]' : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'}`}>
+                  {loadingLogin ? <LoadingDots /> : 'Confirmar e acessar'}
                 </button>
               </form>
             </div>
 
           ) : (!mostrarFormPadrao && lastLogin) ? (
             
-            <div className="mt-8 flex flex-col items-center animate-in zoom-in-95 duration-500 w-full relative">
+            // ==========================================
+            // CARD DE USUÁRIO - ESTILO LINEAR/VERCEL
+            // ==========================================
+            <div className="animate-in fade-in duration-500 w-full">
               
-              <div className="w-full relative bg-white border border-gray-100 p-8 pt-10 rounded-[2.5rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] flex flex-col items-center text-center overflow-hidden z-10 group transition-all hover:shadow-[0_20px_50px_-12px_rgba(147,51,234,0.15)]">
-                
-                {/* Linha gradiente no topo do card */}
-                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500"></div>
-                
-                {/* AVATAR 100% REDONDO COM BORDA */}
-                <div className="relative mb-6">
-                  {/* Anel de brilho pulsante atrás do avatar */}
-                  <div className="absolute inset-[-4px] bg-gradient-to-tr from-purple-600 to-blue-400 rounded-full opacity-30 blur-md group-hover:opacity-50 transition-opacity duration-500"></div>
-                  
-                  {/* Borda gradiente do avatar */}
-                  <div className="relative w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-purple-600 via-indigo-500 to-blue-500 shadow-lg">
-                    {/* Imagem redonda */}
-                    <div className="w-full h-full rounded-full overflow-hidden bg-white border-2 border-white">
-                      <img src={lastLogin.logo || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} alt="Logo" className="w-full h-full object-cover" />
-                    </div>
-                  </div>
-                  
-                  {/* Badge de "Logado" */}
-                  <div className="absolute bottom-0 right-0 w-6 h-6 bg-emerald-500 border-4 border-white rounded-full shadow-sm"></div>
-                </div>
-                
-                <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-1">{lastLogin.nome_empresa}</h2>
-                <p className="text-sm font-medium text-gray-500 mb-8">Bem-vindo de volta, <span className="font-bold text-gray-800">{lastLogin.nome_usuario}</span></p>
-
-                {erro && (
-                  <div className="w-full p-3 bg-red-50 border border-red-100 rounded-xl mb-6 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <p className="text-sm text-red-600 font-medium text-left leading-tight">{erro}</p>
-                  </div>
-                )}
-
-                <button onClick={loginComContaSalva} disabled={loadingLogin} className="w-full flex justify-center items-center py-4 px-4 rounded-xl shadow-lg shadow-purple-500/25 text-sm font-black text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98]">
-                  {loadingLogin ? (
-                    <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Autenticando...</span>
-                  ) : (
-                    <span className="flex items-center gap-2">Acessar Painel <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg></span>
-                  )}
-                </button>
+              <div className="mb-10 text-center sm:text-left">
+                <h2 className="text-[1.75rem] font-semibold text-zinc-900 tracking-tight">Bem-vindo de volta</h2>
+                <p className="mt-1 text-zinc-500 text-sm">Acesse seu ambiente de trabalho.</p>
               </div>
 
-              <button onClick={() => setMostrarFormPadrao(true)} className="mt-8 text-sm font-bold text-gray-400 hover:text-purple-600 transition-colors flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg> Entrar com outra conta
-              </button>
+              <div className="w-full flex items-center justify-between p-4 bg-white border border-zinc-200 rounded-xl shadow-sm hover:border-zinc-300 transition-colors mb-6 group cursor-default">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full overflow-hidden border border-zinc-100 shadow-sm bg-zinc-50 flex items-center justify-center">
+                    <img src={lastLogin.logo || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} alt="Logo" className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-zinc-900">{lastLogin.nome_usuario}</span>
+                    <span className="text-xs font-medium text-zinc-500">{lastLogin.nome_empresa}</span>
+                  </div>
+                </div>
+                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+              </div>
+
+              {erro && (
+                <div className="text-sm text-rose-600 font-medium animate-in fade-in mb-6">
+                  {erro}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <button onClick={loginComContaSalva} disabled={loadingLogin} className="w-full flex justify-center items-center py-3.5 px-4 rounded-lg text-sm font-semibold text-white bg-zinc-900 hover:bg-zinc-800 shadow-md transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed">
+                  {loadingLogin ? <LoadingDots /> : 'Continuar'}
+                </button>
+
+                <button onClick={() => setMostrarFormPadrao(true)} className="w-full flex justify-center items-center py-3.5 px-4 rounded-lg text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-all">
+                  Entrar com outra conta
+                </button>
+              </div>
             </div>
 
           ) : (
             
              // ==========================================
-             // PASSO 1: FORMULÁRIO PADRÃO
+             // FORMULÁRIO PADRÃO MINIMALISTA
              // ==========================================
-            <div className="mt-8 animate-in fade-in duration-300">
-              <h2 className="text-xl font-bold text-gray-800">Acesso ao Sistema</h2>
-              <p className="mt-1 text-sm text-gray-500 mb-8">Insira suas credenciais para continuar.</p>
+            <div className="animate-in fade-in duration-500">
+              <div className="mb-10">
+                <h2 className="text-[1.75rem] font-semibold text-zinc-900 tracking-tight">Acessar conta</h2>
+                <p className="mt-2 text-sm text-zinc-500">Digite seus dados para entrar na sua conta AROX.</p>
+              </div>
               
-              <form className="space-y-6" onSubmit={fazerLogin}>
-                <div className="space-y-5">
+              <form className="space-y-5" onSubmit={fazerLogin}>
+                <div className="space-y-4">
                   <div>
-                    <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1">E-mail Corporativo</label>
-                    <input id="email" type="email" placeholder="seu@restaurante.com.br" className="mt-1 block w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl shadow-sm focus:bg-white focus:ring-2 focus:ring-purple-600 focus:border-purple-600 outline-none transition-all font-medium text-gray-800" value={credenciais.email} onChange={e => setCredenciais({...credenciais, email: e.target.value})} />
+                    <input id="email" type="email" placeholder="E-mail corporativo" className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg focus:border-zinc-400 focus:ring-0 outline-none transition-colors font-medium text-zinc-900 placeholder:text-zinc-400 shadow-sm" value={credenciais.email} onChange={e => setCredenciais({...credenciais, email: e.target.value})} autoFocus />
                   </div>
                   <div>
-                    <label htmlFor="senha" className="block text-sm font-semibold text-gray-700 mb-1">Senha</label>
-                    <input id="senha" type="password" placeholder="••••••••" className="mt-1 block w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl shadow-sm focus:bg-white focus:ring-2 focus:ring-purple-600 focus:border-purple-600 outline-none transition-all font-medium text-gray-800" value={credenciais.senha} onChange={e => setCredenciais({...credenciais, senha: e.target.value})} />
+                    <input id="senha" type="password" placeholder="Senha" className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg focus:border-zinc-400 focus:ring-0 outline-none transition-colors font-medium text-zinc-900 placeholder:text-zinc-400 shadow-sm" value={credenciais.senha} onChange={e => setCredenciais({...credenciais, senha: e.target.value})} />
                   </div>
                 </div>
 
                 {erro && (
-                  <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 animate-in fade-in">
-                    <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <p className="text-sm text-red-700 font-medium">{erro}</p>
+                  <div className="text-sm text-rose-600 font-medium animate-in fade-in pt-1">
+                    {erro}
                   </div>
                 )}
 
-                <button type="submit" disabled={loadingLogin} className="w-full flex justify-center items-center py-4 px-4 rounded-xl shadow-lg shadow-purple-500/25 text-sm font-black text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98]">
-                  {loadingLogin ? (
-                    <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Autenticando...</span>
-                  ) : 'Entrar no Painel'}
+                <button type="submit" disabled={loadingLogin} className="w-full flex justify-center items-center py-3.5 px-4 rounded-lg text-sm font-semibold text-white bg-zinc-900 hover:bg-zinc-800 shadow-md transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mt-2">
+                  {loadingLogin ? <LoadingDots /> : 'Entrar'}
                 </button>
                 
                 {lastLogin && (
                    <div className="text-center pt-4">
-                     <button type="button" onClick={() => setMostrarFormPadrao(false)} className="text-sm font-bold text-gray-400 hover:text-purple-600 transition-colors flex items-center justify-center gap-2 w-full">
-                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg> Voltar para {lastLogin.nome_usuario}
+                     <button type="button" onClick={() => setMostrarFormPadrao(false)} className="text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors">
+                       ← Voltar para {lastLogin.nome_usuario}
                      </button>
                    </div>
                 )}
@@ -383,8 +377,8 @@ export default function Login({ getHoje, setSessao }) {
             </div>
           )}
           
-          <div className="pt-8 mt-8 border-t border-gray-100">
-            <p className="text-xs text-center font-semibold text-gray-400">© {new Date().getFullYear()} Comandas Bom a Bessa. Todos os direitos reservados.</p>
+          <div className="mt-16 text-left">
+            <p className="text-xs font-medium text-zinc-400">© {new Date().getFullYear()} AROX.</p>
           </div>
         </div>
       </div>

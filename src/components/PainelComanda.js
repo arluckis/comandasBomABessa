@@ -1,5 +1,6 @@
 'use client';
 import { useMemo, useState, useEffect, useRef } from 'react';
+import SystemLoader from './SystemLoader'; // <-- NOVO IMPORT
 
 export default function PainelComanda({
   temaNoturno,
@@ -249,7 +250,12 @@ export default function PainelComanda({
     </button>
   );
 
-  if (!comandaAtiva) return null;
+  // --- USANDO O NOVO COMPONENTE SYSTEMLOADER AQUI ---
+  if (!comandaAtiva) return (
+    <div className={`flex items-center justify-center w-full h-[calc(100vh-140px)] min-h-[500px] rounded-b-2xl shadow-xl border-x border-b border-t-0 ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+      <SystemLoader variant="section" text="Preparando comanda..." />
+    </div>
+  );
 
   return (
     <div className={`flex flex-col w-full h-[calc(100vh-140px)] min-h-[500px] animate-in zoom-in-95 duration-300 rounded-b-2xl shadow-xl border-x border-b border-t-0 overflow-hidden ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
@@ -286,7 +292,6 @@ export default function PainelComanda({
         </div>
       </div>
 
-      {/* NOVA LINHA DE CATEGORIAS (Ajuste Premium, Sem Cortes) */}
       <div className={`w-full shrink-0 border-b px-3 py-3 md:py-4 ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
         <div className="flex items-center w-full relative">
           <div 
@@ -312,7 +317,6 @@ export default function PainelComanda({
             ) : null)}
           </div>
           
-          {/* Botão para Expandir Categorias com Máscara Gradiente */}
           {precisaBotaoMais && !categoriasExpandidas && (
             <div className={`absolute right-0 inset-y-0 z-10 flex items-center pl-14 pr-1 pointer-events-none ${temaNoturno ? 'bg-gradient-to-l from-gray-900 via-gray-900 to-transparent' : 'bg-gradient-to-l from-gray-50 via-gray-50 to-transparent'}`}>
               <button 

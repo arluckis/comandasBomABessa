@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import SystemLoader from './SystemLoader'; // <-- NOVO IMPORT
 
 export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
   // Estados de Exibição
@@ -54,20 +55,17 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
 
   // --- NOVA FUNÇÃO: GERAR O MENOR NÚMERO DISPONÍVEL ---
   const gerarMenorCodigoDisponivel = () => {
-    // 1. Coleta todos os códigos existentes na empresa e converte para número
     const codigosExistentes = categorias
       .flatMap(cat => cat.produtos || [])
       .map(p => parseInt(p.codigo))
       .filter(n => !isNaN(n))
       .sort((a, b) => a - b);
 
-    // 2. Procura o primeiro número (começando do 1) que não está na lista
     let candidato = 1;
     for (let i = 0; i < codigosExistentes.length; i++) {
       if (codigosExistentes[i] === candidato) {
         candidato++;
       } else if (codigosExistentes[i] > candidato) {
-        // Encontrou um "buraco" na sequência
         break;
       }
     }
@@ -183,7 +181,6 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
     let categoriaAtual = '';
     const mapaCategorias = {}; 
 
-    // Para importação em massa, precisamos gerar códigos sequenciais dinamicamente
     let proximoCodigoImportacao = parseInt(gerarMenorCodigoDisponivel());
 
     for (let linha of linhas) {
@@ -338,7 +335,10 @@ export default function AdminProdutos({ empresaId, onFechar, temaNoturno }) {
 
           <div className={`flex-1 p-6 lg:p-8 overflow-y-auto custom-scrollbar ${abaMobile === 'conteudo' ? 'block' : 'hidden lg:block'} ${temaNoturno ? 'bg-transparent' : 'bg-transparent'}`}>
             
-            {loading ? <p className="text-center font-bold mt-10 text-purple-500 animate-pulse">Carregando catálogo...</p> : (
+            {loading ? (
+              // --- USANDO O NOVO COMPONENTE SYSTEMLOADER AQUI ---
+              <SystemLoader variant="section" text="Sincronizando catálogo..." />
+            ) : (
               <>
                 {painelAtivo === 'lista' && (
                   <div className="animate-in fade-in duration-300">
@@ -608,10 +608,11 @@ Cerveja Garrafa | 15.00`}
                       className={`w-full py-5 font-black text-lg rounded-2xl transition-all shadow-xl mt-6 flex justify-center items-center gap-3 ${importando ? 'bg-gray-600 cursor-wait text-gray-300' : (textoImportacao.trim() ? (temaNoturno ? 'bg-indigo-600 hover:bg-indigo-500 text-white active:scale-95' : 'bg-gray-900 hover:bg-black text-white active:scale-95') : (temaNoturno ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'))}`}
                     >
                       {importando ? (
-                        <span className="animate-pulse flex items-center gap-2">
-                          <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                          Processando...
-                        </span>
+                        // --- USANDO O NOVO COMPONENTE SYSTEMLOADER AQUI ---
+                        <div className="flex items-center justify-center gap-3 w-full">
+                          <SystemLoader variant="inline" />
+                          <span>Processando Catálogo...</span>
+                        </div>
                       ) : (
                         'Processar e Importar Lista'
                       )}

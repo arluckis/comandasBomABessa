@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { ResponsiveContainer, PieChart, Pie, Cell, Legend, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, Cell } from 'recharts';
 
 const CORES_VIBRANTES = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#0ea5e9', '#f97316', '#14b8a6', '#84cc16'];
 
@@ -26,7 +26,6 @@ export default function TabFaturamento({
     localStorage.setItem('bessa_widgets_faturamento_v5', JSON.stringify(novosWidgets));
   };
 
-  // --- LÓGICA DE NAVEGAÇÃO NO TEMPO ---
   const mudarTempo = (direcao) => {
     if (filtroTempo.tipo === 'dia') {
       const [ano, mes, dia] = filtroTempo.valor.split('-').map(Number);
@@ -56,11 +55,17 @@ export default function TabFaturamento({
     if (filtroTempo.tipo === 'mes') return filtroTempo.valor < getMesAtual();
     return false; 
   };
-  // -----------------------------------------
 
   const totalComandas = comandasFiltradas.length;
   const ticketMedio = totalComandas > 0 ? (faturamentoTotal / totalComandas) : 0;
-  const rankingMaiusculo = rankingProdutos.map(p => ({ ...p, nome: p.nome.toUpperCase() }));
+  
+  // Preparando dados para Custo vs Lucro
+  const rankingMaiusculo = rankingProdutos.map(p => ({ 
+    ...p, 
+    nome: p.nome.toUpperCase(),
+    custo: Math.max(0, p.valor - (p.lucro || 0)), // Garante que o custo seja calculado
+    lucro: p.lucro || 0
+  }));
 
   const { mediaHistorica, diffAbsoluta, percentualReal, percentualBarra, bateuMeta, semHistorico } = useMemo(() => {
     if (!comandas || comandas.length === 0) return { semHistorico: true };
@@ -162,44 +167,51 @@ export default function TabFaturamento({
     return { mapaCalor: { matriz, diasSemana, horasVisiveis }, maxCalor: localMaxCalor, topCombos: combList };
   }, [comandas, comandasFiltradas]);
 
+  let statusPerformance = "Em Análise";
+  let colorPerformance = temaNoturno ? "text-gray-400" : "text-gray-500";
+  
+  if (!semHistorico) {
+    if (percentualReal >= 120) { statusPerformance = "Excelente"; colorPerformance = "text-emerald-400"; }
+    else if (percentualReal >= 100) { statusPerformance = "Meta Atingida"; colorPerformance = "text-green-400"; }
+    else if (percentualReal >= 75) { statusPerformance = "Em Progresso"; colorPerformance = "text-amber-400"; }
+    else { statusPerformance = "Atenção"; colorPerformance = "text-red-400"; }
+  }
+
   const numCardsResumo = [widgets.bruto, widgets.lucro, widgets.ticket].filter(Boolean).length;
+  
+  // Total para calcular porcentagem das formas de pagamento
+  const totalPagamentos = dadosPizza.reduce((acc, item) => acc + item.value, 0);
 
   return (
     <div className="max-w-7xl mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
       
-      {/* CABEÇALHO IMPRENSADO COM LINHA TRACEJADA E BOTÕES SEPARADOS */}
-      <div className={`p-5 lg:p-6 pt-4 lg:pt-5 rounded-b-3xl shadow-sm border-x border-b border-t-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative transition-colors duration-500 mb-6 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-         
-         <div className={`absolute top-0 left-6 right-6 border-t border-dashed ${temaNoturno ? 'border-gray-700' : 'border-gray-200'}`}></div>
+      {/* ===== INÍCIO DA ÁREA INTOCÁVEL (TOPO) ===== */}
+      <div className={`p-4 md:p-5 rounded-b-2xl shadow-sm border-x border-b border-t-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 relative transition-colors duration-500 mb-4 md:mb-5 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+         <div className={`absolute top-0 left-5 right-5 border-t border-dashed ${temaNoturno ? 'border-gray-700' : 'border-gray-200'}`}></div>
 
-         {/* TÍTULO À ESQUERDA */}
          <div className="mt-2 md:mt-0">
-            <h2 className={`text-xl font-black uppercase tracking-wide flex items-center gap-2 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
+            <h2 className={`text-lg md:text-xl font-black uppercase tracking-wide flex items-center gap-2 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
               Resumo Financeiro
             </h2>
             <p className={`text-[10px] font-bold uppercase tracking-widest mt-1 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>
-              Faturamento e Métricas Analíticas
+              Faturamento e Métricas
             </p>
          </div>
 
-         {/* CONTROLES À DIREITA */}
-         <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto justify-end">
-            
-            {/* Seletor do Tipo de Filtro (Pills) */}
+         <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto justify-end">
             <div className={`flex p-1 rounded-xl w-full sm:w-auto border ${temaNoturno ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
               {['dia', '7 dias', 'mes', 'ano', 'periodo'].map(t => (
                  <button key={t} onClick={() => setFiltroTempo({...filtroTempo, tipo: t, valor: t==='dia'||t==='7 dias'?getHoje():t==='mes'?getMesAtual():getAnoAtual()})} 
-                 className={`flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition ${filtroTempo.tipo === t ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-900 text-white shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-purple-700')}`}>
+                 className={`flex-1 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase transition ${filtroTempo.tipo === t ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-900 text-white shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-purple-700')}`}>
                    {t}
                  </button>
               ))}
             </div>
 
-            {/* Input de Navegação (Separado igual ao TabFechadas) */}
             <div className="flex items-center gap-2 w-full sm:w-auto animate-in fade-in zoom-in-95 duration-300">
               {(filtroTempo.tipo === 'dia' || filtroTempo.tipo === 'mes') && (
                 <>
-                  <button onClick={() => mudarTempo(-1)} title="Anterior" className={`p-3 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all active:scale-95 ${temaNoturno ? 'bg-gray-900 border-gray-700 hover:bg-gray-700 text-gray-300' : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-600'}`}>
+                  <button onClick={() => mudarTempo(-1)} title="Anterior" className={`p-2.5 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all active:scale-95 ${temaNoturno ? 'bg-gray-900 border-gray-700 hover:bg-gray-700 text-gray-300' : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-600'}`}>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
                   </button>
                   <input 
@@ -207,53 +219,51 @@ export default function TabFaturamento({
                     value={filtroTempo.valor} 
                     max={filtroTempo.tipo === 'dia' ? getHoje() : getMesAtual()}
                     onChange={e => setFiltroTempo({...filtroTempo, valor: e.target.value})} 
-                    className={`w-full md:w-40 px-3 py-3 text-center border rounded-xl outline-none text-xs font-bold transition-colors focus:border-purple-500 ${temaNoturno ? 'bg-gray-900 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'}`} 
+                    className={`w-full md:w-36 px-2 py-2.5 text-center border rounded-xl outline-none text-[11px] font-bold transition-colors focus:border-purple-500 ${temaNoturno ? 'bg-gray-900 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'}`} 
                   />
                   {podeAvancar() ? (
-                    <button onClick={() => mudarTempo(1)} title="Seguinte" className={`p-3 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all active:scale-95 ${temaNoturno ? 'bg-gray-900 border-gray-700 hover:bg-gray-700 text-gray-300' : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-600'}`}>
+                    <button onClick={() => mudarTempo(1)} title="Seguinte" className={`p-2.5 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all active:scale-95 ${temaNoturno ? 'bg-gray-900 border-gray-700 hover:bg-gray-700 text-gray-300' : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-600'}`}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
                     </button>
                   ) : (
-                    <div className="w-[42px]"></div>
+                    <div className="w-[38px]"></div>
                   )}
                 </>
               )}
               {filtroTempo.tipo === 'ano' && (
-                <input type="number" value={filtroTempo.valor} onChange={e => setFiltroTempo({...filtroTempo, valor: e.target.value})} className={`w-full md:w-32 px-3 py-3 text-center border rounded-xl outline-none text-xs font-bold transition-colors focus:border-purple-500 ${temaNoturno ? 'bg-gray-900 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200'}`} />
+                <input type="number" value={filtroTempo.valor} onChange={e => setFiltroTempo({...filtroTempo, valor: e.target.value})} className={`w-full md:w-28 px-2 py-2.5 text-center border rounded-xl outline-none text-[11px] font-bold transition-colors focus:border-purple-500 ${temaNoturno ? 'bg-gray-900 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200'}`} />
               )}
               {filtroTempo.tipo === 'periodo' && (
-                <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${temaNoturno ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-                  <input type="date" value={filtroTempo.inicio} onChange={e => setFiltroTempo({...filtroTempo, inicio: e.target.value})} className={`bg-transparent outline-none text-xs font-bold w-full ${temaNoturno ? 'text-white [color-scheme:dark]' : 'text-gray-700'}`} />
-                  <span className={`font-bold text-[10px] uppercase ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>até</span>
-                  <input type="date" value={filtroTempo.fim} onChange={e => setFiltroTempo({...filtroTempo, fim: e.target.value})} className={`bg-transparent outline-none text-xs font-bold w-full ${temaNoturno ? 'text-white [color-scheme:dark]' : 'text-gray-700'}`} />
+                <div className={`flex items-center gap-2 px-2 py-2 rounded-xl border ${temaNoturno ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                  <input type="date" value={filtroTempo.inicio} onChange={e => setFiltroTempo({...filtroTempo, inicio: e.target.value})} className={`bg-transparent outline-none text-[10px] font-bold w-full ${temaNoturno ? 'text-white [color-scheme:dark]' : 'text-gray-700'}`} />
+                  <span className={`font-bold text-[9px] uppercase ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>até</span>
+                  <input type="date" value={filtroTempo.fim} onChange={e => setFiltroTempo({...filtroTempo, fim: e.target.value})} className={`bg-transparent outline-none text-[10px] font-bold w-full ${temaNoturno ? 'text-white [color-scheme:dark]' : 'text-gray-700'}`} />
                 </div>
               )}
             </div>
 
-            {/* Botão de Visuais do Painel (Engrenagem/Ajustes) */}
             <button 
               onClick={() => setMostrarMenuPersonalizar(!mostrarMenuPersonalizar)} 
               title="Personalizar Painel"
-              className={`p-3 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all active:scale-95 ${temaNoturno ? (mostrarMenuPersonalizar ? 'bg-purple-600 border-purple-600 text-white' : 'bg-gray-900 border-gray-700 hover:bg-gray-700 text-gray-300') : (mostrarMenuPersonalizar ? 'bg-purple-100 border-purple-200 text-purple-700' : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-600')}`}
+              className={`p-2.5 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all active:scale-95 ${temaNoturno ? (mostrarMenuPersonalizar ? 'bg-purple-600 border-purple-600 text-white' : 'bg-gray-900 border-gray-700 hover:bg-gray-700 text-gray-300') : (mostrarMenuPersonalizar ? 'bg-purple-100 border-purple-200 text-purple-700' : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-600')}`}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
             </button>
-
          </div>
       </div>
+      {/* ===== FIM DA ÁREA INTOCÁVEL (TOPO) ===== */}
 
-      {/* PAINEL DE VISUAIS EXPANSÍVEL */}
       {mostrarMenuPersonalizar && (
-        <div className={`p-4 rounded-3xl border mb-6 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 animate-in fade-in slide-in-from-top-2 duration-300 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
+        <div className={`p-3 rounded-2xl border mb-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 animate-in fade-in slide-in-from-top-2 duration-300 ${temaNoturno ? 'bg-gray-800/80 border-gray-700' : 'bg-white/80 border-gray-200 backdrop-blur-md'}`}>
           {[
             { id: 'bruto', label: 'Fat. Bruto' }, { id: 'lucro', label: 'Lucro Bruto' }, { id: 'ticket', label: 'Ticket Médio' }, { id: 'termometro', label: 'Termômetro' }, 
             { id: 'pagamentos', label: 'Pagamentos' }, { id: 'produtos', label: 'Rentabilidade' }, { id: 'mapaCalor', label: 'Mapa Calor' }, { id: 'combo', label: 'Cesta Média' }
           ].map(item => (
-            <label key={item.id} className={`flex flex-col items-center justify-center p-3 rounded-xl border cursor-pointer transition select-none ${widgets[item.id] ? (temaNoturno ? 'bg-purple-900/50 border-purple-500/50 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-800') : (temaNoturno ? 'bg-gray-900 border-gray-700 hover:bg-gray-800 text-gray-500' : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-400')}`}>
+            <label key={item.id} className={`flex flex-col items-center justify-center p-2 rounded-xl border cursor-pointer transition-all select-none ${widgets[item.id] ? (temaNoturno ? 'bg-purple-600/20 border-purple-500/50 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.2)]' : 'bg-purple-50 border-purple-300 text-purple-700 shadow-sm') : (temaNoturno ? 'bg-gray-900 border-gray-700 hover:bg-gray-800 text-gray-500' : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-400')}`}>
               <input type="checkbox" checked={widgets[item.id]} onChange={() => toggleWidget(item.id)} className="hidden" />
-              <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded flex-shrink-0 border flex items-center justify-center ${widgets[item.id] ? 'bg-purple-500 border-purple-500' : (temaNoturno ? 'border-gray-600' : 'border-gray-300')}`}>
-                  {widgets[item.id] && <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>}
+              <div className="flex items-center gap-1.5">
+                <div className={`w-3 h-3 rounded-sm flex-shrink-0 border flex items-center justify-center transition-colors ${widgets[item.id] ? 'bg-purple-500 border-purple-500' : (temaNoturno ? 'border-gray-600 bg-gray-800' : 'border-gray-300 bg-white')}`}>
+                  {widgets[item.id] && <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7"></path></svg>}
                 </div>
                 <span className="text-[9px] font-black uppercase tracking-widest text-center">{item.label}</span>
               </div>
@@ -262,79 +272,91 @@ export default function TabFaturamento({
         </div>
       )}
 
-      {/* ÁREA DOS WIDGETS */}
-      <div className="flex flex-col w-full min-w-0">
+      {/* ÁREA DE MÉTRICAS (GRID INTELIGENTE E COMPACTO) */}
+      <div className="flex flex-col w-full min-w-0 gap-3">
         
+        {/* LINHA 1: KPIs Principais (3 colunas lado a lado sempre no mobile) */}
         {numCardsResumo > 0 && (
-          <div className={`grid grid-cols-1 md:grid-cols-${numCardsResumo} gap-4 mb-4`}>
+          <div className={`grid grid-cols-3 gap-2 md:gap-4`}>
             {widgets.bruto && (
-              <div className={`p-6 rounded-3xl shadow-sm border flex flex-col justify-center items-start relative overflow-hidden group ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-50 bg-purple-500/10"></div>
-                <h3 className={`text-[10px] font-black uppercase tracking-widest mb-1 relative z-10 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Faturamento Bruto</h3>
-                <p className={`text-3xl md:text-4xl font-black tracking-tight relative z-10 ${temaNoturno ? 'text-white' : 'text-purple-900'}`}>R$ {faturamentoTotal.toFixed(2)}</p>
+              <div className={`p-3 md:p-5 rounded-[1.25rem] border relative overflow-hidden group ${temaNoturno ? 'bg-gray-800/90 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+                <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-20 bg-purple-500 blur-2xl group-hover:opacity-40 transition-opacity"></div>
+                <div className="flex items-center gap-1.5 mb-1.5 md:mb-2 relative z-10">
+                  <svg className={`w-3.5 h-3.5 md:w-4 md:h-4 ${temaNoturno ? 'text-purple-400' : 'text-purple-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  <h3 className={`text-[8px] md:text-[10px] font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Fat. Bruto</h3>
+                </div>
+                <p className={`text-sm md:text-2xl font-black tracking-tighter relative z-10 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>R$ {faturamentoTotal.toFixed(2)}</p>
               </div>
             )}
             {widgets.lucro && (
-              <div className={`p-6 rounded-3xl shadow-sm border flex flex-col justify-center items-start relative overflow-hidden group ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-50 bg-green-500/10"></div>
-                <h3 className={`text-[10px] font-black uppercase tracking-widest mb-1 relative z-10 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Lucro Bruto Estimado</h3>
-                <p className="text-3xl md:text-4xl font-black tracking-tight relative z-10 text-green-500">R$ {lucroEstimado.toFixed(2)}</p>
+              <div className={`p-3 md:p-5 rounded-[1.25rem] border relative overflow-hidden group ${temaNoturno ? 'bg-gray-800/90 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+                <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-20 bg-emerald-500 blur-2xl group-hover:opacity-40 transition-opacity"></div>
+                <div className="flex items-center gap-1.5 mb-1.5 md:mb-2 relative z-10">
+                  <svg className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                  <h3 className={`text-[8px] md:text-[10px] font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Lucro Est.</h3>
+                </div>
+                <p className="text-sm md:text-2xl font-black tracking-tighter relative z-10 text-emerald-500">R$ {lucroEstimado.toFixed(2)}</p>
               </div>
             )}
             {widgets.ticket && (
-              <div className={`p-6 rounded-3xl shadow-sm border flex flex-col justify-center items-start relative overflow-hidden group ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-50 bg-cyan-500/10"></div>
-                <h3 className={`text-[10px] font-black uppercase tracking-widest mb-1 relative z-10 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Ticket Médio</h3>
-                <div className="relative z-10 flex items-end gap-2">
-                  <p className="text-3xl md:text-4xl font-black tracking-tight text-cyan-500">R$ {ticketMedio.toFixed(2)}</p>
-                  <p className={`text-xs font-bold mb-1 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>/ {totalComandas} cmd</p>
+              <div className={`p-3 md:p-5 rounded-[1.25rem] border relative overflow-hidden group ${temaNoturno ? 'bg-gray-800/90 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+                <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full opacity-20 bg-cyan-500 blur-2xl group-hover:opacity-40 transition-opacity"></div>
+                <div className="flex items-center gap-1.5 mb-1.5 md:mb-2 relative z-10">
+                  <svg className="w-3.5 h-3.5 md:w-4 md:h-4 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>
+                  <h3 className={`text-[8px] md:text-[10px] font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Ticket Médio</h3>
+                </div>
+                <div className="relative z-10 flex flex-col md:flex-row md:items-baseline md:gap-1.5">
+                  <p className="text-sm md:text-2xl font-black tracking-tighter text-cyan-500">R$ {ticketMedio.toFixed(2)}</p>
+                  <p className={`text-[8px] md:text-[10px] font-bold ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>/ {totalComandas} cmd</p>
                 </div>
               </div>
             )}
           </div>
         )}
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        {/* LINHA 2: Termômetro e Pagamentos (Aproveitando a largura) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
           
           {widgets.termometro && (
-            <div className={`p-6 rounded-3xl shadow-sm border flex flex-col items-center justify-between h-[300px] relative ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-              <h3 className={`text-sm w-full font-black uppercase tracking-widest mb-4 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>Performance de Vendas</h3>
+            <div className={`p-4 md:p-5 rounded-[1.25rem] border flex flex-col justify-center h-[220px] relative overflow-hidden ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+              <h3 className={`text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
+                <svg className={`w-4 h-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                Performance
+              </h3>
               
               {semHistorico ? (
-                <div className="my-auto flex flex-col items-center justify-center text-center px-4">
-                  <span className="text-4xl mb-4 opacity-50 grayscale">📊</span>
-                  <p className={`text-sm font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-300' : 'text-gray-700'}`}>Sem Comparação</p>
-                  <p className={`text-[10px] font-bold mt-2 leading-relaxed uppercase tracking-wider ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>
-                    Não há comandas registradas no <br/>período passado correspondente.
-                  </p>
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 ${temaNoturno ? 'bg-gray-900 text-gray-600' : 'bg-gray-100 text-gray-400'}`}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  </div>
+                  <p className={`text-[10px] font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Sem Base de Comparação</p>
                 </div>
               ) : (
-                <div className="flex-1 w-full flex flex-col justify-center px-1">
-                   <div className="flex justify-between items-end mb-2">
-                     <span className={`text-5xl font-black transition-colors duration-500 ${bateuMeta ? 'text-green-500' : (temaNoturno ? 'text-white' : 'text-gray-800')}`}>
+                <div className="flex-1 flex flex-col justify-center">
+                   <div className="flex justify-between items-end mb-1">
+                     <span className={`text-4xl font-black tracking-tighter ${bateuMeta ? 'text-emerald-500' : (temaNoturno ? 'text-white' : 'text-gray-900')}`}>
                         {percentualReal.toFixed(0)}%
                      </span>
-                     <span className={`text-[10px] font-bold uppercase tracking-widest mb-2 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>da Meta Base</span>
+                     <span className={`text-[9px] font-bold uppercase tracking-widest mb-1.5 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>Vs. Passado</span>
                    </div>
                    
-                   <div className={`w-full h-4 rounded-full overflow-hidden relative ${temaNoturno ? 'bg-gray-900' : 'bg-gray-200'}`}>
+                   <div className={`w-full h-2 rounded-full overflow-hidden relative mb-4 ${temaNoturno ? 'bg-gray-900' : 'bg-gray-100'}`}>
                       <div 
-                        className={`h-full rounded-full transition-all duration-1000 ${bateuMeta ? 'bg-green-500' : 'bg-purple-500'}`} 
+                        className={`h-full rounded-full transition-all duration-1000 ${bateuMeta ? 'bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-purple-500'}`} 
                         style={{ width: `${percentualBarra}%` }}>
                       </div>
                    </div>
                    
-                   <div className={`mt-8 p-4 rounded-2xl border flex items-center justify-between transition-colors ${bateuMeta ? (temaNoturno ? 'bg-green-900/20 border-green-500/30' : 'bg-green-50 border-green-200') : (temaNoturno ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200')}`}>
-                      <div className="flex items-center gap-3">
-                         <span className="text-2xl">{bateuMeta ? '📈' : '📉'}</span>
-                         <div className="flex flex-col">
-                            <span className={`text-[10px] font-black uppercase tracking-widest ${bateuMeta ? 'text-green-600' : (temaNoturno ? 'text-gray-500' : 'text-gray-500')}`}>
-                               {bateuMeta ? 'Meta Atingida' : 'Abaixo da Média'}
-                            </span>
-                            <span className={`text-sm font-bold mt-0.5 ${bateuMeta ? 'text-green-500' : (temaNoturno ? 'text-gray-400' : 'text-gray-700')}`}>
-                               {bateuMeta ? `+ R$ ${diffAbsoluta.toFixed(2)} acima` : `Faltam R$ ${diffAbsoluta.toFixed(2)}`}
-                            </span>
-                         </div>
+                   <div className={`p-3 rounded-xl border flex items-center justify-between ${temaNoturno ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="flex flex-col">
+                          <span className={`text-[8px] font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>Status</span>
+                          <span className={`text-[11px] font-bold mt-0.5 ${colorPerformance}`}>{statusPerformance}</span>
+                      </div>
+                      <div className="flex flex-col text-right">
+                          <span className={`text-[8px] font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>Diferença</span>
+                          <span className={`text-[11px] font-bold mt-0.5 ${bateuMeta ? 'text-emerald-500' : 'text-red-500'}`}>
+                              {bateuMeta ? `+ R$ ${diffAbsoluta.toFixed(2)}` : `- R$ ${diffAbsoluta.toFixed(2)}`}
+                          </span>
                       </div>
                    </div>
                 </div>
@@ -343,93 +365,120 @@ export default function TabFaturamento({
           )}
 
           {widgets.pagamentos && (
-            <div className={`p-6 rounded-3xl shadow-sm border flex flex-col h-[300px] ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-              <h3 className={`text-sm font-black uppercase mb-2 text-center tracking-widest ${temaNoturno ? 'text-white' : 'text-purple-900'}`}>Formas de Pagamento</h3>
+            <div className={`lg:col-span-2 p-4 md:p-5 rounded-[1.25rem] border flex flex-col h-[220px] ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+              <h3 className={`text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
+                <svg className={`w-4 h-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                Formas de Pagamento
+              </h3>
+              
               {dadosPizza.length > 0 ? (
-                <div className="flex-1 w-full relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={dadosPizza} innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value" stroke="none">
-                        {dadosPizza.map((e, i) => <Cell key={i} fill={CORES_VIBRANTES[i % CORES_VIBRANTES.length]} />)}
-                      </Pie>
-                      <RechartsTooltip formatter={(val) => `R$ ${val.toFixed(2)}`} contentStyle={{ borderRadius: '12px', border: 'none', backgroundColor: temaNoturno ? '#1f2937' : '#ffffff', color: temaNoturno ? '#ffffff' : '#000000', fontWeight: 'bold' }} />
-                      <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', color: temaNoturno ? '#e5e7eb' : '#374151' }} />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="flex-1 w-full overflow-y-auto pr-2 scrollbar-hide flex flex-col justify-center gap-3">
+                  {dadosPizza.sort((a,b) => b.value - a.value).map((item, idx) => {
+                    const percent = ((item.value / totalPagamentos) * 100).toFixed(1);
+                    const isFidelidade = item.name === 'Fidelidade';
+                    return (
+                      <div key={idx} className="flex flex-col">
+                        <div className="flex justify-between items-end mb-1">
+                          <span className={`text-[10px] font-bold uppercase tracking-widest ${isFidelidade ? 'text-purple-500' : (temaNoturno ? 'text-gray-300' : 'text-gray-700')}`}>
+                            {item.name}
+                          </span>
+                          <div className="flex items-center gap-2">
+                             <span className={`text-[10px] font-black ${isFidelidade ? 'text-purple-500' : (temaNoturno ? 'text-white' : 'text-gray-900')}`}>R$ {item.value.toFixed(2)}</span>
+                             <span className={`text-[9px] font-bold ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>({percent}%)</span>
+                          </div>
+                        </div>
+                        <div className={`w-full h-1.5 rounded-full overflow-hidden ${temaNoturno ? 'bg-gray-900' : 'bg-gray-100'}`}>
+                          <div className={`h-full rounded-full transition-all duration-700 ${isFidelidade ? 'bg-purple-500' : 'bg-emerald-500'}`} style={{ width: `${percent}%` }}></div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
-                <div className={`flex-1 flex items-center justify-center text-xs font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Sem dados</div>
+                <div className={`flex-1 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Sem recebimentos</div>
               )}
             </div>
           )}
 
+        </div>
+
+        {/* LINHA 3: Produtos Rentáveis e Mapa de Calor */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
+          
           {widgets.produtos && (
-            <div className={`p-6 rounded-3xl shadow-sm border flex flex-col h-[300px] ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-              <h3 className={`text-sm font-black uppercase mb-2 text-center tracking-widest ${temaNoturno ? 'text-white' : 'text-purple-900'}`}>Produtos Mais Rentáveis</h3>
+            <div className={`lg:col-span-2 p-4 md:p-5 rounded-[1.25rem] border flex flex-col h-[280px] ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
+                  <svg className={`w-4 h-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                  Rentabilidade (Lucro vs Custo)
+                </h3>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500"></span><span className={`text-[8px] font-bold uppercase ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Lucro</span></div>
+                  <div className="flex items-center gap-1"><span className={`w-2 h-2 rounded-sm ${temaNoturno ? 'bg-gray-600' : 'bg-gray-300'}`}></span><span className={`text-[8px] font-bold uppercase ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Custo</span></div>
+                </div>
+              </div>
+              
               {rankingMaiusculo.length > 0 ? (
-                <div className="flex-1 w-full overflow-y-auto pr-2 scrollbar-hide">
-                  <div style={{ height: Math.max(200, rankingMaiusculo.length * 40) }}>
+                <div className="flex-1 w-full overflow-y-auto pr-1 scrollbar-hide">
+                  <div style={{ height: Math.max(200, rankingMaiusculo.length * 35) }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={rankingMaiusculo} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }}>
+                      <BarChart data={rankingMaiusculo} layout="vertical" margin={{ top: 0, right: 20, left: -25, bottom: 0 }}>
                         <XAxis type="number" hide />
-                        <YAxis dataKey="nome" type="category" axisLine={false} tickLine={false} tick={{fill: temaNoturno ? '#9ca3af' : '#6b7280', fontSize: 10, fontWeight: 'bold'}} width={120} />
+                        <YAxis dataKey="nome" type="category" axisLine={false} tickLine={false} tick={{fill: temaNoturno ? '#9ca3af' : '#6b7280', fontSize: 9, fontWeight: '900'}} width={120} />
                         <RechartsTooltip 
-                          cursor={{fill: temaNoturno ? '#374151' : '#f3f4f6'}} 
+                          cursor={{fill: temaNoturno ? '#37415150' : '#f3f4f680', radius: 8}} 
                           content={({ active, payload }) => {
                             if (active && payload && payload.length) {
                               const data = payload[0].payload;
                               return (
-                                <div className={`p-4 shadow-xl rounded-2xl border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                                  <p className={`text-xs font-black mb-1 ${temaNoturno ? 'text-white' : 'text-purple-900'}`}>{data.nome}</p>
-                                  <p className="text-sm font-bold text-green-500">Receita: R$ {data.valor.toFixed(2)}</p>
-                                  <p className={`text-[10px] font-bold uppercase mt-2 border-t pt-1 ${temaNoturno ? 'border-gray-700 text-gray-400' : 'border-gray-100 text-gray-500'}`}>
-                                    {data.isPeso ? `Volume: ${(data.volume / 1000).toFixed(3)} kg` : `Vendidos: ${data.volume} unid.`}
-                                  </p>
+                                <div className={`p-3 shadow-2xl rounded-xl border backdrop-blur-md ${temaNoturno ? 'bg-gray-900/90 border-gray-700' : 'bg-white/90 border-gray-200'}`}>
+                                  <p className={`text-[10px] font-black uppercase mb-1.5 border-b pb-1 ${temaNoturno ? 'text-white border-gray-700' : 'text-gray-900 border-gray-100'}`}>{data.nome}</p>
+                                  <p className="text-[10px] font-bold text-emerald-500 flex justify-between gap-4"><span>Lucro:</span> <span>R$ {data.lucro.toFixed(2)}</span></p>
+                                  <p className={`text-[10px] font-bold flex justify-between gap-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}><span>Custo:</span> <span>R$ {data.custo.toFixed(2)}</span></p>
+                                  <p className={`text-[10px] font-black mt-1 flex justify-between gap-4 ${temaNoturno ? 'text-gray-300' : 'text-gray-700'}`}><span>Receita Total:</span> <span>R$ {data.valor.toFixed(2)}</span></p>
                                 </div>
                               );
                             }
                             return null;
                           }}
                         />
-                        <Bar dataKey="valor" radius={[0, 4, 4, 0]} barSize={20} label={{ position: 'right', formatter: (val) => `R$ ${val.toFixed(2)}`, fill: temaNoturno ? '#9ca3af' : '#6b7280', fontSize: 10, fontWeight: 'bold' }}>
-                          {rankingMaiusculo.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={CORES_VIBRANTES[index % CORES_VIBRANTES.length]} />
-                          ))}
-                        </Bar>
+                        {/* Barras Empilhadas: Primeiro Custo, depois Lucro por cima */}
+                        <Bar dataKey="custo" stackId="a" fill={temaNoturno ? '#4b5563' : '#d1d5db'} radius={[0, 0, 0, 0]} barSize={14} />
+                        <Bar dataKey="lucro" stackId="a" fill="#10b981" radius={[0, 4, 4, 0]} barSize={14} />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
               ) : (
-                <div className={`flex-1 flex items-center justify-center text-sm font-bold ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Sem vendas no período</div>
+                <div className={`flex-1 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Sem vendas no período</div>
               )}
             </div>
           )}
           
           {widgets.mapaCalor && (
-            <div className={`p-6 rounded-3xl shadow-sm border flex flex-col h-[300px] overflow-hidden ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-              <h3 className={`text-sm font-black uppercase tracking-widest mb-4 flex items-center gap-2 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
-                <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                Mapa de Calor (Pico)
+            <div className={`p-4 md:p-5 rounded-[1.25rem] border flex flex-col h-[280px] overflow-hidden ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+              <h3 className={`text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
+                <svg className={`w-4 h-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Picos de Venda
               </h3>
               {maxCalor > 0 ? (
                 <div className="flex-1 w-full overflow-x-auto scrollbar-hide flex flex-col justify-center">
-                  <div className="min-w-[400px]">
-                    <div className="grid grid-cols-8 gap-1 mb-2 text-[10px] font-bold text-center uppercase tracking-widest text-gray-400">
+                  <div className="min-w-[280px]">
+                    <div className="grid grid-cols-8 gap-1 mb-1.5 text-[8px] font-black text-center uppercase tracking-widest text-gray-400">
                       <div></div>
                       {mapaCalor.horasVisiveis.map(h => <div key={h}>{h}h</div>)}
                     </div>
                     {mapaCalor.diasSemana.map((dia, idx) => (
-                      <div key={dia} className="grid grid-cols-8 gap-0.5 mb-0.5">
-                        <div className={`flex items-center text-[10px] font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>{dia}</div>
+                      <div key={dia} className="grid grid-cols-8 gap-1 mb-1">
+                        <div className={`flex items-center text-[8px] font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>{dia}</div>
                         {mapaCalor.horasVisiveis.map(h => {
                           const qtd = mapaCalor.matriz[idx][h];
                           const intensidade = qtd === 0 ? 0 : Math.max(0.15, qtd / maxCalor);
                           return (
                             <div 
-                              key={`${dia}-${h}`} title={`${qtd} comandas criadas às ${h}h`}
-                              className={`h-6 rounded-md transition-all cursor-crosshair ${temaNoturno ? '' : 'border border-gray-50'}`}
-                              style={{ backgroundColor: qtd > 0 ? `rgba(147, 51, 234, ${intensidade})` : (temaNoturno ? '#374151' : '#f9fafb') }}
+                              key={`${dia}-${h}`} title={`${qtd} comandas às ${h}h`}
+                              className={`h-5 rounded-[4px] transition-all cursor-crosshair border ${temaNoturno ? 'border-gray-800' : 'border-white'}`}
+                              style={{ backgroundColor: qtd > 0 ? `rgba(168, 85, 247, ${intensidade})` : (temaNoturno ? '#1f2937' : '#f3f4f6') }}
                             ></div>
                           );
                         })}
@@ -437,34 +486,38 @@ export default function TabFaturamento({
                     ))}
                   </div>
                 </div>
-              ) : <div className={`flex-1 flex items-center justify-center text-xs font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Dados insuficientes.</div>}
+              ) : <div className={`flex-1 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Dados insuficientes</div>}
             </div>
           )}
 
         </div>
 
+        {/* LINHA 4: Análise de Cesta */}
         {widgets.combo && (
-          <div className={`p-6 rounded-3xl shadow-sm border flex flex-col mb-4 min-h-[200px] ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-            <h3 className={`text-sm font-black uppercase mb-4 tracking-widest flex items-center gap-2 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
-              <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+          <div className={`p-4 md:p-5 rounded-[1.25rem] border flex flex-col mb-2 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+            <h3 className={`text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
+              <svg className={`w-4 h-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
               Análise de Cesta (Cross-Sell)
             </h3>
             {topCombos.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
                 {topCombos.map((combo, idx) => {
                   const [p1, p2] = combo.nome.split(' + ');
                   return (
-                    <div key={idx} className={`p-3 rounded-xl border flex items-center justify-between ${temaNoturno ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-                      <div className="flex flex-col">
-                        <span className={`text-[11px] font-black uppercase ${temaNoturno ? 'text-gray-200' : 'text-gray-800'}`}>{p1}</span>
-                        <span className={`text-[10px] font-bold mt-0.5 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>+ {p2}</span>
+                    <div key={idx} className={`p-3 rounded-xl border flex flex-col gap-1 transition-all hover:-translate-y-0.5 hover:shadow-md ${temaNoturno ? 'bg-gray-900/50 border-gray-700 hover:border-purple-500/50' : 'bg-gray-50 border-gray-200 hover:border-purple-300'}`}>
+                      <div className="flex justify-between items-start">
+                        <span className={`text-[9px] font-black uppercase line-clamp-1 ${temaNoturno ? 'text-gray-200' : 'text-gray-800'}`} title={p1}>{p1}</span>
+                        <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md shrink-0 ml-2 ${temaNoturno ? 'bg-purple-900/40 text-purple-400 border border-purple-800/50' : 'bg-purple-100 text-purple-700 border border-purple-200'}`}>{combo.qtd}x</span>
                       </div>
-                      <span className={`text-[10px] font-black uppercase px-2 py-1 rounded-md ${temaNoturno ? 'bg-gray-800 text-purple-400 border border-gray-700' : 'bg-white text-purple-700 border border-purple-100'}`}>{combo.qtd}x</span>
+                      <span className={`text-[9px] font-bold flex items-center gap-1 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>
+                        <svg className="w-2.5 h-2.5 text-purple-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"></path></svg>
+                        <span className="line-clamp-1" title={p2}>{p2}</span>
+                      </span>
                     </div>
                   );
                 })}
               </div>
-            ) : <div className={`flex-1 flex items-center justify-center text-xs font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Faça vendas combinadas para análise.</div>}
+            ) : <div className={`flex-1 flex items-center justify-center p-4 text-[10px] font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Faça vendas combinadas para análise.</div>}
           </div>
         )}
 

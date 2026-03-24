@@ -408,10 +408,29 @@ export default function Home() {
     }
     
     const todosPagos = novosProdutos.length > 0 && novosProdutos.every(p => p.pago);
-    const valorRegistrado = isFidelidade ? 0 : valorFinal;
-    const payloadPagamento = { comanda_id: idSelecionado, valor: valorRegistrado, forma: formaPagamento, data: getHoje(), empresa_id: sessao.empresa_id };
     
-    const { data: pgData, error: errPg } = await supabase.from('pagamentos').insert([payloadPagamento]).select().single();
+    // Geração de Payloads de Pagamento garantindo a extração da string em vez de arrays/json.
+    let formasParaInserir = [];
+    if (Array.isArray(formaPagamento)) {
+        formasParaInserir = formaPagamento.map(p => ({
+            comanda_id: idSelecionado,
+            valor: isFidelidade ? 0 : p.valor,
+            forma: String(p.forma), // Garantindo sempre formato string
+            data: getHoje(),
+            empresa_id: sessao.empresa_id
+        }));
+    } else {
+        formasParaInserir = [{
+            comanda_id: idSelecionado,
+            valor: isFidelidade ? 0 : valorFinal,
+            forma: String(formaPagamento || 'Dinheiro'), // Garantindo sempre formato string
+            data: getHoje(),
+            empresa_id: sessao.empresa_id
+        }];
+    }
+    
+    const { data: pgDataArray, error: errPg } = await supabase.from('pagamentos').insert(formasParaInserir).select();
+    
     if (!errPg) {
       if (idsParaPagar.length > 0) await supabase.from('comanda_produtos').update({ pago: true }).in('id', idsParaPagar);
       const horaFechamento = new Date().toISOString();
@@ -439,7 +458,15 @@ export default function Home() {
       
       setComandas(comandas.map(c => {
         if (c.id === idSelecionado) {
-           return { ...c, produtos: novosProdutos, pagamentos: [...(c.pagamentos || []), pgData], status: todosPagos ? 'fechada' : 'aberta', hora_fechamento: todosPagos ? horaFechamento : c.hora_fechamento, bairro_id: bairroId || c.bairro_id, taxa_entrega: taxaEntrega > 0 ? taxaEntrega : c.taxa_entrega };
+           return { 
+             ...c, 
+             produtos: novosProdutos, 
+             pagamentos: [...(c.pagamentos || []), ...(pgDataArray || [])], 
+             status: todosPagos ? 'fechada' : 'aberta', 
+             hora_fechamento: todosPagos ? horaFechamento : c.hora_fechamento, 
+             bairro_id: bairroId || c.bairro_id, 
+             taxa_entrega: taxaEntrega > 0 ? taxaEntrega : c.taxa_entrega 
+           };
         }
         return c;
       }));
@@ -499,7 +526,22 @@ export default function Home() {
   const lucroEstimado = faturamentoTotal - custoTotalFiltrado;
 
   const pagamentosFiltrados = comandasFiltradas.flatMap(c => c.pagamentos || []);
-  const pagamentosAgrupados = pagamentosFiltrados.reduce((acc, p) => { acc[p.forma] = (acc[p.forma] || 0) + p.valor; return acc; }, {});
+  const pagamentosAgrupados = pagamentosFiltrados.reduce((acc, p) => { 
+      let forma = p.forma;
+      // Adicionando um fallback robusto para contornar dados antigos salvos errados
+      if (Array.isArray(forma)) forma = forma[0]?.forma || 'Outro';
+      else if (typeof forma === 'string' && forma.startsWith('[')) {
+          try {
+              const parsed = JSON.parse(forma);
+              forma = parsed[0]?.forma || 'Outro';
+          } catch(e) { forma = 'Outro'; }
+      }
+      if(!forma) forma = 'Outro';
+      
+      acc[forma] = (acc[forma] || 0) + p.valor; 
+      return acc; 
+  }, {});
+  
   const dadosPizza = Object.keys(pagamentosAgrupados).map(key => ({ name: key, value: pagamentosAgrupados[key] })).filter(d => d.value > 0);
 
   const contagemProdutos = {};
@@ -511,10 +553,11 @@ export default function Home() {
       const nomeChave = nomeDisplay.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 
       if (!contagemProdutos[nomeChave]) { 
-        contagemProdutos[nomeChave] = { nomeDisplay: nomeDisplay.toUpperCase(), faturamento: 0, volume: 0, isPeso: isPeso }; 
+        contagemProdutos[nomeChave] = { nomeDisplay: nomeDisplay.toUpperCase(), faturamento: 0, custoTotal: 0, volume: 0, isPeso: isPeso }; 
       }
       
       contagemProdutos[nomeChave].faturamento += (p.preco || 0);
+      contagemProdutos[nomeChave].custoTotal += (p.custo || 0); // O custo está persistido
       if (isPeso) {
         const matchGramas = nomeOriginal.match(/(\d+(?:\.\d+)?)\s*g/i);
         contagemProdutos[nomeChave].volume += matchGramas ? parseFloat(matchGramas[1]) : 0;
@@ -524,7 +567,13 @@ export default function Home() {
     });
   });
   
-  const rankingProdutos = Object.values(contagemProdutos).map(item => ({ nome: item.nomeDisplay, valor: item.faturamento, volume: item.volume, isPeso: item.isPeso })).sort((a, b) => b.valor - a.valor);
+  const rankingProdutos = Object.values(contagemProdutos).map(item => ({ 
+      nome: item.nomeDisplay, 
+      valor: item.faturamento, 
+      lucro: item.faturamento - item.custoTotal, 
+      volume: item.volume, 
+      isPeso: item.isPeso 
+  })).sort((a, b) => b.valor - a.valor);
   
   if (!sessao) return <Login getHoje={getHoje} setSessao={setSessao} temaNoturno={temaNoturno} setTemaNoturno={setTemaNoturno} />; 
   if (sessao.role === 'super_admin') return <SuperAdminPainel fazerLogout={fazerLogout} temaNoturno={temaNoturno} setTemaNoturno={setTemaNoturno} />;

@@ -125,18 +125,20 @@ export default function PainelComanda({
   }, [modalAberto, produtosSeguros, comandaAtiva, setMostrarModalPeso, setMostrarModalPagamento, encerrarMesa, setIdSelecionado, alterarNomeComanda, adicionarClienteComanda, alternarTipoComanda]);
 
   const itensFiltrados = useMemo(() => {
-    if (!categoriaSelecionada?.itens) return [];
-    if (!filtroTexto) return categoriaSelecionada.itens;
-    const busca = filtroTexto.toLowerCase();
+    // Se não tem texto, mostra só a categoria atual
+    if (!filtroTexto) return categoriaSelecionada?.itens || [];
     
+    const busca = filtroTexto.toLowerCase();
     const termoBuscaReal = busca.includes('*') ? busca.split('*')[1].trim() : busca;
-    if (!termoBuscaReal) return categoriaSelecionada.itens;
+    
+    if (!termoBuscaReal) return categoriaSelecionada?.itens || [];
 
-    return categoriaSelecionada.itens.filter(p => 
+    // Busca Global: Junta os itens de TODAS as categorias da empresa se houver texto
+    return categoriasSeguras.flatMap(c => c.itens || []).filter(p => 
       p.nome.toLowerCase().includes(termoBuscaReal) || 
       (p.codigo && String(p.codigo).toLowerCase().includes(termoBuscaReal))
     );
-  }, [categoriaSelecionada, filtroTexto]);
+  }, [categoriasSeguras, categoriaSelecionada, filtroTexto]);
 
   const handleBuscaKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -155,21 +157,35 @@ export default function PainelComanda({
       if (!busca) return;
 
       let produtoEncontrado = null;
+      let idCategoriaDoProduto = null;
 
+      // Procura o produto em todas as categorias por ID ou Código
       for (const cat of categoriasSeguras) {
         if (cat.itens) {
           produtoEncontrado = cat.itens.find(p => String(p.id) === busca || (p.codigo && String(p.codigo).toLowerCase() === busca));
-          if (produtoEncontrado) break;
+          if (produtoEncontrado) {
+            idCategoriaDoProduto = cat.id;
+            break;
+          }
         }
       }
 
+      // Se não achou por código/ID exato, pega o primeiro da lista filtrada (Busca Global)
       if (!produtoEncontrado && itensFiltrados.length > 0) {
         produtoEncontrado = itensFiltrados[0];
+        // Descobre de qual categoria é esse primeiro produto encontrado
+        const catEncontrada = categoriasSeguras.find(c => c.itens?.some(i => i.id === produtoEncontrado.id));
+        if (catEncontrada) idCategoriaDoProduto = catEncontrada.id;
       }
 
       if (produtoEncontrado) {
         adicionarProdutoNaComanda(produtoEncontrado, qtd);
         setFiltroTexto('');
+        
+        // MUDA A CATEGORIA VISUALMENTE para a do produto encontrado
+        if (idCategoriaDoProduto && idCategoriaDoProduto !== filtroCategoriaCardapio) {
+          setFiltroCategoriaCardapio(idCategoriaDoProduto);
+        }
       }
     }
   };

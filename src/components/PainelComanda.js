@@ -30,7 +30,6 @@ export default function PainelComanda({
   const [quantidadesEditaveis, setQuantidadesEditaveis] = useState({});
   const inputBuscaRef = useRef(null);
 
-  // Estados para nova linha de categorias responsiva
   const [categoriasExpandidas, setCategoriasExpandidas] = useState(false);
   const categoriasContainerRef = useRef(null);
   const [precisaBotaoMais, setPrecisaBotaoMais] = useState(false);
@@ -43,10 +42,12 @@ export default function PainelComanda({
   const categoriaSelecionada = categoriasSeguras.find(c => c.id === filtroCategoriaCardapio) || categoriasSeguras[0];
 
   useEffect(() => {
-    if (inputBuscaRef.current && !modalAberto) inputBuscaRef.current.focus();
+    const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    if (inputBuscaRef.current && !modalAberto && !isMobile) {
+      inputBuscaRef.current.focus();
+    }
   }, [comandaAtiva?.id, modalAberto]);
 
-  // Listener para identificar se a barra de categorias precisa do botão de expandir
   useEffect(() => {
     const checkOverflow = () => {
       if (categoriasContainerRef.current) {
@@ -67,7 +68,6 @@ export default function PainelComanda({
       
       if (modalAberto) return;
 
-      // REMOVIDO F4 da lista de atalhos globais
       const isSpecialKey = ['F1', 'F2', 'F3', 'F5', 'F6', 'Escape', 'Enter'].includes(e.key);
       
       if (!isSpecialKey && isInput) return;
@@ -75,7 +75,9 @@ export default function PainelComanda({
       if (e.key === 'Escape') { 
         e.preventDefault(); 
         if (isInput && activeEl !== inputBuscaRef.current) {
-          inputBuscaRef.current?.focus();
+          const isMobile = window.innerWidth <= 768;
+          if (!isMobile) inputBuscaRef.current?.focus();
+          else activeEl?.blur();
         } else {
           activeEl?.blur();
           if (setIdSelecionado) setIdSelecionado(null); 
@@ -90,17 +92,18 @@ export default function PainelComanda({
            const primeiroCliente = document.querySelector('ul > li, li[class*="cursor-pointer"], div[class*="cursor-pointer"][class*="hover"], .item-cliente');
            if (primeiroCliente) {
               primeiroCliente.click();
-              setTimeout(() => {
-                inputBuscaRef.current?.focus();
-              }, 150);
+              const isMobile = window.innerWidth <= 768;
+              if (!isMobile) {
+                setTimeout(() => {
+                  inputBuscaRef.current?.focus();
+                }, 150);
+              }
            }
            return;
         }
       }
 
-      if (e.key === 'Enter' && isInput && activeEl === inputBuscaRef.current) {
-        return; 
-      }
+      if (e.key === 'Enter' && isInput && activeEl === inputBuscaRef.current) return; 
 
       if (e.key === 'F1') { e.preventDefault(); activeEl?.blur(); setMostrarModalPeso(true); }
       if (e.key === 'F2') { 
@@ -195,9 +198,7 @@ export default function PainelComanda({
 
   const handleConfirmarQuantidadeDigitada = (grupo, novaQtdeStr, indexGrupo) => {
     setQuantidadesEditaveis({...quantidadesEditaveis, [indexGrupo]: undefined});
-
     const novaQtde = parseInt(novaQtdeStr);
-    
     if (isNaN(novaQtde) || novaQtde < 0) return;
     if (novaQtde === grupo.quantidade) return;
 
@@ -220,10 +221,6 @@ export default function PainelComanda({
       return;
     }
   };
-
-  const produtosFavoritos = useMemo(() => {
-    return categoriasSeguras.flatMap(c => c?.itens || []).filter(p => p && p.favorito).slice(0, 6);
-  }, [categoriasSeguras]);
 
   const produtosAgrupados = useMemo(() => {
     const grupos = [];
@@ -257,82 +254,80 @@ export default function PainelComanda({
   return (
     <div className={`flex flex-col w-full h-[calc(100vh-140px)] min-h-[500px] animate-in zoom-in-95 duration-300 rounded-b-2xl shadow-xl border-x border-b border-t-0 overflow-hidden ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
       
-      {/* --- NOVA BARRA SUPERIOR (PESQUISA ESQUERDA, ATALHOS DIREITA) --- */}
       <div className={`w-full shrink-0 flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b min-h-[64px] ${temaNoturno ? 'bg-gray-950 border-gray-800' : 'bg-white border-gray-200'}`}>
-        
-        {/* Barra de Pesquisa */}
         <div className="w-full md:w-1/2 relative">
           <input 
               ref={inputBuscaRef} type="text" 
               placeholder="Busque pelo nome ou código do produto" 
               value={filtroTexto} onChange={(e) => setFiltroTexto(e.target.value)} onKeyDown={handleBuscaKeyDown}
-              className={`w-full p-3 pl-10 rounded-xl outline-none font-bold text-sm transition-all border ${temaNoturno ? 'bg-gray-800 border-gray-700 text-white focus:border-purple-500' : 'bg-gray-50 border-gray-300 text-black focus:border-purple-500 shadow-sm'}`}
+              className={`w-full p-3 pl-10 rounded-xl outline-none font-bold text-sm transition-all border ${temaNoturno ? 'bg-gray-800 border-gray-700 text-white focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20' : 'bg-gray-50 border-gray-300 text-black focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 shadow-sm'}`}
           />
           <svg className="w-4 h-4 absolute left-4 top-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
         </div>
 
-        {/* Barra de Atalhos Exclusiva Desktop (hidden md:flex) */}
         <div className={`hidden md:flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-400' : 'text-gray-600'}`}>
           <button onClick={() => setIdSelecionado(null)} className="hover:text-purple-500 transition-colors flex items-center gap-1.5 whitespace-nowrap">
             <kbd className={`px-1.5 py-0.5 rounded shadow-sm border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>ESC</kbd> Voltar
           </button>
-          
           <div className={`w-px h-4 ${temaNoturno ? 'bg-gray-800' : 'bg-gray-300'}`}></div>
-
           <button onClick={() => setMostrarModalPeso(true)} className="hover:text-purple-500 transition-colors flex items-center gap-1.5 whitespace-nowrap">
             <kbd className={`px-1.5 py-0.5 rounded shadow-sm border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>F1</kbd> Peso
           </button>
-          
           <button onClick={() => { if(produtosSeguros.filter(p => !p.pago).length > 0) setMostrarModalPagamento(true); }} className="hover:text-purple-500 transition-colors flex items-center gap-1.5 whitespace-nowrap">
             <kbd className={`px-1.5 py-0.5 rounded shadow-sm border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>F2</kbd> Cobrar
           </button>
-          
           <button onClick={() => { if(produtosSeguros.length > 0 && !produtosSeguros.some(p => !p.pago)) encerrarMesa(); }} className="hover:text-purple-500 transition-colors flex items-center gap-1.5 whitespace-nowrap">
             <kbd className={`px-1.5 py-0.5 rounded shadow-sm border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>F3</kbd> Encerrar
           </button>
-
           <div className={`w-px h-4 ${temaNoturno ? 'bg-gray-800' : 'bg-gray-300'}`}></div>
-          
-          {/* F4 FOI REMOVIDO DA INTERFACE */}
-
           <button onClick={() => adicionarClienteComanda(comandaAtiva.id, comandaAtiva.nome)} className="hover:text-purple-500 transition-colors flex items-center gap-1.5 whitespace-nowrap">
             <kbd className={`px-1.5 py-0.5 rounded shadow-sm border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'}`}>F5</kbd> Cliente
           </button>
         </div>
       </div>
 
-      {/* --- NOVA LINHA DE CATEGORIAS RESPONSIVA --- */}
-      <div className={`w-full shrink-0 border-b relative p-3 ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
-        <div className="flex gap-2 items-center w-full">
+      {/* NOVA LINHA DE CATEGORIAS (Ajuste Premium, Sem Cortes) */}
+      <div className={`w-full shrink-0 border-b px-3 py-3 md:py-4 ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+        <div className="flex items-center w-full relative">
           <div 
             ref={categoriasContainerRef}
-            className={`flex gap-2 overflow-hidden transition-all duration-300 w-full ${categoriasExpandidas ? 'flex-wrap max-h-[300px]' : 'flex-nowrap max-h-12 pr-24'}`}
+            className={`flex gap-2.5 overflow-hidden transition-all duration-300 w-full scrollbar-hide py-0.5 ${categoriasExpandidas ? 'flex-wrap max-h-[300px]' : 'flex-nowrap max-h-14'} ${precisaBotaoMais && !categoriasExpandidas ? 'pr-28' : ''}`}
           >
             {categoriasSeguras.map(c => c ? (
               <button 
                 key={c.id} 
                 onClick={() => { setFiltroCategoriaCardapio(c.id); setFiltroTexto(''); setCategoriasExpandidas(false); }} 
-                className={`px-4 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap ${categoriaSelecionada?.id === c.id ? (temaNoturno ? 'bg-purple-600 text-white shadow-md' : 'bg-purple-600 text-white shadow-md') : (temaNoturno ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-700' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200')}`}
+                className={`px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-widest transition-all duration-200 whitespace-nowrap outline-none border ${
+                  categoriaSelecionada?.id === c.id 
+                    ? (temaNoturno 
+                        ? 'bg-green-500/10 border-green-500/50 text-green-400 shadow-[0_2px_10px_rgba(34,197,94,0.15)]' 
+                        : 'bg-green-50 border-green-400 text-green-700 shadow-[0_2px_10px_rgba(34,197,94,0.15)]') 
+                    : (temaNoturno 
+                        ? 'bg-gray-800/50 border-transparent text-gray-400 hover:bg-gray-800 hover:text-gray-200 hover:border-gray-700' 
+                        : 'bg-white border-transparent text-gray-500 hover:bg-gray-50 hover:text-gray-800 hover:border-gray-200 shadow-sm')
+                }`}
               >
                 {c.nome}
               </button>
             ) : null)}
           </div>
           
-          {/* Botão para Expandir Categorias no mobile ou telas pequenas */}
+          {/* Botão para Expandir Categorias com Máscara Gradiente */}
           {precisaBotaoMais && !categoriasExpandidas && (
-            <button 
-              onClick={() => setCategoriasExpandidas(true)} 
-              className={`absolute right-0 top-0 h-full px-4 font-black text-[10px] uppercase tracking-widest flex items-center shadow-[-10px_0_15px_rgba(0,0,0,0.1)] transition-colors ${temaNoturno ? 'bg-gray-900 text-purple-400 hover:text-purple-300' : 'bg-gray-50 text-purple-600 hover:text-purple-700'}`}
-            >
-              + Categorias
-            </button>
+            <div className={`absolute right-0 inset-y-0 z-10 flex items-center pl-14 pr-1 pointer-events-none ${temaNoturno ? 'bg-gradient-to-l from-gray-900 via-gray-900 to-transparent' : 'bg-gradient-to-l from-gray-50 via-gray-50 to-transparent'}`}>
+              <button 
+                onClick={() => setCategoriasExpandidas(true)} 
+                className={`pointer-events-auto flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-md transition-all duration-200 active:scale-95 border ${temaNoturno ? 'bg-gray-800 border-gray-700 text-gray-300 hover:border-green-500/50 hover:text-green-400' : 'bg-white border-gray-200 text-gray-600 hover:border-green-400 hover:text-green-700 hover:shadow-lg'}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                Mais
+              </button>
+            </div>
           )}
         </div>
       </div>
       
       <div className="flex-1 flex flex-col md:flex-row min-h-0">
-        
         <div className={`md:hidden flex p-1 mx-4 mt-4 rounded-xl shrink-0 border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
           <button onClick={() => setAbaDetalheMobile('menu')} className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${abaDetalheMobile === 'menu' ? (temaNoturno ? 'bg-gray-700 text-purple-400 shadow-sm' : 'bg-white text-purple-700 shadow-sm') : 'text-gray-500'}`}>Cardápio</button>
           <button onClick={() => setAbaDetalheMobile('resumo')} className={`flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all flex items-center justify-center gap-2 ${abaDetalheMobile === 'resumo' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-500'}`}>
@@ -341,11 +336,7 @@ export default function PainelComanda({
         </div>
         
         <div className={`w-full md:w-[60%] lg:w-[65%] flex flex-col h-full min-h-0 border-r ${abaDetalheMobile === 'menu' ? 'flex' : 'hidden md:flex'} ${temaNoturno ? 'border-gray-800' : 'border-gray-100'}`}>
-          
-          {/* Pesquisa e Categorias foram movidas para a Global Top Bar */}
-
           <div className="flex-1 overflow-y-auto min-h-0 p-4 pb-10 scrollbar-hide">
-            
             <button onClick={() => setMostrarModalPeso(true)} className={`w-full flex justify-between items-center p-4 mb-6 rounded-xl border transition-all active:scale-95 shadow-sm group ${temaNoturno ? 'bg-gray-800 border-gray-700 hover:border-purple-500 text-gray-200' : 'bg-white border-gray-200 hover:border-purple-400 text-gray-800'}`}>
                <div className="flex flex-col text-left">
                  <span className="font-bold text-sm">Adicionar Produto por Peso <span className="opacity-70 text-purple-500 ml-1 hidden md:inline">[F1]</span></span>

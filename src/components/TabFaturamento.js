@@ -59,25 +59,26 @@ export default function TabFaturamento({
   const totalComandas = comandasFiltradas.length;
   const ticketMedio = totalComandas > 0 ? (faturamentoTotal / totalComandas) : 0;
   
-  // Preparando dados para Custo vs Lucro
   const rankingMaiusculo = rankingProdutos.map(p => ({ 
     ...p, 
     nome: p.nome.toUpperCase(),
-    custo: Math.max(0, p.valor - (p.lucro || 0)), // Garante que o custo seja calculado
+    custo: Math.max(0, p.valor - (p.lucro || 0)),
     lucro: p.lucro || 0
   }));
 
-  const { mediaHistorica, diffAbsoluta, percentualReal, percentualBarra, bateuMeta, semHistorico } = useMemo(() => {
+  const { mediaHistorica, diffAbsoluta, percentualReal, percentualBarra, bateuMeta, semHistorico, textoComparacao } = useMemo(() => {
     if (!comandas || comandas.length === 0) return { semHistorico: true };
 
     let pastStart = null;
     let pastEnd = null;
+    let textoComp = "Vs. Passado";
 
     if (filtroTempo.tipo === 'dia') {
        let d = new Date(filtroTempo.valor + 'T12:00:00');
        d.setDate(d.getDate() - 7); 
        pastStart = d.toISOString().split('T')[0];
        pastEnd = pastStart;
+       textoComp = "Vs. mesmo dia da sem. passada";
     } else if (filtroTempo.tipo === '7 dias') {
        let end = new Date(getHoje() + 'T12:00:00');
        end.setDate(end.getDate() - 7);
@@ -85,15 +86,18 @@ export default function TabFaturamento({
        start.setDate(start.getDate() - 6);
        pastStart = start.toISOString().split('T')[0];
        pastEnd = end.toISOString().split('T')[0];
+       textoComp = "Vs. 7 dias anteriores";
     } else if (filtroTempo.tipo === 'mes') {
        const [ano, mes] = filtroTempo.valor.split('-');
        let prevMes = parseInt(mes) - 1; let prevAno = parseInt(ano);
        if (prevMes === 0) { prevMes = 12; prevAno--; }
        pastStart = `${prevAno}-${String(prevMes).padStart(2, '0')}-01`;
        pastEnd = `${prevAno}-${String(prevMes).padStart(2, '0')}-31`; 
+       textoComp = "Vs. mês anterior";
     } else if (filtroTempo.tipo === 'ano') {
        pastStart = `${parseInt(filtroTempo.valor) - 1}-01-01`;
        pastEnd = `${parseInt(filtroTempo.valor) - 1}-12-31`;
+       textoComp = "Vs. ano anterior";
     }  else if (filtroTempo.tipo === 'periodo') {
        if (!filtroTempo.inicio || !filtroTempo.fim) return { semHistorico: true };
 
@@ -109,6 +113,7 @@ export default function TabFaturamento({
        
        pastStart = pStart.toISOString().split('T')[0];
        pastEnd = pEnd.toISOString().split('T')[0];
+       textoComp = "Vs. período anterior equiv.";
     }
 
     const temDadosPassados = comandas.some(c => c.data >= pastStart && c.data <= pastEnd);
@@ -127,10 +132,10 @@ export default function TabFaturamento({
     const media = somaPassada; 
     const pctReal = media > 0 ? (faturamentoTotal / media) * 100 : (faturamentoTotal > 0 ? 100 : 0);
     const pctBarra = Math.min(pctReal, 100);
-    const diferenca = Math.abs(faturamentoTotal - media);
+    const diferenca = faturamentoTotal - media;
     const bateu = faturamentoTotal >= media && faturamentoTotal > 0;
 
-    return { mediaHistorica: media, diffAbsoluta: diferenca, percentualReal: pctReal, percentualBarra: pctBarra, bateuMeta: bateu, semHistorico: false };
+    return { mediaHistorica: media, diffAbsoluta: Math.abs(diferenca), percentualReal: pctReal, percentualBarra: pctBarra, bateuMeta: bateu, semHistorico: false, textoComparacao: textoComp };
   }, [comandas, filtroTempo.tipo, filtroTempo.valor, filtroTempo.inicio, filtroTempo.fim, getHoje, faturamentoTotal]);
 
   const { mapaCalor, maxCalor, topCombos } = useMemo(() => {
@@ -167,19 +172,40 @@ export default function TabFaturamento({
     return { mapaCalor: { matriz, diasSemana, horasVisiveis }, maxCalor: localMaxCalor, topCombos: combList };
   }, [comandas, comandasFiltradas]);
 
-  let statusPerformance = "Em Análise";
-  let colorPerformance = temaNoturno ? "text-gray-400" : "text-gray-500";
-  
+  // Lógica Gamificada Premium para Status de Performance
+  let statusPerformance = "";
+  let colorPerformance = "";
+  let corBarraPremium = "";
+
   if (!semHistorico) {
-    if (percentualReal >= 120) { statusPerformance = "Excelente"; colorPerformance = "text-emerald-400"; }
-    else if (percentualReal >= 100) { statusPerformance = "Meta Atingida"; colorPerformance = "text-green-400"; }
-    else if (percentualReal >= 75) { statusPerformance = "Em Progresso"; colorPerformance = "text-amber-400"; }
-    else { statusPerformance = "Atenção"; colorPerformance = "text-red-400"; }
+    if (percentualReal === 0) {
+      statusPerformance = "Aguardando volume de dados para projeção.";
+      colorPerformance = temaNoturno ? "text-gray-400" : "text-gray-500";
+      corBarraPremium = temaNoturno ? "bg-gray-700" : "bg-gray-300";
+    } else if (percentualReal < 25) {
+      statusPerformance = "Atividade detectada. Fluxo em crescimento.";
+      colorPerformance = "text-sky-500";
+      corBarraPremium = "bg-sky-500";
+    } else if (percentualReal < 50) {
+      statusPerformance = "Consistência operacional estável. Volume em ascensão.";
+      colorPerformance = "text-amber-500";
+      corBarraPremium = "bg-amber-500";
+    } else if (percentualReal < 75) {
+      statusPerformance = "Mais da metade do objetivo alcançado. Excelente!";
+      colorPerformance = "text-orange-500";
+      corBarraPremium = "bg-orange-500";
+    } else if (percentualReal < 100) {
+      statusPerformance = "Fase de aceleração. Performance acima da média.";
+      colorPerformance = "text-emerald-400";
+      corBarraPremium = "bg-emerald-400";
+    } else {
+      statusPerformance = percentualReal >= 150 ? "Resultado acima da projeção." : "Performance superando o histórico.";
+      colorPerformance = "text-emerald-500 font-black shadow-emerald-500/50";
+      corBarraPremium = "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)]";
+    }
   }
 
   const numCardsResumo = [widgets.bruto, widgets.lucro, widgets.ticket].filter(Boolean).length;
-  
-  // Total para calcular porcentagem das formas de pagamento
   const totalPagamentos = dadosPizza.reduce((acc, item) => acc + item.value, 0);
 
   return (
@@ -202,7 +228,7 @@ export default function TabFaturamento({
             <div className={`flex p-1 rounded-xl w-full sm:w-auto border ${temaNoturno ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
               {['dia', '7 dias', 'mes', 'ano', 'periodo'].map(t => (
                  <button key={t} onClick={() => setFiltroTempo({...filtroTempo, tipo: t, valor: t==='dia'||t==='7 dias'?getHoje():t==='mes'?getMesAtual():getAnoAtual()})} 
-                 className={`flex-1 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase transition ${filtroTempo.tipo === t ? (temaNoturno ? 'bg-purple-600 text-white shadow-sm' : 'bg-purple-900 text-white shadow-sm') : (temaNoturno ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-purple-700')}`}>
+                 className={`flex-1 px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase transition-all duration-300 ${filtroTempo.tipo === t ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md border-transparent' : (temaNoturno ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-purple-700')}`}>
                    {t}
                  </button>
               ))}
@@ -219,7 +245,7 @@ export default function TabFaturamento({
                     value={filtroTempo.valor} 
                     max={filtroTempo.tipo === 'dia' ? getHoje() : getMesAtual()}
                     onChange={e => setFiltroTempo({...filtroTempo, valor: e.target.value})} 
-                    className={`w-full md:w-36 px-2 py-2.5 text-center border rounded-xl outline-none text-[11px] font-bold transition-colors focus:border-purple-500 ${temaNoturno ? 'bg-gray-900 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'}`} 
+                    className={`w-full md:w-36 px-2 py-2.5 text-center border rounded-xl outline-none text-[11px] font-bold transition-colors focus:border-purple-500 focus:ring-1 focus:ring-purple-500 ${temaNoturno ? 'bg-gray-900 border-gray-700 text-white [color-scheme:dark]' : 'bg-gray-50 border-gray-200 text-gray-900'}`} 
                   />
                   {podeAvancar() ? (
                     <button onClick={() => mudarTempo(1)} title="Seguinte" className={`p-2.5 rounded-xl border flex-shrink-0 flex items-center justify-center transition-all active:scale-95 ${temaNoturno ? 'bg-gray-900 border-gray-700 hover:bg-gray-700 text-gray-300' : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-600'}`}>
@@ -272,10 +298,10 @@ export default function TabFaturamento({
         </div>
       )}
 
-      {/* ÁREA DE MÉTRICAS (GRID INTELIGENTE E COMPACTO) */}
+      {/* ÁREA DE MÉTRICAS */}
       <div className="flex flex-col w-full min-w-0 gap-3">
         
-        {/* LINHA 1: KPIs Principais (3 colunas lado a lado sempre no mobile) */}
+        {/* LINHA 1 */}
         {numCardsResumo > 0 && (
           <div className={`grid grid-cols-3 gap-2 md:gap-4`}>
             {widgets.bruto && (
@@ -314,14 +340,14 @@ export default function TabFaturamento({
           </div>
         )}
         
-        {/* LINHA 2: Termômetro e Pagamentos (Aproveitando a largura) */}
+        {/* LINHA 2: Termômetro, Pagamentos e Mapa de Calor */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
           
           {widgets.termometro && (
-            <div className={`p-4 md:p-5 rounded-[1.25rem] border flex flex-col justify-center h-[220px] relative overflow-hidden ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+            <div className={`p-4 md:p-5 rounded-[1.25rem] border flex flex-col justify-center h-[240px] relative overflow-hidden ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
               <h3 className={`text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
                 <svg className={`w-4 h-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                Performance
+                Performance Gamificada
               </h3>
               
               {semHistorico ? (
@@ -334,16 +360,21 @@ export default function TabFaturamento({
               ) : (
                 <div className="flex-1 flex flex-col justify-center">
                    <div className="flex justify-between items-end mb-1">
-                     <span className={`text-4xl font-black tracking-tighter ${bateuMeta ? 'text-emerald-500' : (temaNoturno ? 'text-white' : 'text-gray-900')}`}>
+                     <span className={`text-4xl font-black tracking-tighter ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
                         {percentualReal.toFixed(0)}%
                      </span>
-                     <span className={`text-[9px] font-bold uppercase tracking-widest mb-1.5 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>Vs. Passado</span>
+                     <span className={`text-[9px] font-bold uppercase tracking-widest mb-1.5 ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>{textoComparacao}</span>
                    </div>
                    
-                   <div className={`w-full h-2 rounded-full overflow-hidden relative mb-4 ${temaNoturno ? 'bg-gray-900' : 'bg-gray-100'}`}>
+                   {/* Barra Premium Listrada CSS */}
+                   <div className={`w-full h-3 rounded-full overflow-hidden relative mb-4 shadow-inner ${temaNoturno ? 'bg-gray-900' : 'bg-gray-100'}`}>
                       <div 
-                        className={`h-full rounded-full transition-all duration-1000 ${bateuMeta ? 'bg-gradient-to-r from-emerald-400 to-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-purple-500'}`} 
-                        style={{ width: `${percentualBarra}%` }}>
+                        className={`h-full rounded-full transition-all duration-1000 ${corBarraPremium}`} 
+                        style={{ 
+                          width: `${percentualBarra}%`,
+                          backgroundImage: 'linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent)',
+                          backgroundSize: '1rem 1rem'
+                        }}>
                       </div>
                    </div>
                    
@@ -354,7 +385,7 @@ export default function TabFaturamento({
                       </div>
                       <div className="flex flex-col text-right">
                           <span className={`text-[8px] font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>Diferença</span>
-                          <span className={`text-[11px] font-bold mt-0.5 ${bateuMeta ? 'text-emerald-500' : 'text-red-500'}`}>
+                          <span className={`text-[11px] font-bold mt-0.5 ${bateuMeta ? 'text-emerald-500' : 'text-gray-500'}`}>
                               {bateuMeta ? `+ R$ ${diffAbsoluta.toFixed(2)}` : `- R$ ${diffAbsoluta.toFixed(2)}`}
                           </span>
                       </div>
@@ -365,25 +396,25 @@ export default function TabFaturamento({
           )}
 
           {widgets.pagamentos && (
-            <div className={`lg:col-span-2 p-4 md:p-5 rounded-[1.25rem] border flex flex-col h-[220px] ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+            <div className={`p-4 md:p-5 rounded-[1.25rem] border flex flex-col h-[240px] ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
               <h3 className={`text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
                 <svg className={`w-4 h-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                Formas de Pagamento
+                Pagamentos
               </h3>
               
               {dadosPizza.length > 0 ? (
-                <div className="flex-1 w-full overflow-y-auto pr-2 scrollbar-hide flex flex-col justify-center gap-3">
+                <div className="flex-1 w-full overflow-y-auto pr-2 scrollbar-hide flex flex-col justify-start gap-3">
                   {dadosPizza.sort((a,b) => b.value - a.value).map((item, idx) => {
                     const percent = ((item.value / totalPagamentos) * 100).toFixed(1);
                     const isFidelidade = item.name === 'Fidelidade';
                     return (
                       <div key={idx} className="flex flex-col">
                         <div className="flex justify-between items-end mb-1">
-                          <span className={`text-[10px] font-bold uppercase tracking-widest ${isFidelidade ? 'text-purple-500' : (temaNoturno ? 'text-gray-300' : 'text-gray-700')}`}>
+                          <span className={`text-[9px] font-black uppercase tracking-widest truncate max-w-[80px] ${isFidelidade ? 'text-purple-500' : (temaNoturno ? 'text-gray-300' : 'text-gray-700')}`} title={item.name}>
                             {item.name}
                           </span>
-                          <div className="flex items-center gap-2">
-                             <span className={`text-[10px] font-black ${isFidelidade ? 'text-purple-500' : (temaNoturno ? 'text-white' : 'text-gray-900')}`}>R$ {item.value.toFixed(2)}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                             <span className={`text-[10px] font-black ${isFidelidade ? 'text-purple-500' : (temaNoturno ? 'text-white' : 'text-gray-900')}`}>R$ {item.value.toFixed(0)}</span>
                              <span className={`text-[9px] font-bold ${temaNoturno ? 'text-gray-500' : 'text-gray-400'}`}>({percent}%)</span>
                           </div>
                         </div>
@@ -400,76 +431,21 @@ export default function TabFaturamento({
             </div>
           )}
 
-        </div>
-
-        {/* LINHA 3: Produtos Rentáveis e Mapa de Calor */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
-          
-          {widgets.produtos && (
-            <div className={`lg:col-span-2 p-4 md:p-5 rounded-[1.25rem] border flex flex-col h-[280px] ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
-              <div className="flex justify-between items-center mb-3">
-                <h3 className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
-                  <svg className={`w-4 h-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
-                  Rentabilidade (Lucro vs Custo)
-                </h3>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500"></span><span className={`text-[8px] font-bold uppercase ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Lucro</span></div>
-                  <div className="flex items-center gap-1"><span className={`w-2 h-2 rounded-sm ${temaNoturno ? 'bg-gray-600' : 'bg-gray-300'}`}></span><span className={`text-[8px] font-bold uppercase ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Custo</span></div>
-                </div>
-              </div>
-              
-              {rankingMaiusculo.length > 0 ? (
-                <div className="flex-1 w-full overflow-y-auto pr-1 scrollbar-hide">
-                  <div style={{ height: Math.max(200, rankingMaiusculo.length * 35) }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={rankingMaiusculo} layout="vertical" margin={{ top: 0, right: 20, left: -25, bottom: 0 }}>
-                        <XAxis type="number" hide />
-                        <YAxis dataKey="nome" type="category" axisLine={false} tickLine={false} tick={{fill: temaNoturno ? '#9ca3af' : '#6b7280', fontSize: 9, fontWeight: '900'}} width={120} />
-                        <RechartsTooltip 
-                          cursor={{fill: temaNoturno ? '#37415150' : '#f3f4f680', radius: 8}} 
-                          content={({ active, payload }) => {
-                            if (active && payload && payload.length) {
-                              const data = payload[0].payload;
-                              return (
-                                <div className={`p-3 shadow-2xl rounded-xl border backdrop-blur-md ${temaNoturno ? 'bg-gray-900/90 border-gray-700' : 'bg-white/90 border-gray-200'}`}>
-                                  <p className={`text-[10px] font-black uppercase mb-1.5 border-b pb-1 ${temaNoturno ? 'text-white border-gray-700' : 'text-gray-900 border-gray-100'}`}>{data.nome}</p>
-                                  <p className="text-[10px] font-bold text-emerald-500 flex justify-between gap-4"><span>Lucro:</span> <span>R$ {data.lucro.toFixed(2)}</span></p>
-                                  <p className={`text-[10px] font-bold flex justify-between gap-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}><span>Custo:</span> <span>R$ {data.custo.toFixed(2)}</span></p>
-                                  <p className={`text-[10px] font-black mt-1 flex justify-between gap-4 ${temaNoturno ? 'text-gray-300' : 'text-gray-700'}`}><span>Receita Total:</span> <span>R$ {data.valor.toFixed(2)}</span></p>
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
-                        />
-                        {/* Barras Empilhadas: Primeiro Custo, depois Lucro por cima */}
-                        <Bar dataKey="custo" stackId="a" fill={temaNoturno ? '#4b5563' : '#d1d5db'} radius={[0, 0, 0, 0]} barSize={14} />
-                        <Bar dataKey="lucro" stackId="a" fill="#10b981" radius={[0, 4, 4, 0]} barSize={14} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              ) : (
-                <div className={`flex-1 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Sem vendas no período</div>
-              )}
-            </div>
-          )}
-          
           {widgets.mapaCalor && (
-            <div className={`p-4 md:p-5 rounded-[1.25rem] border flex flex-col h-[280px] overflow-hidden ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+            <div className={`p-4 md:p-5 rounded-[1.25rem] border flex flex-col h-[240px] overflow-hidden ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
               <h3 className={`text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
                 <svg className={`w-4 h-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 Picos de Venda
               </h3>
               {maxCalor > 0 ? (
                 <div className="flex-1 w-full overflow-x-auto scrollbar-hide flex flex-col justify-center">
-                  <div className="min-w-[280px]">
-                    <div className="grid grid-cols-8 gap-1 mb-1.5 text-[8px] font-black text-center uppercase tracking-widest text-gray-400">
+                  <div className="min-w-[240px] mx-auto">
+                    <div className="grid grid-cols-8 gap-1 mb-1 text-[8px] font-black text-center uppercase tracking-widest text-gray-400">
                       <div></div>
                       {mapaCalor.horasVisiveis.map(h => <div key={h}>{h}h</div>)}
                     </div>
                     {mapaCalor.diasSemana.map((dia, idx) => (
-                      <div key={dia} className="grid grid-cols-8 gap-1 mb-1">
+                      <div key={dia} className="grid grid-cols-8 gap-1 mb-1 items-center">
                         <div className={`flex items-center text-[8px] font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>{dia}</div>
                         {mapaCalor.horasVisiveis.map(h => {
                           const qtd = mapaCalor.matriz[idx][h];
@@ -477,7 +453,7 @@ export default function TabFaturamento({
                           return (
                             <div 
                               key={`${dia}-${h}`} title={`${qtd} comandas às ${h}h`}
-                              className={`h-5 rounded-[4px] transition-all cursor-crosshair border ${temaNoturno ? 'border-gray-800' : 'border-white'}`}
+                              className={`h-6 sm:h-7 rounded-[4px] transition-all cursor-crosshair border ${temaNoturno ? 'border-gray-800' : 'border-white'}`}
                               style={{ backgroundColor: qtd > 0 ? `rgba(168, 85, 247, ${intensidade})` : (temaNoturno ? '#1f2937' : '#f3f4f6') }}
                             ></div>
                           );
@@ -492,34 +468,95 @@ export default function TabFaturamento({
 
         </div>
 
-        {/* LINHA 4: Análise de Cesta */}
-        {widgets.combo && (
-          <div className={`p-4 md:p-5 rounded-[1.25rem] border flex flex-col mb-2 ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
-            <h3 className={`text-[10px] font-black uppercase tracking-widest mb-3 flex items-center gap-1.5 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
-              <svg className={`w-4 h-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
-              Análise de Cesta (Cross-Sell)
-            </h3>
-            {topCombos.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
-                {topCombos.map((combo, idx) => {
-                  const [p1, p2] = combo.nome.split(' + ');
-                  return (
-                    <div key={idx} className={`p-3 rounded-xl border flex flex-col gap-1 transition-all hover:-translate-y-0.5 hover:shadow-md ${temaNoturno ? 'bg-gray-900/50 border-gray-700 hover:border-purple-500/50' : 'bg-gray-50 border-gray-200 hover:border-purple-300'}`}>
-                      <div className="flex justify-between items-start">
-                        <span className={`text-[9px] font-black uppercase line-clamp-1 ${temaNoturno ? 'text-gray-200' : 'text-gray-800'}`} title={p1}>{p1}</span>
-                        <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md shrink-0 ml-2 ${temaNoturno ? 'bg-purple-900/40 text-purple-400 border border-purple-800/50' : 'bg-purple-100 text-purple-700 border border-purple-200'}`}>{combo.qtd}x</span>
-                      </div>
-                      <span className={`text-[9px] font-bold flex items-center gap-1 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>
-                        <svg className="w-2.5 h-2.5 text-purple-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"></path></svg>
-                        <span className="line-clamp-1" title={p2}>{p2}</span>
-                      </span>
-                    </div>
-                  );
-                })}
+        {/* LINHA 3: Produtos Rentáveis e Análise de Cesta */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4 mb-2">
+          
+          {widgets.produtos && (
+            <div className={`lg:col-span-2 p-4 md:p-5 rounded-[1.25rem] border flex flex-col h-[280px] relative ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
+                  <svg className={`w-4 h-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                  Rentabilidade (Lucro vs Custo)
+                </h3>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span><span className={`text-[8px] font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-300' : 'text-gray-600'}`}>Lucro</span></div>
+                  <div className="flex items-center gap-1"><span className={`w-2 h-2 rounded-sm ${temaNoturno ? 'bg-gray-600' : 'bg-gray-300'}`}></span><span className={`text-[8px] font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Custo</span></div>
+                </div>
               </div>
-            ) : <div className={`flex-1 flex items-center justify-center p-4 text-[10px] font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Faça vendas combinadas para análise.</div>}
-          </div>
-        )}
+              
+              {rankingMaiusculo.length > 0 ? (
+                <div className="flex-1 w-full overflow-y-auto pr-1 scrollbar-hide relative">
+                  <div style={{ height: Math.max(200, rankingMaiusculo.length * 35) }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={rankingMaiusculo} layout="vertical" margin={{ top: 0, right: 20, left: -25, bottom: 0 }}>
+                        <XAxis type="number" hide />
+                        <YAxis dataKey="nome" type="category" axisLine={false} tickLine={false} tick={{fill: temaNoturno ? '#9ca3af' : '#6b7280', fontSize: 9, fontWeight: '900'}} width={120} />
+                        <RechartsTooltip 
+                          allowEscapeViewBox={{ x: false, y: true }}
+                          wrapperStyle={{ zIndex: 1000 }}
+                          cursor={{fill: temaNoturno ? '#37415150' : '#f3f4f680', radius: 8}} 
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              const data = payload[0].payload;
+                              return (
+                                <div className={`p-3 shadow-2xl rounded-xl border backdrop-blur-md ${temaNoturno ? 'bg-gray-900/95 border-gray-700' : 'bg-white/95 border-gray-200'}`}>
+                                  <p className={`text-[10px] font-black uppercase mb-1.5 border-b pb-1 ${temaNoturno ? 'text-white border-gray-700' : 'text-gray-900 border-gray-100'}`}>{data.nome}</p>
+                                  <p className="text-[10px] font-bold text-emerald-500 flex justify-between gap-4"><span>Lucro:</span> <span>R$ {data.lucro.toFixed(2)}</span></p>
+                                  <p className={`text-[10px] font-bold flex justify-between gap-4 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}><span>Custo:</span> <span>R$ {data.custo.toFixed(2)}</span></p>
+                                  <p className={`text-[10px] font-black mt-1 flex justify-between gap-4 ${temaNoturno ? 'text-gray-300' : 'text-gray-700'}`}><span>Receita Total:</span> <span>R$ {data.valor.toFixed(2)}</span></p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Bar dataKey="custo" stackId="a" fill={temaNoturno ? '#4b5563' : '#d1d5db'} radius={[0, 0, 0, 0]} barSize={16} />
+                        <Bar dataKey="lucro" stackId="a" fill="#10b981" radius={[0, 4, 4, 0]} barSize={16} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ) : (
+                <div className={`flex-1 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Sem vendas no período</div>
+              )}
+            </div>
+          )}
+
+          {widgets.combo && (
+            <div className={`p-4 md:p-5 rounded-[1.25rem] border flex flex-col h-[280px] ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+              <h3 className={`text-[10px] font-black uppercase tracking-widest mb-3 flex items-center justify-between ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
+                <div className="flex items-center gap-1.5">
+                  <svg className={`w-4 h-4 text-purple-500`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                  Cesta Média
+                </div>
+                <span className={`text-[8px] font-bold px-2 py-0.5 rounded-full ${temaNoturno ? 'bg-purple-900/50 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>Venda Casada</span>
+              </h3>
+              
+              {topCombos.length > 0 ? (
+                <div className="flex-1 w-full overflow-y-auto pr-1 scrollbar-hide flex flex-col gap-2">
+                  {topCombos.map((combo, idx) => {
+                    const [p1, p2] = combo.nome.split(' + ');
+                    return (
+                      <div key={idx} className={`p-3 rounded-xl border flex items-center justify-between transition-all hover:-translate-y-0.5 hover:shadow-md group ${temaNoturno ? 'bg-gradient-to-r from-gray-800 to-gray-900 border-gray-700 hover:border-purple-500/50' : 'bg-gradient-to-r from-white to-gray-50 border-gray-200 shadow-sm hover:border-purple-300'}`}>
+                        <div className="flex flex-col gap-1 w-full pr-2">
+                          <span className={`text-[10px] font-black uppercase line-clamp-1 ${temaNoturno ? 'text-white' : 'text-gray-900'}`} title={p1}>{p1}</span>
+                          <span className={`text-[9px] font-bold flex items-center gap-1.5 ${temaNoturno ? 'text-purple-400' : 'text-purple-600'}`}>
+                            <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"></path></svg>
+                            <span className="line-clamp-1" title={p2}>{p2}</span>
+                          </span>
+                        </div>
+                        <div className={`flex flex-col items-center justify-center min-w-[36px] h-[36px] rounded-lg border shadow-sm transition-colors ${temaNoturno ? 'bg-purple-900/40 border-purple-500/30 text-purple-300 group-hover:bg-purple-600 group-hover:text-white' : 'bg-purple-50 border-purple-200 text-purple-700 group-hover:bg-purple-600 group-hover:text-white group-hover:border-purple-600'}`}>
+                          <span className="text-[11px] font-black">{combo.qtd}x</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : <div className={`flex-1 flex items-center justify-center text-[10px] font-bold uppercase tracking-widest text-center px-4 ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Incentive vendas combinadas para obter a análise.</div>}
+            </div>
+          )}
+
+        </div>
 
       </div>
     </div>

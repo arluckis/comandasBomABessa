@@ -1,3 +1,4 @@
+// Header.jsx
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -23,21 +24,10 @@ export default function Header({
   const carregarConfiguracoes = useCallback(async () => {
     if (!sessao?.empresa_id) return;
     try {
-      const { data } = await supabase
-        .from('empresas')
-        .select('horario_abertura, horario_fechamento, localizacao')
-        .eq('id', sessao.empresa_id)
-        .single();
-      
+      const { data } = await supabase.from('empresas').select('horario_abertura, horario_fechamento, localizacao').eq('id', sessao.empresa_id).single();
       if (data) {
-        setDadosOperacionais({
-          abertura: data.horario_abertura,
-          fechamento: data.horario_fechamento,
-          local: data.localizacao
-        });
-        if (data.localizacao) {
-          processarInteligencia(data.localizacao, data.horario_abertura, data.horario_fechamento);
-        }
+        setDadosOperacionais({ abertura: data.horario_abertura, fechamento: data.horario_fechamento, local: data.localizacao });
+        if (data.localizacao) processarInteligencia(data.localizacao, data.horario_abertura, data.horario_fechamento);
       }
     } catch (err) {}
   }, [sessao?.empresa_id]);
@@ -45,26 +35,17 @@ export default function Header({
   const checarStatusCaixa = useCallback(async () => {
     if (!sessao?.empresa_id) return;
     try {
-      const { data, error } = await supabase
-        .from('caixas')
-        .select('id')
-        .eq('empresa_id', sessao.empresa_id)
-        .eq('status', 'aberto')
-        .limit(1);
-      
+      const { data, error } = await supabase.from('caixas').select('id').eq('empresa_id', sessao.empresa_id).eq('status', 'aberto').limit(1);
       if (!error) setCaixaAberto(data && data.length > 0);
     } catch (err) {}
   }, [sessao?.empresa_id]);
 
   const verificarCicloOperacional = useCallback(() => {
     if (!dadosOperacionais.fechamento || !dadosOperacionais.abertura) return;
-
     const agora = new Date();
     const currentMin = agora.getHours() * 60 + agora.getMinutes();
-
     const [hF, mF] = dadosOperacionais.fechamento.split(':').map(Number);
     const [hA, mA] = dadosOperacionais.abertura.split(':').map(Number);
-
     const fechoMin = hF * 60 + (mF || 0);
     const abroMin = hA * 60 + (mA || 0);
     const cruzaMadrugada = fechoMin < abroMin;
@@ -73,15 +54,10 @@ export default function Header({
     let minParaFechar = null;
 
     if (cruzaMadrugada) {
-      if (currentMin >= abroMin) { 
-        isAberto = true; minParaFechar = (fechoMin + 24 * 60) - currentMin;
-      } else if (currentMin <= fechoMin) { 
-        isAberto = true; minParaFechar = fechoMin - currentMin;
-      }
+      if (currentMin >= abroMin) { isAberto = true; minParaFechar = (fechoMin + 24 * 60) - currentMin; } 
+      else if (currentMin <= fechoMin) { isAberto = true; minParaFechar = fechoMin - currentMin; }
     } else {
-      if (currentMin >= abroMin && currentMin <= fechoMin) {
-        isAberto = true; minParaFechar = fechoMin - currentMin;
-      }
+      if (currentMin >= abroMin && currentMin <= fechoMin) { isAberto = true; minParaFechar = fechoMin - currentMin; }
     }
 
     setExpedienteEncerrado(!isAberto);
@@ -99,11 +75,9 @@ export default function Header({
       if (data.list && data.list.length > 0) {
         const agora = new Date();
         const horaAtual = agora.getHours();
-        
         let hInicio = abertura ? parseInt(abertura.split(':')[0]) : 17;
         let hFim = fechamento ? parseInt(fechamento.split(':')[0]) : 23;
         const cruzaMadrugada = hFim < hInicio;
-        
         let horaStartRender = horaAtual;
         const noTurnoNormal = !cruzaMadrugada && horaAtual >= hInicio && horaAtual <= hFim;
         const noTurnoMadrugada = cruzaMadrugada && (horaAtual >= hInicio || horaAtual <= hFim);
@@ -122,45 +96,24 @@ export default function Header({
           const alvoTimestamp = new Date(agora);
           alvoTimestamp.setHours(hora, 0, 0, 0);
           if (hora < horaAtual) alvoTimestamp.setDate(alvoTimestamp.getDate() + 1);
-
-          const maisProximo = data.list.reduce((prev, curr) => 
-            (Math.abs(curr.dt * 1000 - alvoTimestamp.getTime()) < Math.abs(prev.dt * 1000 - alvoTimestamp.getTime()) ? curr : prev)
-          );
-
+          const maisProximo = data.list.reduce((prev, curr) => (Math.abs(curr.dt * 1000 - alvoTimestamp.getTime()) < Math.abs(prev.dt * 1000 - alvoTimestamp.getTime()) ? curr : prev));
           const cond = maisProximo.weather[0].main.toLowerCase();
-          return {
-            horaStr: `${hora}h`,
-            temp: Math.round(maisProximo.main.temp),
-            condicao: cond,
-            isRain: cond.includes('rain') || cond.includes('drizzle') || cond.includes('thunderstorm'),
-            isCurrent: hora === horaAtual
-          };
+          return { horaStr: `${hora}h`, temp: Math.round(maisProximo.main.temp), condicao: cond, isRain: cond.includes('rain') || cond.includes('drizzle') || cond.includes('thunderstorm'), isCurrent: hora === horaAtual };
         });
 
         setLinhaDoTempo(timelineFiltrada);
-
         const novosInsights = [];
         const chuvaFutura = timelineFiltrada.find(t => t.isRain && !t.isCurrent);
         const chuvaAgora = timelineFiltrada.find(t => t.isRain && t.isCurrent);
         const calorExtremo = timelineFiltrada.some(t => t.temp >= 32);
         const ehPicoNoturno = horaAtual >= 19 && horaAtual <= 21;
-        
         let faltaPouco = (!cruzaMadrugada && (hFim - horaAtual === 1)) || (cruzaMadrugada && (horaAtual < hFim) && (hFim - horaAtual === 1));
 
-        if (chuvaAgora) {
-          novosInsights.push("Chuva detectada: provável aumento no tempo de permanência.");
-        } else if (chuvaFutura) {
-          novosInsights.push(`Previsão de instabilidade às ${chuvaFutura.horaStr}: fluxo pode se concentrar nesta janela.`);
-        } 
-        
-        if (ehPicoNoturno && !faltaPouco) {
-          novosInsights.push("Janela de pico ativa: alta densidade operacional esperada.");
-        } else if (faltaPouco) {
-          novosInsights.push("Turno na reta final: expectativa de desaceleração.");
-        } else if (!chuvaAgora && !chuvaFutura && !ehPicoNoturno) {
-          novosInsights.push("Período de estabilidade operacional.");
-        }
-
+        if (chuvaAgora) novosInsights.push("Chuva detectada: provável aumento no tempo de permanência.");
+        else if (chuvaFutura) novosInsights.push(`Previsão de instabilidade às ${chuvaFutura.horaStr}: fluxo pode se concentrar nesta janela.`);
+        if (ehPicoNoturno && !faltaPouco) novosInsights.push("Janela de pico ativa: alta densidade operacional esperada.");
+        else if (faltaPouco) novosInsights.push("Turno na reta final: expectativa de desaceleração.");
+        else if (!chuvaAgora && !chuvaFutura && !ehPicoNoturno) novosInsights.push("Período de estabilidade operacional.");
         if (calorExtremo) novosInsights.push("Clima atípico: possíveis variações de consumo no salão.");
 
         setInsights(novosInsights);
@@ -170,10 +123,7 @@ export default function Header({
     }
   };
 
-  useEffect(() => {
-    carregarConfiguracoes();
-    checarStatusCaixa();
-  }, [carregarConfiguracoes, checarStatusCaixa]);
+  useEffect(() => { carregarConfiguracoes(); checarStatusCaixa(); }, [carregarConfiguracoes, checarStatusCaixa]);
 
   useEffect(() => {
     verificarCicloOperacional();
@@ -184,35 +134,20 @@ export default function Header({
 
   useEffect(() => {
     const fila = [];
-    if (expedienteEncerrado && caixaAberto) {
-      fila.push({ id: 'critico-caixa', tipo: 'critico', icone: 'alerta', texto: 'Pendência crítica: Caixa aberto fora do expediente' });
-    }
-    if (alertaFechamento) {
-      fila.push({ id: 'warn-fecha', tipo: 'alerta', icone: 'relogio', texto: 'Fechamento operacional em 10 minutos' });
-    }
-    insights.forEach((ins, idx) => {
-      fila.push({ id: `ins-${idx}`, tipo: 'insight', icone: 'raio', texto: ins });
-    });
-
+    if (expedienteEncerrado && caixaAberto) fila.push({ id: 'critico-caixa', tipo: 'critico', icone: 'alerta', texto: 'Pendência crítica: Caixa aberto fora do expediente' });
+    if (alertaFechamento) fila.push({ id: 'warn-fecha', tipo: 'alerta', icone: 'relogio', texto: 'Fechamento operacional em 10 minutos' });
+    insights.forEach((ins, idx) => fila.push({ id: `ins-${idx}`, tipo: 'insight', icone: 'raio', texto: ins }));
     setMensagensAtivas(fila);
   }, [expedienteEncerrado, caixaAberto, alertaFechamento, insights]);
 
   useEffect(() => {
-    if (mensagensAtivas.length <= 1) {
-      setIndiceMensagem(0);
-      return;
-    }
-    const interval = setInterval(() => {
-      setIndiceMensagem(curr => (curr + 1) % mensagensAtivas.length);
-    }, 6000);
+    if (mensagensAtivas.length <= 1) { setIndiceMensagem(0); return; }
+    const interval = setInterval(() => { setIndiceMensagem(curr => (curr + 1) % mensagensAtivas.length); }, 6000);
     return () => clearInterval(interval);
   }, [mensagensAtivas.length]);
 
-
   const salvarNome = async () => {
-    if (!tempNome || !tempNome.trim() || tempNome === comandaAtiva?.nome) {
-      setEditandoNome(false); return;
-    }
+    if (!tempNome || !tempNome.trim() || tempNome === comandaAtiva?.nome) { setEditandoNome(false); return; }
     const { error } = await supabase.from('comandas').update({ nome: tempNome }).eq('id', comandaAtiva?.id);
     if (!error && fetchData) await fetchData();
     setEditandoNome(false);
@@ -225,7 +160,7 @@ export default function Header({
     if (!error && fetchData) await fetchData();
   };
 
-  const mapAbaTitulo = { comandas: 'Terminal', fechadas: 'Histórico', faturamento: 'Métricas', caixa: 'Caixa', fidelidade: 'Clientes' };
+  const mapAbaTitulo = { comandas: 'Terminal', fechadas: 'Histórico', faturamento: 'Métricas', caixa: 'Caixa Central', fidelidade: 'Clientes' };
 
   const renderIconeBanner = (iconeName) => {
     if (iconeName === 'alerta') return <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0"></div>;
@@ -241,8 +176,7 @@ export default function Header({
   };
 
   return (
-    <header className={`flex items-center justify-between px-6 h-[68px] shrink-0 border-b sticky top-0 z-40 transition-colors duration-500 backdrop-blur-2xl ${temaNoturno ? 'bg-[#09090B]/70 border-white/[0.05]' : 'bg-white/80 border-black/[0.05]'}`}>
-      
+    <header className={`flex items-center justify-between px-6 h-[68px] shrink-0 sticky top-0 z-40 transition-colors duration-500 bg-transparent backdrop-blur-[24px] border-b will-change-transform ${temaNoturno ? 'border-white/[0.04]' : 'border-black/[0.04]'}`}>
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <button onClick={() => setMenuMobileAberto(true)} className={`xl:hidden p-1.5 -ml-1.5 rounded-md transition duration-200 active:scale-95 outline-none ${temaNoturno ? 'text-zinc-400 hover:bg-white/10 hover:text-white' : 'text-zinc-600 hover:bg-black/5 hover:text-zinc-900'}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
@@ -269,8 +203,7 @@ export default function Header({
             <div className="flex-1 relative min-w-0">
               {editandoNome ? (
                 <input 
-                  autoFocus
-                  className={`w-full text-[13px] font-medium tracking-tight px-3 py-1.5 rounded-[8px] outline-none transition-all ${temaNoturno ? 'bg-white/10 text-white' : 'bg-black/[0.05] text-zinc-900'}`}
+                  autoFocus className={`w-full text-[13px] font-medium tracking-tight px-3 py-1.5 rounded-[8px] outline-none transition-all ${temaNoturno ? 'bg-white/10 text-white' : 'bg-black/[0.05] text-zinc-900'}`}
                   value={tempNome} onChange={e => setTempNome(e.target.value)} onBlur={salvarNome} onKeyDown={e => e.key === 'Enter' && salvarNome()}
                 />
               ) : (
@@ -289,23 +222,14 @@ export default function Header({
           <div className="relative w-full max-w-[380px] h-[32px] flex justify-center items-center">
             {mensagensAtivas.map((msg, i) => {
               const isAct = i === indiceMensagem;
-              
-              let styleClasses = temaNoturno ? 'bg-white/[0.04] border-white/[0.06] text-zinc-300' : 'bg-white border-black/[0.06] text-zinc-700 shadow-sm';
+              let styleClasses = temaNoturno ? 'bg-[#18181B]/80 border-white/[0.06] text-zinc-300' : 'bg-white/80 border-black/[0.06] text-zinc-700 shadow-sm';
               if (msg.tipo === 'critico') styleClasses = temaNoturno ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-700';
               if (msg.tipo === 'alerta') styleClasses = temaNoturno ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700';
 
               return (
-                <div 
-                  key={msg.id}
-                  className={`absolute flex items-center gap-2.5 px-4 py-1.5 rounded-full border transition-all duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)]
-                    ${isAct ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 translate-y-2 scale-[0.98] pointer-events-none'}
-                    ${styleClasses}
-                  `}
-                >
+                <div key={msg.id} className={`absolute flex items-center gap-2.5 px-4 py-1.5 rounded-full border backdrop-blur-md transition-all duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${isAct ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 translate-y-2 scale-[0.98] pointer-events-none'} ${styleClasses}`}>
                   {renderIconeBanner(msg.icone)}
-                  <span className="text-[12px] font-medium tracking-tight whitespace-nowrap">
-                    {msg.texto}
-                  </span>
+                  <span className="text-[12px] font-medium tracking-tight whitespace-nowrap">{msg.texto}</span>
                 </div>
               );
             })}
@@ -315,32 +239,19 @@ export default function Header({
       
       <div className="flex-1 flex justify-end min-w-0">
         {linhaDoTempo.length > 0 && !comandaAtiva && (
-          <div className={`hidden md:flex items-center p-[3px] rounded-full border transition-all duration-300 ${temaNoturno ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-black/[0.02] border-black/[0.05] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]'}`}>
+          <div className={`hidden md:flex items-center p-[3px] rounded-full border transition-colors duration-500 ${temaNoturno ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-black/[0.02] border-black/[0.05] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]'}`}>
             {linhaDoTempo.map((item, index) => (
-              <div 
-                key={index} 
-                className={`flex items-center gap-1.5 px-3 py-1.5 min-w-[54px] rounded-full transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-                  item.isCurrent 
-                    ? (temaNoturno ? 'bg-white/[0.1] shadow-sm' : 'bg-white shadow-sm ring-1 ring-black/[0.05]') 
-                    : `opacity-${Math.max(40, 90 - (index * 20))} hover:opacity-100 ${temaNoturno ? 'hover:bg-white/[0.06]' : 'hover:bg-black/[0.04]'}`
-                }`}
-                title={item.condicao}
-              >
-                <span className={`text-[10px] uppercase font-semibold tracking-wide ${item.isCurrent ? (temaNoturno ? 'text-zinc-200' : 'text-zinc-800') : (temaNoturno ? 'text-zinc-500' : 'text-zinc-500')}`}>
-                  {item.horaStr}
-                </span>
+              <div key={index} title={item.condicao} className={`flex items-center gap-1.5 px-3 py-1.5 min-w-[54px] rounded-full transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${item.isCurrent ? (temaNoturno ? 'bg-white/[0.1] shadow-sm' : 'bg-white shadow-sm ring-1 ring-black/[0.05]') : `opacity-${Math.max(40, 90 - (index * 20))} hover:opacity-100 ${temaNoturno ? 'hover:bg-white/[0.06]' : 'hover:bg-black/[0.04]'}`}`}>
+                <span className={`text-[10px] uppercase font-semibold tracking-wide ${item.isCurrent ? (temaNoturno ? 'text-zinc-200' : 'text-zinc-800') : (temaNoturno ? 'text-zinc-500' : 'text-zinc-500')}`}>{item.horaStr}</span>
                 <div className="flex items-center gap-1">
                   {renderClimaIcon(item.condicao, temaNoturno, item.isCurrent)}
-                  <span className={`text-[11px] font-semibold tracking-tight ${item.isCurrent ? (temaNoturno ? 'text-white' : 'text-zinc-900') : (temaNoturno ? 'text-zinc-500' : 'text-zinc-500')}`}>
-                    {item.temp}°
-                  </span>
+                  <span className={`text-[11px] font-semibold tracking-tight ${item.isCurrent ? (temaNoturno ? 'text-white' : 'text-zinc-900') : (temaNoturno ? 'text-zinc-500' : 'text-zinc-500')}`}>{item.temp}°</span>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
-      
     </header>
   );
 }

@@ -1,3 +1,4 @@
+// Sidebar.jsx
 'use client';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -50,98 +51,62 @@ export default function Sidebar({
       <span className={`shrink-0 transition-transform duration-300 w-[20px] h-[20px] xl:w-[18px] xl:h-[18px] flex items-center justify-center ${isAtivo ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'}`}>
         {icone}
       </span>
-      <span className={`truncate whitespace-nowrap min-w-0 tracking-tight block
-        xl:opacity-0 xl:w-0 group-hover/sidebar:xl:w-auto group-hover/sidebar:xl:opacity-100 xl:transition-opacity xl:duration-200 xl:delay-75
-      `}>
+      <span className={`truncate whitespace-nowrap min-w-0 tracking-tight block xl:opacity-0 xl:w-0 group-hover/sidebar:xl:w-auto group-hover/sidebar:xl:opacity-100 xl:transition-opacity xl:duration-200 xl:delay-75`}>
         {titulo}
       </span>
-      
-      {isAtivo && (
-        <span className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[16px] rounded-r-full ${temaNoturno ? 'bg-white' : 'bg-zinc-900'}`}></span>
-      )}
+      {isAtivo && <span className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[16px] rounded-r-full ${temaNoturno ? 'bg-white' : 'bg-zinc-900'}`}></span>}
     </button>
   );
 
   return (
     <>
-      {/* Overlay do Mobile */}
       <div 
-        className={`fixed inset-0 z-[100] xl:hidden bg-black/50 backdrop-blur-sm transition-opacity duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${menuMobileAberto ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} 
+        className={`fixed inset-0 z-[90] xl:hidden bg-black/50 backdrop-blur-sm transition-opacity duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${menuMobileAberto ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} 
         onClick={() => setMenuMobileAberto(false)}
       />
       
-      {/* Container invisível reservando espaço estrito no layout Desktop */}
       <div className="hidden xl:block shrink-0 w-[72px]" />
 
-      {/* Sidebar Real */}
-      <aside className={`group/sidebar fixed top-0 left-0 h-full flex flex-col z-[101] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden
+      <aside className={`group/sidebar fixed top-0 left-0 h-full flex flex-col z-[100] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden will-change-transform
         ${menuMobileAberto ? 'translate-x-0 shadow-2xl' : '-translate-x-full xl:translate-x-0'}
-        w-[80vw] max-w-[280px] 
-        xl:w-[72px] hover:xl:w-[260px] xl:border-r hover:xl:shadow-2xl
-        ${temaNoturno ? 'bg-[#09090B] border-white/[0.06]' : 'bg-[#FAFAFA] border-black/[0.06]'}
+        w-[80vw] max-w-[280px] xl:w-[72px] hover:xl:w-[260px] xl:border-r hover:xl:shadow-2xl 
+        backdrop-blur-[24px] ${temaNoturno ? 'bg-[#09090B]/95 border-white/[0.04]' : 'bg-white/95 border-black/[0.04]'}
       `}>
          
-         <div className={`h-[68px] xl:h-[68px] px-5 flex items-center shrink-0 justify-between
-           xl:justify-center group-hover/sidebar:xl:justify-start
-         `}>
+         <div className={`h-[68px] xl:h-[68px] px-5 flex items-center shrink-0 justify-between xl:justify-center group-hover/sidebar:xl:justify-start`}>
             <div className={`flex items-center shrink-0 overflow-hidden ${temaNoturno ? 'text-white' : 'text-zinc-900'}`}>
-              <span className={`font-black tracking-tighter text-[24px] xl:text-[20px] leading-none whitespace-nowrap ml-3
-                xl:opacity-0 xl:w-0 group-hover/sidebar:xl:w-auto group-hover/sidebar:xl:opacity-100 transition-opacity duration-200 delay-75
-              `}>AROX</span>
+              <span className={`font-black tracking-tighter text-[24px] xl:text-[20px] leading-none whitespace-nowrap ml-3 xl:opacity-0 xl:w-0 group-hover/sidebar:xl:w-auto group-hover/sidebar:xl:opacity-100 transition-opacity duration-200 delay-75`}>
+                AROX
+              </span>
             </div>
          </div>
 
          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 xl:px-3 py-4 [&::-webkit-scrollbar]:hidden flex flex-col gap-6 xl:gap-5">
-            
             <div className="flex flex-col gap-1">
-              <p className={`px-2 xl:px-3 text-[10px] font-bold uppercase tracking-widest mb-1 whitespace-nowrap 
-                ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}
-                xl:opacity-0 xl:h-0 group-hover/sidebar:xl:h-auto group-hover/sidebar:xl:opacity-100 transition-all duration-200
-              `}>Operação</p>
+              <p className={`px-2 xl:px-3 text-[10px] font-bold uppercase tracking-widest mb-1 whitespace-nowrap ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'} xl:opacity-0 xl:h-0 group-hover/sidebar:xl:h-auto group-hover/sidebar:xl:opacity-100 transition-all duration-200`}>Operação</p>
               <div className="hidden xl:block h-px w-5 mx-auto bg-current opacity-10 mb-1.5 mt-0.5 group-hover/sidebar:xl:hidden transition-opacity"></div>
-              
               <MenuItem id="comandas" titulo="Terminal" icone={iconeComandas} isAtivo={abaAtiva === 'comandas'} onClick={() => { setAbaAtiva('comandas'); setMenuMobileAberto(false); }} />
               <MenuItem id="fechadas" titulo="Histórico" icone={iconeEncerradas} isAtivo={abaAtiva === 'fechadas'} onClick={() => { setAbaAtiva('fechadas'); setMenuMobileAberto(false); }} />
-              {(sessao?.role === 'dono' || sessao?.perm_faturamento) && (
-                <MenuItem id="faturamento" titulo="Métricas" icone={iconeFaturamento} isAtivo={abaAtiva === 'faturamento'} onClick={() => { setAbaAtiva('faturamento'); setMenuMobileAberto(false); }} />
-              )}
+              {(sessao?.role === 'dono' || sessao?.perm_faturamento) && <MenuItem id="faturamento" titulo="Métricas" icone={iconeFaturamento} isAtivo={abaAtiva === 'faturamento'} onClick={() => { setAbaAtiva('faturamento'); setMenuMobileAberto(false); }} />}
             </div>
 
             <div className="flex flex-col gap-1">
-              <p className={`px-2 xl:px-3 text-[10px] font-bold uppercase tracking-widest mb-1 whitespace-nowrap 
-                ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}
-                xl:opacity-0 xl:h-0 group-hover/sidebar:xl:h-auto group-hover/sidebar:xl:opacity-100 transition-all duration-200
-              `}>Gestão</p>
+              <p className={`px-2 xl:px-3 text-[10px] font-bold uppercase tracking-widest mb-1 whitespace-nowrap ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'} xl:opacity-0 xl:h-0 group-hover/sidebar:xl:h-auto group-hover/sidebar:xl:opacity-100 transition-all duration-200`}>Gestão</p>
               <div className="hidden xl:block h-px w-5 mx-auto bg-current opacity-10 mb-1.5 mt-0.5 group-hover/sidebar:xl:hidden transition-opacity"></div>
-
               <MenuItem id="caixa" titulo="Caixa Central" icone={iconeCaixa} isAtivo={abaAtiva === 'caixa'} onClick={() => { setAbaAtiva('caixa'); setMenuMobileAberto(false); }} />
-              {(sessao?.role === 'dono' || sessao?.perm_fidelidade || sessao?.perm_estudo) && (
-                <MenuItem id="fidelidade" titulo="Clientes" icone={iconeClientes} isAtivo={abaAtiva === 'fidelidade'} onClick={() => { setAbaAtiva('fidelidade'); setMenuMobileAberto(false); }} />
-              )}
+              {(sessao?.role === 'dono' || sessao?.perm_fidelidade || sessao?.perm_estudo) && <MenuItem id="fidelidade" titulo="Clientes" icone={iconeClientes} isAtivo={abaAtiva === 'fidelidade'} onClick={() => { setAbaAtiva('fidelidade'); setMenuMobileAberto(false); }} />}
             </div>
 
             <div className="flex flex-col gap-1">
-              <p className={`px-2 xl:px-3 text-[10px] font-bold uppercase tracking-widest mb-1 whitespace-nowrap 
-                ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}
-                xl:opacity-0 xl:h-0 group-hover/sidebar:xl:h-auto group-hover/sidebar:xl:opacity-100 transition-all duration-200
-              `}>Sistema</p>
+              <p className={`px-2 xl:px-3 text-[10px] font-bold uppercase tracking-widest mb-1 whitespace-nowrap ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'} xl:opacity-0 xl:h-0 group-hover/sidebar:xl:h-auto group-hover/sidebar:xl:opacity-100 transition-all duration-200`}>Sistema</p>
               <div className="hidden xl:block h-px w-5 mx-auto bg-current opacity-10 mb-1.5 mt-0.5 group-hover/sidebar:xl:hidden transition-opacity"></div>
-
-              {(sessao?.role === 'dono' || sessao?.perm_cardapio) && (
-                <MenuItem titulo="Catálogo" icone={iconeCardapio} onClick={() => { setMostrarAdminProdutos(true); setMenuMobileAberto(false); }} />
-              )}
-              {sessao?.role === 'dono' && (
-                <MenuItem titulo="Delivery" icone={iconeDelivery} onClick={() => { setMostrarAdminDelivery(true); setMenuMobileAberto(false); }} />
-              )}
-              {sessao?.role === 'dono' && (
-                <MenuItem titulo="Tags" icone={iconeTags} onClick={() => { setMostrarConfigTags(true); setMenuMobileAberto(false); }} />
-              )}
+              {(sessao?.role === 'dono' || sessao?.perm_cardapio) && <MenuItem titulo="Catálogo" icone={iconeCardapio} onClick={() => { setMostrarAdminProdutos(true); setMenuMobileAberto(false); }} />}
+              {sessao?.role === 'dono' && <MenuItem titulo="Delivery" icone={iconeDelivery} onClick={() => { setMostrarAdminDelivery(true); setMenuMobileAberto(false); }} />}
+              {sessao?.role === 'dono' && <MenuItem titulo="Tags" icone={iconeTags} onClick={() => { setMostrarConfigTags(true); setMenuMobileAberto(false); }} />}
             </div>
          </div>
 
-         {/* Bloco Inferior */}
-         <div className={`mt-auto shrink-0 overflow-hidden transition-colors duration-300 pb-4 xl:pb-3 ${temaNoturno ? 'bg-[#09090B]' : 'bg-[#FAFAFA]'}`}>
-            
+         <div className={`mt-auto shrink-0 overflow-hidden transition-colors duration-300 pb-4 xl:pb-3`}>
             <div className="px-4 xl:px-3 pt-3 flex flex-col gap-1">
                <div className={`flex items-center px-3 py-2.5 rounded-[10px] xl:rounded-lg mb-2 xl:justify-center group-hover/sidebar:xl:justify-start ${temaNoturno ? 'bg-white/[0.02] border border-white/[0.05]' : 'bg-black/[0.02] border border-black/[0.05]'}`}>
                  <div className="relative shrink-0 flex items-center justify-center w-[20px] h-[20px] xl:w-[18px] xl:h-[18px]">
@@ -149,9 +114,7 @@ export default function Sidebar({
                    <span className={`absolute -bottom-0.5 -right-0.5 block h-2 w-2 rounded-full bg-emerald-500 ring-2 ${temaNoturno ? 'ring-[#09090B]' : 'ring-[#FAFAFA]'}`}></span>
                  </div>
                  <div className={`flex flex-col min-w-0 ml-3 xl:opacity-0 xl:w-0 group-hover/sidebar:xl:w-auto group-hover/sidebar:xl:opacity-100 transition-opacity duration-200 delay-75`}>
-                    <span className={`text-[12px] font-semibold truncate leading-none tracking-tight ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>
-                      {nomeEmpresa || 'Estabelecimento'}
-                    </span>
+                    <span className={`text-[12px] font-semibold truncate leading-none tracking-tight ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>{nomeEmpresa || 'Estabelecimento'}</span>
                     <span className={`text-[10px] flex items-center gap-1.5 font-medium truncate mt-1 tracking-wide ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>
                       {sessao?.nome_usuario || 'Usuário'}
                       <span className={`px-1 rounded-[3px] text-[8px] uppercase tracking-wider font-bold ${temaNoturno ? 'bg-white/10 text-white' : 'bg-black/5 text-black'}`}>
@@ -160,31 +123,14 @@ export default function Sidebar({
                     </span>
                  </div>
                </div>
-
-               {sessao?.role === 'dono' && (
-                 <MenuItem titulo="Configurações Locais" icone={iconeConfig} onClick={() => { setMostrarConfigEmpresa(true); setMenuMobileAberto(false); }} />
-               )}
+               {sessao?.role === 'dono' && <MenuItem titulo="Configurações Locais" icone={iconeConfig} onClick={() => { setMostrarConfigEmpresa(true); setMenuMobileAberto(false); }} />}
                <MenuItem titulo={temaNoturno ? 'Modo Claro' : 'Modo Escuro'} icone={
-                 temaNoturno ? (
-                    <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-                 ) : (
-                    <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                 )
+                 temaNoturno ? <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg> : <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                } onClick={() => setTemaNoturno(!temaNoturno)} />
-               
-               <button 
-                  onClick={fazerLogout} 
-                  className={`relative w-full rounded-[10px] xl:rounded-lg font-medium transition-colors duration-200 flex items-center outline-none group overflow-hidden mt-1
-                    py-3 px-3.5 gap-3.5 text-[14px] xl:py-2.5 xl:px-3 xl:gap-3 xl:text-[13px]
-                    ${temaNoturno ? 'text-zinc-500 hover:text-red-400 hover:bg-red-400/10' : 'text-zinc-500 hover:text-red-600 hover:bg-red-50'}
-                  `}
-               >
+               <button onClick={fazerLogout} className={`relative w-full rounded-[10px] xl:rounded-lg font-medium transition-colors duration-200 flex items-center outline-none group overflow-hidden mt-1 py-3 px-3.5 gap-3.5 text-[14px] xl:py-2.5 xl:px-3 xl:gap-3 xl:text-[13px] ${temaNoturno ? 'text-zinc-500 hover:text-red-400 hover:bg-red-400/10' : 'text-zinc-500 hover:text-red-600 hover:bg-red-50'}`}>
                  <span className="shrink-0 transition-transform duration-300 w-[20px] h-[20px] xl:w-[18px] xl:h-[18px] opacity-70 group-hover:opacity-100 flex items-center justify-center">{iconeLogout}</span>
-                 <span className={`truncate whitespace-nowrap min-w-0 tracking-tight block
-                    xl:opacity-0 xl:w-0 group-hover/sidebar:xl:w-auto group-hover/sidebar:xl:opacity-100 xl:transition-opacity xl:duration-200 xl:delay-75
-                 `}>Sair da Plataforma</span>
+                 <span className={`truncate whitespace-nowrap min-w-0 tracking-tight block xl:opacity-0 xl:w-0 group-hover/sidebar:xl:w-auto group-hover/sidebar:xl:opacity-100 xl:transition-opacity xl:duration-200 xl:delay-75`}>Sair da Plataforma</span>
                </button>
-
             </div>
          </div>
       </aside>

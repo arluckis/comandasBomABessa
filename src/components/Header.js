@@ -1,4 +1,3 @@
-// src/components/Header.js
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -10,21 +9,17 @@ export default function Header({
   const [editandoNome, setEditandoNome] = useState(false);
   const [tempNome, setTempNome] = useState('');
   
-  // Estados de Operação e Timeline
   const [dadosOperacionais, setDadosOperacionais] = useState({ abertura: null, fechamento: null, local: '' });
   const [linhaDoTempo, setLinhaDoTempo] = useState([]);
   
-  // Estados de Inteligência e Banners
   const [insights, setInsights] = useState([]);
   const [caixaAberto, setCaixaAberto] = useState(false);
   const [expedienteEncerrado, setExpedienteEncerrado] = useState(false);
   const [alertaFechamento, setAlertaFechamento] = useState(false);
 
-  // Motor Rotativo Central
   const [mensagensAtivas, setMensagensAtivas] = useState([]);
   const [indiceMensagem, setIndiceMensagem] = useState(0);
 
-  // 1. Busca Parâmetros da Empresa
   const carregarConfiguracoes = useCallback(async () => {
     if (!sessao?.empresa_id) return;
     try {
@@ -44,12 +39,9 @@ export default function Header({
           processarInteligencia(data.localizacao, data.horario_abertura, data.horario_fechamento);
         }
       }
-    } catch (err) { 
-      // Silencioso no console
-    }
+    } catch (err) {}
   }, [sessao?.empresa_id]);
 
-  // 2. Monitor de Caixa 
   const checarStatusCaixa = useCallback(async () => {
     if (!sessao?.empresa_id) return;
     try {
@@ -64,7 +56,6 @@ export default function Header({
     } catch (err) {}
   }, [sessao?.empresa_id]);
 
-  // 3. Lógica Temporal 
   const verificarCicloOperacional = useCallback(() => {
     if (!dadosOperacionais.fechamento || !dadosOperacionais.abertura) return;
 
@@ -97,7 +88,6 @@ export default function Header({
     setAlertaFechamento(isAberto && minParaFechar <= 10 && minParaFechar > 0);
   }, [dadosOperacionais]);
 
-  // 4. Processamento Preditivo e Timeline
   const processarInteligencia = async (cidade, abertura, fechamento) => {
     const API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY;
     if (!API_KEY || !cidade) return;
@@ -149,7 +139,6 @@ export default function Header({
 
         setLinhaDoTempo(timelineFiltrada);
 
-        // Motor de Insights (Linguagem Direta e Confiante)
         const novosInsights = [];
         const chuvaFutura = timelineFiltrada.find(t => t.isRain && !t.isCurrent);
         const chuvaAgora = timelineFiltrada.find(t => t.isRain && t.isCurrent);
@@ -181,7 +170,6 @@ export default function Header({
     }
   };
 
-  // Efeitos e Monitores
   useEffect(() => {
     carregarConfiguracoes();
     checarStatusCaixa();
@@ -194,7 +182,6 @@ export default function Header({
     return () => { clearInterval(monitorTempo); clearInterval(monitorCaixa); };
   }, [verificarCicloOperacional, checarStatusCaixa]);
 
-  // 5. Orquestrador do Banner Rotativo Central
   useEffect(() => {
     const fila = [];
     if (expedienteEncerrado && caixaAberto) {
@@ -217,7 +204,7 @@ export default function Header({
     }
     const interval = setInterval(() => {
       setIndiceMensagem(curr => (curr + 1) % mensagensAtivas.length);
-    }, 6000); // 6 segundos de leitura por banner
+    }, 6000);
     return () => clearInterval(interval);
   }, [mensagensAtivas.length]);
 
@@ -240,14 +227,12 @@ export default function Header({
 
   const mapAbaTitulo = { comandas: 'Terminal', fechadas: 'Histórico', faturamento: 'Métricas', caixa: 'Caixa', fidelidade: 'Clientes' };
 
-  // Ícones do Banner
   const renderIconeBanner = (iconeName) => {
     if (iconeName === 'alerta') return <div className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0"></div>;
     if (iconeName === 'relogio') return <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0"></div>;
     return <svg className="w-3.5 h-3.5 opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
   };
 
-  // Ícones Climáticos Premium (Linear style)
   const renderClimaIcon = (condicao, temaNoturno, isCurrent) => {
     let classes = `w-[14px] h-[14px] shrink-0 transition-colors ${isCurrent ? (temaNoturno ? 'text-white' : 'text-zinc-900') : (temaNoturno ? 'text-zinc-500' : 'text-zinc-400')}`;
     if (condicao.includes('rain') || condicao.includes('drizzle')) return <svg className={classes} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 22v-2m-4 2v-2m8 2v-2" /></svg>;
@@ -258,7 +243,6 @@ export default function Header({
   return (
     <header className={`flex items-center justify-between px-5 h-[64px] shrink-0 border-b sticky top-0 z-40 transition-colors duration-300 backdrop-blur-xl ${temaNoturno ? 'bg-[#0A0A0A]/85 border-white/[0.04]' : 'bg-white/90 border-black/[0.04]'}`}>
       
-      {/* LADO ESQUERDO: Contexto Limpo */}
       <div className="flex items-center gap-3 flex-1 min-w-0">
         <button onClick={() => setMenuMobileAberto(true)} className={`xl:hidden p-1.5 -ml-1.5 rounded-md transition duration-200 active:scale-95 outline-none ${temaNoturno ? 'text-zinc-400 hover:bg-white/10 hover:text-white' : 'text-zinc-600 hover:bg-black/5 hover:text-zinc-900'}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
@@ -279,7 +263,6 @@ export default function Header({
         )}
       </div>
 
-      {/* CENTRO: Comanda Action Bar OU Banners Rotativos */}
       <div className="flex justify-center items-center flex-[2] min-w-0 px-4 h-full relative">
         {comandaAtiva ? (
           <div className={`flex items-center justify-between p-[3px] rounded-xl border transition-all duration-300 w-full max-w-[340px] shadow-sm ${temaNoturno ? 'bg-[#111111] border-white/[0.06]' : 'bg-white border-black/[0.04]'}`}>
@@ -330,7 +313,6 @@ export default function Header({
         ) : null}
       </div>
       
-      {/* LADO DIREITO: Timeline de Fluxo Operacional */}
       <div className="flex-1 flex justify-end min-w-0">
         {linhaDoTempo.length > 0 && !comandaAtiva && (
           <div className={`hidden md:flex items-center p-[3px] rounded-full border shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] transition-all duration-300 ${temaNoturno ? 'bg-[#111111] border-white/[0.04]' : 'bg-[#F4F4F5] border-black/[0.03]'}`}>

@@ -14,6 +14,8 @@ import PainelComanda from '@/components/PainelComanda';
 import TabFechamentoCaixa from '@/components/TabFechamentoCaixa';
 import TabFidelidade from '@/components/TabFidelidade';
 import PreComanda from '@/components/PreComanda'; 
+import SystemLoader from '@/components/SystemLoader';
+import AroxCinematicScene from '@/components/scenes/AroxCinematicScene';
 
 import ModalConfigEmpresa from '@/components/ModalConfigEmpresa';
 import ModalConfigTags from '@/components/ModalConfigTags';
@@ -21,14 +23,6 @@ import ModalPeso from '@/components/ModalPeso';
 import ModalPagamento from '@/components/ModalPagamento';
 import AdminProdutos from '@/components/AdminProdutos';
 import AdminDelivery from '@/components/AdminDelivery'; 
-
-const LoadingDots = () => (
-  <div className="flex items-center gap-1.5">
-    <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-    <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-    <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
-  </div>
-);
 
 export default function Home() {
   const router = useRouter();
@@ -51,18 +45,15 @@ export default function Home() {
   const getMesAtual = () => getHoje().substring(0, 7);
   const getAnoAtual = () => getHoje().substring(0, 4);
 
-  // CORREÇÃO DE HIDRATAÇÃO: Render inicial estático e seguro para o SSR
   const frasesLoading = useMemo(() => [
-    "Iniciando ambiente", 
-    "Carregando módulos", 
-    "Sincronizando dados", 
-    "Autenticando sessão", 
-    "Preparando workspace"
+    "Iniciando ambiente espacial", 
+    "Sincronizando gravidade e dados", 
+    "Autenticando sessão segura", 
+    "Preparando cockpit operacional"
   ], []);
 
   const [fraseCarregamento, setFraseCarregamento] = useState(frasesLoading[0]);
 
-  // Sorteio aleatório acontece SOMENTE no client-side, após o componente montar
   useEffect(() => {
     const fraseAleatoria = frasesLoading[Math.floor(Math.random() * frasesLoading.length)];
     setFraseCarregamento(fraseAleatoria);
@@ -112,35 +103,74 @@ export default function Home() {
 
   const [modalGlobal, setModalGlobal] = useState({ visivel: false, tipo: 'alerta', titulo: '', mensagem: '', valorInput: '', acaoConfirmar: null });
 
+  // -----------------------------------------------------
+  // DIREÇÃO DE ORQUESTRAÇÃO VISUAL
+  // -----------------------------------------------------
   const [appMode, setAppMode] = useState('loading'); 
+  const [scenePhase, setScenePhase] = useState('ignition');
+  const [sceneCustomConfig, setSceneCustomConfig] = useState(null); 
+  const [isSceneActive, setIsSceneActive] = useState(true); 
+  
   const [isAntecipado, setIsAntecipado] = useState(false);
   const [temPendencia, setTemPendencia] = useState(false);
   const [isShellEntering, setIsShellEntering] = useState(false);
   const preComandaDispensada = useRef(false);
+
+  // Estados críticos para orquestração da sequência visual do Loading
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [minLoadTimePassed, setMinLoadTimePassed] = useState(false);
+  const shellTransitionFired = useRef(false);
+  const [loaderExitStage, setLoaderExitStage] = useState('none');
+
+  useEffect(() => {
+    if (appMode !== 'loading') return;
+    
+    const t1 = setTimeout(() => { setScenePhase('reveal'); }, 800);
+    const t2 = setTimeout(() => { setScenePhase('sync'); }, 2200);
+    // Tempo mínimo estético para que o Loading e o planeta sejam devidamente vistos
+    const t3 = setTimeout(() => { setMinLoadTimePassed(true); }, 3500); 
+
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [appMode]);
+
+  useEffect(() => {
+    if (isDataLoaded && minLoadTimePassed && appMode === 'loading' && !shellTransitionFired.current) {
+       shellTransitionFired.current = true;
+       
+       const shouldBypassPreComanda = preComandaDispensada.current || (caixaAtual?.status === 'aberto' && !temPendencia);
+
+       if (shouldBypassPreComanda) {
+          transitionToShell(false); 
+       } else {
+          // Saída orquestrada do SystemLoader para revelar a PreComanda
+          setLoaderExitStage('content');
+          setTimeout(() => setLoaderExitStage('card'), 400);
+          setTimeout(() => setLoaderExitStage('arox'), 1000);
+          setTimeout(() => {
+             setScenePhase('handoff');
+             setAppMode('takeover');
+          }, 1400);
+       }
+    }
+  }, [isDataLoaded, minLoadTimePassed, appMode, caixaAtual, temPendencia]);
 
   const mostrarAlerta = (titulo, mensagem) => setModalGlobal({ visivel: true, tipo: 'alerta', titulo, mensagem, valorInput: '', acaoConfirmar: null });
   const mostrarConfirmacao = (titulo, mensagem, acaoConfirmar) => setModalGlobal({ visivel: true, tipo: 'confirmacao', titulo, mensagem, valorInput: '', acaoConfirmar });
   const mostrarPrompt = (titulo, mensagem, valorInicial, acaoConfirmar) => setModalGlobal({ visivel: true, tipo: 'prompt', titulo, mensagem, valorInput: valorInicial || '', acaoConfirmar });
   const fecharModalGlobal = () => setModalGlobal({ visivel: false, tipo: 'alerta', titulo: '', mensagem: '', valorInput: '', acaoConfirmar: null });
 
-  // DEFESA CLIENT-SIDE: LOGOUT AUTOMÁTICO ÀS 5H
   const isSessionExpired = () => {
     const sessionStart = localStorage.getItem('arox_session_start');
-    
-    // CORREÇÃO: Se não existir marcação, é login novo, não deve expirar imediatamente.
     if (!sessionStart) return false; 
     
     const now = new Date();
     const sessionDate = new Date(sessionStart);
     
-    // Configura limite como 05:00:00 de hoje
     const limit = new Date(now);
     limit.setHours(5, 0, 0, 0);
     
-    // Se agora for depois das 5h, e a sessão iniciou ANTES das 5h de hoje = expirou
     if (now >= limit && sessionDate < limit) return true;
     
-    // Se agora for antes das 5h, e a sessão iniciou ANTES das 5h de ontem = expirou
     const limitYesterday = new Date(limit);
     limitYesterday.setDate(limitYesterday.getDate() - 1);
     if (now < limit && sessionDate < limitYesterday) return true;
@@ -160,23 +190,18 @@ export default function Home() {
     if (sessionData) {
       try {
         const parsed = JSON.parse(sessionData);
-        
-        // CORREÇÃO CRÍTICA: Se for super admin, redireciona AGORA e PARA A EXECUÇÃO.
-        // Não exige empresa_id para super_admin.
         if (parsed.role === 'super_admin') {
           router.push('/admin');
           return;
         }
 
         if (isSessionExpired()) {
-          fazerLogout(true); // Força silent logout
+          fazerLogout(true);
           return;
         }
 
-        // Se for lojista normal, exige empresa_id
         if (parsed.empresa_id) {
           setSessao(parsed);
-          // Marca timestamp da sessão em memória se não existir
           if (!localStorage.getItem('arox_session_start')) {
             localStorage.setItem('arox_session_start', new Date().toISOString());
           }
@@ -189,7 +214,7 @@ export default function Home() {
         setAppMode('login');
       }
     } else {
-      setAppMode('login'); // Necessário forçar estado final se não houver login
+      setAppMode('login'); 
     }
   }, [appMode, router]);
 
@@ -201,7 +226,6 @@ export default function Home() {
        if ((horas === 22 && minutos >= 50) || horas >= 23 || horas < 4) setAvisoFechamento(true);
        else setAvisoFechamento(false);
 
-       // Check continuo de cutoff 5AM em background
        if (sessao && isSessionExpired()) fazerLogout(true);
     };
     verificarHorario();
@@ -209,20 +233,6 @@ export default function Home() {
     return () => clearInterval(intervalo);
   }, [sessao]);
 
-  useEffect(() => {
-    if (appMode === 'takeover' || !sessao) return; 
-    localStorage.setItem('arox_tema_noturno', JSON.stringify(temaNoturno));
-    document.body.style.backgroundColor = temaNoturno ? '#09090b' : '#fafafa'; 
-    let metaThemeColor = document.querySelector('meta[name="theme-color"]');
-    if (!metaThemeColor) {
-      metaThemeColor = document.createElement('meta');
-      metaThemeColor.name = 'theme-color';
-      document.head.appendChild(metaThemeColor);
-    }
-    metaThemeColor.setAttribute('content', temaNoturno ? '#09090b' : '#ffffff');
-  }, [temaNoturno, appMode, sessao]);
-
-  // SISTEMA DE HEARTBEAT DE SESSÃO
   useEffect(() => {
     if (!sessao || sessao.role === 'super_admin') return;
     
@@ -240,6 +250,19 @@ export default function Home() {
     const heartbeatInterval = setInterval(realizarHeartbeat, 60000); 
     return () => clearInterval(heartbeatInterval);
   }, [sessao]);
+
+  useEffect(() => {
+    if (appMode === 'takeover' || !sessao) return; 
+    localStorage.setItem('arox_tema_noturno', JSON.stringify(temaNoturno));
+    document.body.style.backgroundColor = temaNoturno ? '#09090b' : '#fafafa'; 
+    let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (!metaThemeColor) {
+      metaThemeColor = document.createElement('meta');
+      metaThemeColor.name = 'theme-color';
+      document.head.appendChild(metaThemeColor);
+    }
+    metaThemeColor.setAttribute('content', temaNoturno ? '#09090b' : '#ffffff');
+  }, [temaNoturno, appMode, sessao]);
 
   const fazerLogout = async (silent = false) => {
     const sessionId = localStorage.getItem('arox_session_id');
@@ -264,7 +287,14 @@ export default function Home() {
     setNomeEmpresa('AROX');
     setLogoEmpresa('https://cdn-icons-png.flaticon.com/512/3135/3135715.png');
     preComandaDispensada.current = false; 
+    setIsSceneActive(true); 
+    
     setAppMode('loading');
+    setScenePhase('ignition');
+    setIsDataLoaded(false);
+    setMinLoadTimePassed(false);
+    shellTransitionFired.current = false;
+    setLoaderExitStage('none');
 
     if (silent) window.location.reload();
   };
@@ -325,20 +355,14 @@ export default function Home() {
 
       if (caixaData && !hasPendencia) {
         setCaixaAtual(caixaData);
-        setAppMode('shell');
       } else {
         setCaixaAtual(caixaData || { status: 'fechado' });
         const horaAtual = new Date().getHours();
-        const antecipado = horaAtual < 10; 
-        
-        setIsAntecipado(antecipado);
-        
-        if (!preComandaDispensada.current) {
-          setAppMode('takeover'); 
-        } else {
-          setAppMode('shell');
-        }
+        setIsAntecipado(horaAtual < 10); 
       }
+      
+      // Libera o gatilho da renderização visual orquestrada do loading
+      setIsDataLoaded(true);
 
     } catch (err) {} finally { setIsLoading(false); }
   };
@@ -393,26 +417,44 @@ export default function Home() {
     } catch (err) { mostrarAlerta("Erro", "Erro ao abrir caixa: " + err.message); } finally { setIsLoading(false); }
   };
 
+  // ==========================================
+  // LÓGICA DE TRANSIÇÃO
+  // ==========================================
+  const transitionToShell = (fromPreComanda = false) => {
+    if (fromPreComanda) {
+      executeExplosion();
+    } else {
+      setLoaderExitStage('content');
+      setTimeout(() => setLoaderExitStage('card'), 400);
+      setTimeout(() => setLoaderExitStage('arox'), 1000);
+      setTimeout(() => executeExplosion(), 1400);
+    }
+  };
+
+  const executeExplosion = () => {
+    setScenePhase(temaNoturno ? 'bridgeDark' : 'bridgeLight'); 
+    setTimeout(() => {
+      setAppMode('shell');
+      setIsShellEntering(true);
+      setTimeout(() => setIsShellEntering(false), 1200);
+      setTimeout(() => setIsSceneActive(false), 2000); 
+    }, 1800); 
+  };
+
   const onFinalizarAbertura = (valor) => {
-    setIsShellEntering(true);
-    setAppMode('shell');
+    transitionToShell(true);
     abrirCaixaManual({ data_abertura: getHoje(), saldo_inicial: valor });
-    setTimeout(() => setIsShellEntering(false), 2000);
   };
   
   const onAcessarSistema = () => {
     preComandaDispensada.current = true;
-    setIsShellEntering(true);
-    setAppMode('shell');
-    setTimeout(() => setIsShellEntering(false), 2000);
+    transitionToShell(true);
   };
 
   const handleResolverPendencia = () => {
     preComandaDispensada.current = true;
     setAbaAtiva('caixa'); 
-    setIsShellEntering(true);
-    setAppMode('shell');
-    setTimeout(() => setIsShellEntering(false), 2000);
+    transitionToShell(true);
   };
 
   const salvarConfigEmpresa = async () => {
@@ -688,160 +730,127 @@ export default function Home() {
   
   const rankingProdutos = Object.values(contagemProdutos).map(item => ({ nome: item.nomeDisplay, valor: item.faturamento, lucro: item.faturamento - item.custoTotal, volume: item.volume, isPeso: item.isPeso })).sort((a, b) => b.valor - a.valor);
   
-  if (appMode === 'loading' || !sessao) {
-    if (!sessao && appMode !== 'loading') return <Login getHoje={getHoje} setSessao={setSessao} temaNoturno={temaNoturno} setTemaNoturno={setTemaNoturno} />;
-    return (
-      <div className={`min-h-screen flex flex-col items-center justify-center ${temaNoturno ? 'bg-[#09090b]' : 'bg-zinc-50'}`}>
-        <div className="flex flex-col items-center gap-8 animate-in fade-in duration-700 p-8">
-          <div className="relative flex items-center justify-center w-20 h-20">
-            <div className={`w-14 h-14 rounded-full overflow-hidden shadow-sm border flex items-center justify-center ${temaNoturno ? 'bg-white/5 border-white/10' : 'bg-white border-zinc-200'}`}>
-              <img src={logoEmpresa} alt="Logo" className="w-full h-full object-cover" onError={(e) => e.currentTarget.style.display = 'none'} />
-            </div>
-          </div>
-          <div className="flex flex-col items-center gap-3">
-            <div className={`flex items-center gap-2 ${temaNoturno ? 'text-zinc-400' : 'text-zinc-600'}`}>
-              <span className="text-sm font-medium">{fraseCarregamento}</span>
-              <LoadingDots />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (appMode === 'takeover') {
-    return (
-      <PreComanda 
-        onFinalizarAbertura={onFinalizarAbertura} 
-        isAntecipado={isAntecipado} 
-        temaAnterior={temaNoturno ? 'dark' : 'light'} 
-        onAcessarSistema={onAcessarSistema}
-        temPendencia={temPendencia}
-        onResolverPendencia={handleResolverPendencia}
-        usuarioNome={sessao?.nome_usuario}
-      />
-    );
+  if (!sessao && appMode !== 'loading') {
+    return <Login getHoje={getHoje} setSessao={setSessao} temaNoturno={temaNoturno} setTemaNoturno={setTemaNoturno} />;
   }
 
   return (
     <>
-      {isShellEntering && (
-        <div className={`fixed inset-0 z-[9999999] pointer-events-none shell-enter-overlay ${temaNoturno ? 'bg-[#09090b]' : 'bg-[#fafafa]'}`}></div>
-      )}
-      
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes fadeOutOverlay {
-          0% { opacity: 1; }
-          100% { opacity: 0; visibility: hidden; }
-        }
-        .shell-enter-overlay {
-          animation: fadeOutOverlay 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-        }
-        @keyframes shellEnterMain {
-          0% { opacity: 0; transform: scale(0.98); }
-          100% { opacity: 1; transform: scale(1); }
-        }
-        @keyframes shellEnterSide {
-          0% { opacity: 0; transform: translateX(-30px); }
-          100% { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes shellEnterTop {
-          0% { opacity: 0; transform: translateY(-20px); }
-          100% { opacity: 1; transform: translateY(0); }
-        }
-        .shell-root-enter {
-          animation: shellEnterMain 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-        }
-        .shell-root-enter aside {
-          animation: shellEnterSide 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s both;
-        }
-        .shell-root-enter header {
-          animation: shellEnterTop 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s both;
-        }
-        .shell-root-enter .shell-content-panel {
-          animation: shellEnterTop 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both;
-        }
-      `}} />
-
-      <main className={`flex h-screen w-full overflow-hidden transition-colors selection:bg-zinc-200 selection:text-zinc-900 
-        ${isShellEntering ? 'shell-root-enter' : ''} 
-        ${temaNoturno ? 'bg-[#09090b] text-zinc-100 selection:bg-white/20 selection:text-white' : 'bg-zinc-50 text-zinc-900'}
-      `}>
-        
-        <Sidebar
-          menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} temaNoturno={temaNoturno}
-          setTemaNoturno={setTemaNoturno} logoEmpresa={logoEmpresa} sessao={sessao} nomeEmpresa={nomeEmpresa}
-          abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva} setMostrarConfigEmpresa={setMostrarConfigEmpresa}
-          setMostrarAdminProdutos={setMostrarAdminProdutos} setMostrarConfigTags={setMostrarConfigTags}
-          setMostrarAdminDelivery={setMostrarAdminDelivery} fazerLogout={fazerLogout}
-        />
-
-        <div className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-transparent">
-          
-          <Header 
-            comandaAtiva={comandaAtiva} setIdSelecionado={setIdSelecionado} setMenuMobileAberto={setMenuMobileAberto}
-            temaNoturno={temaNoturno} caixaAtual={caixaAtual} abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva}
-            logoEmpresa={logoEmpresa} setTemaNoturno={setTemaNoturno} mostrarMenuPerfil={mostrarMenuPerfil}
-            setMostrarMenuPerfil={setMostrarMenuPerfil} nomeEmpresa={nomeEmpresa} sessao={sessao}
-            setMostrarAdminDelivery={setMostrarAdminDelivery} setMostrarConfigEmpresa={setMostrarConfigEmpresa} 
-            setMostrarAdminUsuarios={setMostrarAdminUsuarios} setMostrarAdminProdutos={setMostrarAdminProdutos} 
-            setMostrarConfigTags={setMostrarConfigTags} fazerLogout={fazerLogout}
-            fetchData={fetchApenasAtualizacoes} clientesFidelidade={clientesFidelidade} vincularClienteFidelidade={vincularClienteFidelidade}
-          />
-
-          <div className="shell-content-panel flex-1 overflow-y-auto scrollbar-hide p-4 md:p-8 pt-2 md:pt-6 z-10 flex flex-col relative">
-            <div className="w-full max-w-[1400px] mx-auto flex-1 flex flex-col">
-              {comandaAtiva ? (
-                <PainelComanda 
-                  temaNoturno={temaNoturno} comandaAtiva={comandaAtiva} abaDetalheMobile={abaDetalheMobile} setAbaDetalheMobile={setAbaDetalheMobile} filtroCategoriaCardapio={filtroCategoriaCardapio} setFiltroCategoriaCardapio={setFiltroCategoriaCardapio} menuCategorias={menuCategorias} adicionarProdutoNaComanda={adicionarProdutoNaComanda} excluirGrupoProdutos={excluirGrupoProdutos} setMostrarModalPeso={setMostrarModalPeso} tagsGlobais={tagsGlobais} toggleTag={toggleTag} editarProduto={editarProduto} excluirProduto={excluirProduto} setMostrarModalPagamento={setMostrarModalPagamento} encerrarMesa={encerrarMesa} setIdSelecionado={setIdSelecionado} alterarNomeComanda={alterarNomeComanda} adicionarClienteComanda={adicionarClienteComanda} alternarTipoComanda={alternarTipoComanda} modalAberto={mostrarModalPeso || mostrarModalPagamento}
-                />
-              ) : abaAtiva === 'comandas' ? (
-                <TabComandas 
-                  temaNoturno={temaNoturno} comandasAbertas={comandasAbertas} modoExclusao={modoExclusao} setModoExclusao={setModoExclusao} selecionadasExclusao={selecionadasExclusao} toggleSelecaoExclusao={toggleSelecaoExclusao} confirmarExclusaoEmMassa={confirmarExclusaoEmMassa} adicionarComanda={adicionarComanda} setIdSelecionado={setIdSelecionado} caixaAtual={caixaAtual} abrirCaixaManual={abrirCaixaManual}
-                />
-              ) : abaAtiva === 'fechadas' ? (
-                <TabFechadas 
-                  temaNoturno={temaNoturno} comandasFechadas={comandas.filter(c => c.status === 'fechada')} reabrirComandaFechada={reabrirComandaFechada} excluirComandaFechada={excluirComandaFechada} getHoje={getHoje} 
-                />
-              ) : abaAtiva === 'faturamento' ? (
-                <TabFaturamento 
-                  temaNoturno={temaNoturno} filtroTempo={filtroTempo} setFiltroTempo={setFiltroTempo} getHoje={getHoje} getMesAtual={getMesAtual} getAnoAtual={getAnoAtual} faturamentoTotal={faturamentoTotal} lucroEstimado={lucroEstimado} dadosPizza={dadosPizza} rankingProdutos={rankingProdutos} comandasFiltradas={comandasFiltradas} comandas={comandas} 
-                />
-              ) : abaAtiva === 'caixa' ? (
-                <TabFechamentoCaixa temaNoturno={temaNoturno} sessao={sessao} caixaAtual={caixaAtual} comandas={comandas} fetchData={fetchApenasAtualizacoes} mostrarAlerta={mostrarAlerta} mostrarConfirmacao={mostrarConfirmacao} />
-              ) : abaAtiva === 'fidelidade' ? (
-                <TabFidelidade 
-                  temaNoturno={temaNoturno} sessao={sessao} mostrarAlerta={mostrarAlerta} mostrarConfirmacao={mostrarConfirmacao} metaFidelidade={metaFidelidade} setMetaFidelidade={setMetaFidelidade} clientesFidelidade={clientesFidelidade} setClientesFidelidade={setClientesFidelidade} comandas={comandas}
-                />
-              ) : null}
-            </div>
-          </div>
+      {isSceneActive && (
+        <div className={`fixed inset-0 z-0 transition-opacity duration-[1500ms] ease-out ${appMode === 'shell' ? 'opacity-0' : 'opacity-100'}`}>
+          <AroxCinematicScene scenePhase={scenePhase} customConfig={sceneCustomConfig} temaAnterior={temaNoturno ? 'dark' : 'light'} />
         </div>
+      )}
 
-        {mostrarAdminUsuarios && sessao && <AdminUsuarios empresaId={sessao.empresa_id} usuarioAtualId={sessao.id} temaNoturno={temaNoturno} onFechar={() => setMostrarAdminUsuarios(false)} />}
-        {mostrarAdminProdutos && sessao && <AdminProdutos empresaId={sessao.empresa_id} temaNoturno={temaNoturno} onFechar={() => { setMostrarAdminProdutos(false); fetchApenasAtualizacoes(); }} />}
-        {mostrarAdminDelivery && sessao && <AdminDelivery empresaId={sessao.empresa_id} temaNoturno={temaNoturno} onFechar={() => setMostrarAdminDelivery(false)} />}
-        {mostrarModalPeso && <ModalPeso opcoesPeso={configPeso} temaNoturno={temaNoturno} onAdicionar={adicionarProdutoNaComanda} onCancelar={() => setMostrarModalPeso(false)} />}
-        {mostrarModalPagamento && <ModalPagamento comanda={comandaAtiva} temaNoturno={temaNoturno} onConfirmar={processarPagamento} onCancelar={() => setMostrarModalPagamento(false)} clientesFidelidade={clientesFidelidade} metaFidelidade={metaFidelidade} />}
-        {mostrarConfigEmpresa && <ModalConfigEmpresa temaNoturno={temaNoturno} nomeEmpresaEdicao={nomeEmpresaEdicao} setNomeEmpresaEdicao={setNomeEmpresaEdicao} logoEmpresaEdicao={logoEmpresaEdicao} setLogoEmpresaEdicao={setLogoEmpresaEdicao} nomeUsuarioEdicao={nomeUsuarioEdicao} setNomeUsuarioEdicao={setNomeUsuarioEdicao} planoUsuario={dadosPlano} salvarConfigEmpresa={salvarConfigEmpresa} setMostrarConfigEmpresa={setMostrarConfigEmpresa} alterarSenhaConta={alterarSenhaConta} deletarWorkspace={deletarWorkspace} />}
-        {mostrarConfigTags && <ModalConfigTags temaNoturno={temaNoturno} tagsGlobais={tagsGlobais} setTagsGlobais={setTagsGlobais} sessao={sessao} setMostrarConfigTags={setMostrarConfigTags} />}
+      <div className="fixed inset-0 z-10 pointer-events-none">
+        {(appMode === 'loading' || scenePhase === 'handoff' || scenePhase === 'bridgeDark' || scenePhase === 'bridgeLight') && (
+          <SystemLoader variant="full" phase={scenePhase} text={fraseCarregamento} exitStage={loaderExitStage} />
+        )}
 
-        {modalGlobal.visivel && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in">
-            <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl flex flex-col border text-center ${temaNoturno ? 'bg-[#09090b] border-white/10' : 'bg-white border-zinc-200'}`}>
-              <h2 className={`text-lg font-semibold tracking-tight mb-2 ${temaNoturno ? 'text-white' : 'text-zinc-900'}`}>{modalGlobal.titulo}</h2>
-              <p className={`text-sm mb-6 font-medium ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>{modalGlobal.mensagem}</p>
-              {modalGlobal.tipo === 'prompt' && <input type="text" autoFocus className={`w-full p-3 rounded-lg border mb-6 outline-none font-medium text-sm transition-colors shadow-sm ${temaNoturno ? 'bg-white/5 border-white/10 text-white focus:border-white/20' : 'bg-white border-zinc-200 focus:border-zinc-400'}`} value={modalGlobal.valorInput} onChange={e => setModalGlobal({...modalGlobal, valorInput: e.target.value})} onKeyDown={e => { if (e.key === 'Enter') { if (modalGlobal.acaoConfirmar) modalGlobal.acaoConfirmar(modalGlobal.valorInput); fecharModalGlobal(); } }} />}
-              <div className="flex gap-3">
-                {(modalGlobal.tipo === 'confirmacao' || modalGlobal.tipo === 'prompt') && <button onClick={fecharModalGlobal} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${temaNoturno ? 'bg-white/5 text-zinc-300 hover:bg-white/10' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}>Cancelar</button>}
-                <button onClick={() => { if (modalGlobal.acaoConfirmar) { if (modalGlobal.tipo === 'prompt') modalGlobal.acaoConfirmar(modalGlobal.valorInput); else modalGlobal.acaoConfirmar(); } fecharModalGlobal(); }} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold text-white transition-all shadow-md active:scale-[0.98] ${modalGlobal.titulo.toLowerCase().includes('excluir') || modalGlobal.titulo.toLowerCase().includes('atenção') ? 'bg-rose-600 hover:bg-rose-700' : 'bg-zinc-900 hover:bg-zinc-800'}`}>
-                  {modalGlobal.tipo === 'alerta' ? 'Entendido' : 'Confirmar'}
-                </button>
-              </div>
-            </div>
+        {appMode === 'takeover' && (
+          <div className="pointer-events-auto">
+            <PreComanda 
+              onFinalizarAbertura={onFinalizarAbertura} 
+              isAntecipado={isAntecipado} 
+              temaAnterior={temaNoturno ? 'dark' : 'light'} 
+              onAcessarSistema={onAcessarSistema}
+              temPendencia={temPendencia}
+              onResolverPendencia={handleResolverPendencia}
+              usuarioNome={sessao?.nome_usuario}
+              onEnvUpdate={setSceneCustomConfig}
+            />
           </div>
         )}
-      </main>
+      </div>
+
+      {appMode === 'shell' && (
+        <>
+          <style dangerouslySetInnerHTML={{__html: `
+            @keyframes fadeOutBridge { 0% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+            .shell-enter-overlay { animation: fadeOutBridge 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+            @keyframes shellEnterMain { 0% { opacity: 0; transform: scale(0.98); } 100% { opacity: 1; transform: scale(1); } }
+            @keyframes shellEnterSide { 0% { opacity: 0; transform: translateX(-30px); } 100% { opacity: 1; transform: translateX(0); } }
+            @keyframes shellEnterTop { 0% { opacity: 0; transform: translateY(-20px); } 100% { opacity: 1; transform: translateY(0); } }
+            .shell-root-enter { animation: shellEnterMain 1.0s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+            .shell-root-enter aside { animation: shellEnterSide 1.0s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both; }
+            .shell-root-enter header { animation: shellEnterTop 1.0s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both; }
+            .shell-root-enter .shell-content-panel { animation: shellEnterTop 1.0s cubic-bezier(0.2, 0.8, 0.2, 1) 0.3s both; }
+          `}} />
+
+          {isShellEntering && (
+            <div className={`fixed inset-0 z-[9999999] pointer-events-none shell-enter-overlay ${temaNoturno ? 'bg-[#09090b]' : 'bg-[#fafafa]'}`}></div>
+          )}
+
+          <main className={`relative z-20 flex h-screen w-full overflow-hidden transition-colors selection:bg-zinc-200 selection:text-zinc-900 
+            ${isShellEntering ? 'shell-root-enter' : ''} 
+            ${temaNoturno ? 'bg-[#09090b] text-zinc-100 selection:bg-white/20 selection:text-white' : 'bg-[#fafafa] text-zinc-900'}
+          `}>
+            
+            <Sidebar
+              menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} temaNoturno={temaNoturno}
+              setTemaNoturno={setTemaNoturno} logoEmpresa={logoEmpresa} sessao={sessao} nomeEmpresa={nomeEmpresa}
+              abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva} setMostrarConfigEmpresa={setMostrarConfigEmpresa}
+              setMostrarAdminProdutos={setMostrarAdminProdutos} setMostrarConfigTags={setMostrarConfigTags}
+              setMostrarAdminDelivery={setMostrarAdminDelivery} fazerLogout={fazerLogout}
+            />
+
+            <div className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-transparent">
+              <Header 
+                comandaAtiva={comandaAtiva} setIdSelecionado={setIdSelecionado} setMenuMobileAberto={setMenuMobileAberto}
+                temaNoturno={temaNoturno} caixaAtual={caixaAtual} abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva}
+                logoEmpresa={logoEmpresa} setTemaNoturno={setTemaNoturno} mostrarMenuPerfil={mostrarMenuPerfil}
+                setMostrarMenuPerfil={setMostrarMenuPerfil} nomeEmpresa={nomeEmpresa} sessao={sessao}
+                setMostrarAdminDelivery={setMostrarAdminDelivery} setMostrarConfigEmpresa={setMostrarConfigEmpresa} 
+                setMostrarAdminUsuarios={setMostrarAdminUsuarios} setMostrarAdminProdutos={setMostrarAdminProdutos} 
+                setMostrarConfigTags={setMostrarConfigTags} fazerLogout={fazerLogout}
+                fetchData={fetchApenasAtualizacoes} clientesFidelidade={clientesFidelidade} vincularClienteFidelidade={vincularClienteFidelidade}
+              />
+
+              <div className="shell-content-panel flex-1 overflow-y-auto scrollbar-hide p-4 md:p-8 pt-2 md:pt-6 z-10 flex flex-col relative">
+                <div className="w-full max-w-[1400px] mx-auto flex-1 flex flex-col">
+                  {comandaAtiva ? (
+                    <PainelComanda temaNoturno={temaNoturno} comandaAtiva={comandaAtiva} abaDetalheMobile={abaDetalheMobile} setAbaDetalheMobile={setAbaDetalheMobile} filtroCategoriaCardapio={filtroCategoriaCardapio} setFiltroCategoriaCardapio={setFiltroCategoriaCardapio} menuCategorias={menuCategorias} adicionarProdutoNaComanda={adicionarProdutoNaComanda} excluirGrupoProdutos={excluirGrupoProdutos} setMostrarModalPeso={setMostrarModalPeso} tagsGlobais={tagsGlobais} toggleTag={toggleTag} editarProduto={editarProduto} excluirProduto={excluirProduto} setMostrarModalPagamento={setMostrarModalPagamento} encerrarMesa={encerrarMesa} setIdSelecionado={setIdSelecionado} alterarNomeComanda={alterarNomeComanda} adicionarClienteComanda={adicionarClienteComanda} alternarTipoComanda={alternarTipoComanda} modalAberto={mostrarModalPeso || mostrarModalPagamento} />
+                  ) : abaAtiva === 'comandas' ? (
+                    <TabComandas temaNoturno={temaNoturno} comandasAbertas={comandasAbertas} modoExclusao={modoExclusao} setModoExclusao={setModoExclusao} selecionadasExclusao={selecionadasExclusao} toggleSelecaoExclusao={toggleSelecaoExclusao} confirmarExclusaoEmMassa={confirmarExclusaoEmMassa} adicionarComanda={adicionarComanda} setIdSelecionado={setIdSelecionado} caixaAtual={caixaAtual} abrirCaixaManual={abrirCaixaManual} />
+                  ) : abaAtiva === 'fechadas' ? (
+                    <TabFechadas temaNoturno={temaNoturno} comandasFechadas={comandas.filter(c => c.status === 'fechada')} reabrirComandaFechada={reabrirComandaFechada} excluirComandaFechada={excluirComandaFechada} getHoje={getHoje} />
+                  ) : abaAtiva === 'faturamento' ? (
+                    <TabFaturamento temaNoturno={temaNoturno} filtroTempo={filtroTempo} setFiltroTempo={setFiltroTempo} getHoje={getHoje} getMesAtual={getMesAtual} getAnoAtual={getAnoAtual} faturamentoTotal={faturamentoTotal} lucroEstimado={lucroEstimado} dadosPizza={dadosPizza} rankingProdutos={rankingProdutos} comandasFiltradas={comandasFiltradas} comandas={comandas} />
+                  ) : abaAtiva === 'caixa' ? (
+                    <TabFechamentoCaixa temaNoturno={temaNoturno} sessao={sessao} caixaAtual={caixaAtual} comandas={comandas} fetchData={fetchApenasAtualizacoes} mostrarAlerta={mostrarAlerta} mostrarConfirmacao={mostrarConfirmacao} />
+                  ) : abaAtiva === 'fidelidade' ? (
+                    <TabFidelidade temaNoturno={temaNoturno} sessao={sessao} mostrarAlerta={mostrarAlerta} mostrarConfirmacao={mostrarConfirmacao} metaFidelidade={metaFidelidade} setMetaFidelidade={setMetaFidelidade} clientesFidelidade={clientesFidelidade} setClientesFidelidade={setClientesFidelidade} comandas={comandas} />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            {mostrarAdminUsuarios && sessao && <AdminUsuarios empresaId={sessao.empresa_id} usuarioAtualId={sessao.id} temaNoturno={temaNoturno} onFechar={() => setMostrarAdminUsuarios(false)} />}
+            {mostrarAdminProdutos && sessao && <AdminProdutos empresaId={sessao.empresa_id} temaNoturno={temaNoturno} onFechar={() => { setMostrarAdminProdutos(false); fetchApenasAtualizacoes(); }} />}
+            {mostrarAdminDelivery && sessao && <AdminDelivery empresaId={sessao.empresa_id} temaNoturno={temaNoturno} onFechar={() => setMostrarAdminDelivery(false)} />}
+            {mostrarModalPeso && <ModalPeso opcoesPeso={configPeso} temaNoturno={temaNoturno} onAdicionar={adicionarProdutoNaComanda} onCancelar={() => setMostrarModalPeso(false)} />}
+            {mostrarModalPagamento && <ModalPagamento comanda={comandaAtiva} temaNoturno={temaNoturno} onConfirmar={processarPagamento} onCancelar={() => setMostrarModalPagamento(false)} clientesFidelidade={clientesFidelidade} metaFidelidade={metaFidelidade} />}
+            {mostrarConfigEmpresa && <ModalConfigEmpresa temaNoturno={temaNoturno} nomeEmpresaEdicao={nomeEmpresaEdicao} setNomeEmpresaEdicao={setNomeEmpresaEdicao} logoEmpresaEdicao={logoEmpresaEdicao} setLogoEmpresaEdicao={setLogoEmpresaEdicao} nomeUsuarioEdicao={nomeUsuarioEdicao} setNomeUsuarioEdicao={setNomeUsuarioEdicao} planoUsuario={dadosPlano} salvarConfigEmpresa={salvarConfigEmpresa} setMostrarConfigEmpresa={setMostrarConfigEmpresa} alterarSenhaConta={alterarSenhaConta} deletarWorkspace={deletarWorkspace} />}
+            {mostrarConfigTags && <ModalConfigTags temaNoturno={temaNoturno} tagsGlobais={tagsGlobais} setTagsGlobais={setTagsGlobais} sessao={sessao} setMostrarConfigTags={setMostrarConfigTags} />}
+
+            {modalGlobal.visivel && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in">
+                <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl flex flex-col border text-center ${temaNoturno ? 'bg-[#09090b] border-white/10' : 'bg-white border-zinc-200'}`}>
+                  <h2 className={`text-lg font-semibold tracking-tight mb-2 ${temaNoturno ? 'text-white' : 'text-zinc-900'}`}>{modalGlobal.titulo}</h2>
+                  <p className={`text-sm mb-6 font-medium ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>{modalGlobal.mensagem}</p>
+                  {modalGlobal.tipo === 'prompt' && <input type="text" autoFocus className={`w-full p-3 rounded-lg border mb-6 outline-none font-medium text-sm transition-colors shadow-sm ${temaNoturno ? 'bg-white/5 border-white/10 text-white focus:border-white/20' : 'bg-white border-zinc-200 focus:border-zinc-400'}`} value={modalGlobal.valorInput} onChange={e => setModalGlobal({...modalGlobal, valorInput: e.target.value})} onKeyDown={e => { if (e.key === 'Enter') { if (modalGlobal.acaoConfirmar) modalGlobal.acaoConfirmar(modalGlobal.valorInput); fecharModalGlobal(); } }} />}
+                  <div className="flex gap-3">
+                    {(modalGlobal.tipo === 'confirmacao' || modalGlobal.tipo === 'prompt') && <button onClick={fecharModalGlobal} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${temaNoturno ? 'bg-white/5 text-zinc-300 hover:bg-white/10' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}>Cancelar</button>}
+                    <button onClick={() => { if (modalGlobal.acaoConfirmar) { if (modalGlobal.tipo === 'prompt') modalGlobal.acaoConfirmar(modalGlobal.valorInput); else modalGlobal.acaoConfirmar(); } fecharModalGlobal(); }} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold text-white transition-all shadow-md active:scale-[0.98] ${modalGlobal.titulo.toLowerCase().includes('excluir') || modalGlobal.titulo.toLowerCase().includes('atenção') ? 'bg-rose-600 hover:bg-rose-700' : 'bg-zinc-900 hover:bg-zinc-800'}`}>
+                      {modalGlobal.tipo === 'alerta' ? 'Entendido' : 'Confirmar'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </main>
+        </>
+      )}
     </>
   );
 }

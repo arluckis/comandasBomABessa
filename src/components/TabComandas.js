@@ -1,4 +1,3 @@
-// src/components/TabComandas.js
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import CardComanda from '@/components/CardComanda';
@@ -19,6 +18,21 @@ export default function TabComandas({
     const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' }); 
     setDataHoje(hoje);
   }, []);
+
+  // === CORREÇÃO CIRÚRGICA: Revelar a Cena Cinematográfica (Planeta) ===
+  // A tag <main> do orquestrador possui um fundo sólido que oculta a cena 3D (z-0).
+  // Quando a PreComanda é invocada por dentro do painel, tornamos o <main> temporariamente transparente.
+  useEffect(() => {
+    if (caixaAtual?.status !== 'aberto') {
+      const mainEl = document.querySelector('main');
+      if (mainEl) {
+        mainEl.style.setProperty('background-color', 'transparent', 'important');
+      }
+      return () => {
+        if (mainEl) mainEl.style.removeProperty('background-color');
+      };
+    }
+  }, [caixaAtual?.status]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -181,18 +195,22 @@ export default function TabComandas({
         )}
 
         {/* SETUP INICIAL */}
-{caixaAtual?.status !== 'aberto' ? (
-  <PreComanda
-    onFinalizarAbertura={(valor) =>
-      abrirCaixaManual({
-        data_abertura: dataHoje,
-        saldo_inicial: valor,
-      })
-    }
-    temPendenciaTurnoAnterior={false}
-    onResolverPendencia={() => {}}
-  />
-) : (
+        {caixaAtual?.status !== 'aberto' ? (
+          <PreComanda
+            onFinalizarAbertura={(valor) =>
+              abrirCaixaManual({
+                data_abertura: dataHoje,
+                saldo_inicial: valor,
+              })
+            }
+            temPendenciaTurnoAnterior={false}
+            onResolverPendencia={() => {}}
+            // Prop adicionada para garantir que o planeta carregue nas cores corretas
+            temaAnterior={temaNoturno ? 'dark' : 'light'}
+            // Prop adicionada para alinhar a cena com o fato de já estarmos no interior do sistema
+            isSistemaJaAcessado={true}
+          />
+        ) : (
           /* 3. GRID PRINCIPAL */
           <div className="flex flex-wrap gap-5 justify-start w-full">
             

@@ -1,11 +1,10 @@
-// Header.jsx
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export default function Header({
   comandaAtiva, setIdSelecionado, setMenuMobileAberto, temaNoturno,
-  abaAtiva, fetchData, sessao
+  abaAtiva, fetchData, sessao, caixaAtual
 }) {
   const [editandoNome, setEditandoNome] = useState(false);
   const [tempNome, setTempNome] = useState('');
@@ -20,6 +19,10 @@ export default function Header({
 
   const [mensagensAtivas, setMensagensAtivas] = useState([]);
   const [indiceMensagem, setIndiceMensagem] = useState(0);
+
+  // === CORREÇÃO: Força o visual escuro se o planeta estiver ativo no fundo ===
+  const isPlanetVisible = abaAtiva === 'comandas' && (!caixaAtual || caixaAtual.status !== 'aberto');
+  const isDark = isPlanetVisible ? true : temaNoturno;
 
   const carregarConfiguracoes = useCallback(async () => {
     if (!sessao?.empresa_id) return;
@@ -168,29 +171,29 @@ export default function Header({
     return <svg className="w-3.5 h-3.5 opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
   };
 
-  const renderClimaIcon = (condicao, temaNoturno, isCurrent) => {
-    let classes = `w-[14px] h-[14px] shrink-0 transition-colors duration-300 ${isCurrent ? (temaNoturno ? 'text-zinc-100' : 'text-zinc-900') : (temaNoturno ? 'text-zinc-500' : 'text-zinc-400')}`;
+  const renderClimaIcon = (condicao, themeIsDark, isCurrent) => {
+    let classes = `w-[14px] h-[14px] shrink-0 transition-colors duration-300 ${isCurrent ? (themeIsDark ? 'text-zinc-100' : 'text-zinc-900') : (themeIsDark ? 'text-zinc-500' : 'text-zinc-400')}`;
     if (condicao.includes('rain') || condicao.includes('drizzle')) return <svg className={classes} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 22v-2m-4 2v-2m8 2v-2" /></svg>;
     if (condicao.includes('cloud')) return <svg className={classes} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" /></svg>;
     return <svg className={classes} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="5" strokeLinecap="round" strokeLinejoin="round" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>;
   };
 
   return (
-    <header className={`flex items-center justify-between px-6 h-[68px] shrink-0 sticky top-0 z-40 transition-colors duration-500 bg-transparent backdrop-blur-[24px] border-b will-change-transform ${temaNoturno ? 'border-white/[0.04]' : 'border-black/[0.04]'}`}>
+    <header className={`flex items-center justify-between px-6 h-[68px] shrink-0 sticky top-0 z-40 transition-colors duration-500 bg-transparent backdrop-blur-[24px] border-b will-change-transform ${isDark ? 'border-white/[0.04]' : 'border-black/[0.04]'}`}>
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        <button onClick={() => setMenuMobileAberto(true)} className={`xl:hidden p-1.5 -ml-1.5 rounded-md transition duration-200 active:scale-95 outline-none ${temaNoturno ? 'text-zinc-400 hover:bg-white/10 hover:text-white' : 'text-zinc-600 hover:bg-black/5 hover:text-zinc-900'}`}>
+        <button onClick={() => setMenuMobileAberto(true)} className={`xl:hidden p-1.5 -ml-1.5 rounded-md transition duration-200 active:scale-95 outline-none ${isDark ? 'text-zinc-400 hover:bg-white/10 hover:text-white' : 'text-zinc-600 hover:bg-black/5 hover:text-zinc-900'}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 6h16M4 12h16M4 18h16"></path></svg>
         </button>
 
         {comandaAtiva ? (
-          <button onClick={() => { setIdSelecionado(null); setEditandoNome(false); }} className={`group flex items-center gap-2 px-1.5 py-1 -ml-1.5 rounded-md transition-all duration-200 text-[13px] font-medium tracking-tight outline-none ${temaNoturno ? 'text-zinc-400 hover:text-zinc-200' : 'text-zinc-500 hover:text-zinc-900'}`}>
-            <svg className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-x-1 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          <button onClick={() => { setIdSelecionado(null); setEditandoNome(false); }} className={`group flex items-center gap-2 px-1.5 py-1 -ml-1.5 rounded-md transition-all duration-200 text-[13px] font-medium tracking-tight outline-none ${isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-zinc-500 hover:text-zinc-900'}`}>
+            <svg className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-x-1 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
             <span className="hidden sm:inline">Retornar</span>
           </button>
         ) : (
           <div className="flex items-center gap-2 min-w-0">
-            <div className={`w-1.5 h-1.5 rounded-full ${temaNoturno ? 'bg-white/30' : 'bg-black/30'}`}></div>
-            <h1 className={`font-medium text-[15px] tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-white/30' : 'bg-black/30'}`}></div>
+            <h1 className={`font-medium text-[15px] tracking-tight ${isDark ? 'text-zinc-100' : 'text-zinc-900'}`}>
               {mapAbaTitulo[abaAtiva] || 'Visão Geral'}
             </h1>
           </div>
@@ -199,22 +202,22 @@ export default function Header({
 
       <div className="flex justify-center items-center flex-[2] min-w-0 px-4 h-full relative">
         {comandaAtiva ? (
-          <div className={`flex items-center justify-between p-[3px] rounded-xl border transition-all duration-300 w-full max-w-[340px] shadow-sm ${temaNoturno ? 'bg-white/[0.03] border-white/[0.08]' : 'bg-black/[0.02] border-black/[0.06]'}`}>
+          <div className={`flex items-center justify-between p-[3px] rounded-xl border transition-all duration-300 w-full max-w-[340px] shadow-sm ${isDark ? 'bg-white/[0.03] border-white/[0.08]' : 'bg-black/[0.02] border-black/[0.06]'}`}>
             <div className="flex-1 relative min-w-0">
               {editandoNome ? (
                 <input 
-                  autoFocus className={`w-full text-[13px] font-medium tracking-tight px-3 py-1.5 rounded-[8px] outline-none transition-all ${temaNoturno ? 'bg-white/10 text-white' : 'bg-black/[0.05] text-zinc-900'}`}
+                  autoFocus className={`w-full text-[13px] font-medium tracking-tight px-3 py-1.5 rounded-[8px] outline-none transition-all ${isDark ? 'bg-white/10 text-white' : 'bg-black/[0.05] text-zinc-900'}`}
                   value={tempNome} onChange={e => setTempNome(e.target.value)} onBlur={salvarNome} onKeyDown={e => e.key === 'Enter' && salvarNome()}
                 />
               ) : (
-                <div onClick={() => { setTempNome(comandaAtiva?.nome || ''); setEditandoNome(true); }} className={`w-full px-3 py-1.5 rounded-[8px] cursor-text transition-colors flex items-center gap-2 overflow-hidden ${temaNoturno ? 'hover:bg-white/[0.06]' : 'hover:bg-black/[0.04]'}`}>
-                  <span className={`text-[13px] font-medium tracking-tight truncate ${temaNoturno ? 'text-zinc-200' : 'text-zinc-900'}`}>{comandaAtiva?.nome || 'Sem identificação'}</span>
+                <div onClick={() => { setTempNome(comandaAtiva?.nome || ''); setEditandoNome(true); }} className={`w-full px-3 py-1.5 rounded-[8px] cursor-text transition-colors flex items-center gap-2 overflow-hidden ${isDark ? 'hover:bg-white/[0.06]' : 'hover:bg-black/[0.04]'}`}>
+                  <span className={`text-[13px] font-medium tracking-tight truncate ${isDark ? 'text-zinc-200' : 'text-zinc-900'}`}>{comandaAtiva?.nome || 'Sem identificação'}</span>
                   <svg className="w-3 h-3 shrink-0 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                 </div>
               )}
             </div>
-            <div className={`w-[1px] h-4 mx-1.5 ${temaNoturno ? 'bg-white/10' : 'bg-black/[0.08]'}`}></div>
-            <button onClick={alternarTipoComanda} className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[12px] font-medium tracking-tight transition-all active:scale-[0.97] ${comandaAtiva?.tipo === 'Delivery' ? (temaNoturno ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-700 border border-indigo-100') : (temaNoturno ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5')}`}>
+            <div className={`w-[1px] h-4 mx-1.5 ${isDark ? 'bg-white/10' : 'bg-black/[0.08]'}`}></div>
+            <button onClick={alternarTipoComanda} className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-[12px] font-medium tracking-tight transition-all active:scale-[0.97] ${comandaAtiva?.tipo === 'Delivery' ? (isDark ? 'bg-indigo-500/20 text-indigo-300' : 'bg-indigo-50 text-indigo-700 border border-indigo-100') : (isDark ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5')}`}>
               {comandaAtiva?.tipo}
             </button>
           </div>
@@ -222,9 +225,9 @@ export default function Header({
           <div className="relative w-full max-w-[380px] h-[32px] flex justify-center items-center">
             {mensagensAtivas.map((msg, i) => {
               const isAct = i === indiceMensagem;
-              let styleClasses = temaNoturno ? 'bg-[#18181B]/80 border-white/[0.06] text-zinc-300' : 'bg-white/80 border-black/[0.06] text-zinc-700 shadow-sm';
-              if (msg.tipo === 'critico') styleClasses = temaNoturno ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-700';
-              if (msg.tipo === 'alerta') styleClasses = temaNoturno ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700';
+              let styleClasses = isDark ? 'bg-[#18181B]/80 border-white/[0.06] text-zinc-300' : 'bg-white/80 border-black/[0.06] text-zinc-700 shadow-sm';
+              if (msg.tipo === 'critico') styleClasses = isDark ? 'bg-rose-500/10 border-rose-500/20 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-700';
+              if (msg.tipo === 'alerta') styleClasses = isDark ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700';
 
               return (
                 <div key={msg.id} className={`absolute flex items-center gap-2.5 px-4 py-1.5 rounded-full border backdrop-blur-md transition-all duration-[800ms] ease-[cubic-bezier(0.16,1,0.3,1)] ${isAct ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 translate-y-2 scale-[0.98] pointer-events-none'} ${styleClasses}`}>
@@ -239,13 +242,13 @@ export default function Header({
       
       <div className="flex-1 flex justify-end min-w-0">
         {linhaDoTempo.length > 0 && !comandaAtiva && (
-          <div className={`hidden md:flex items-center p-[3px] rounded-full border transition-colors duration-500 ${temaNoturno ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-black/[0.02] border-black/[0.05] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]'}`}>
+          <div className={`hidden md:flex items-center p-[3px] rounded-full border transition-colors duration-500 ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-black/[0.02] border-black/[0.05] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]'}`}>
             {linhaDoTempo.map((item, index) => (
-              <div key={index} title={item.condicao} className={`flex items-center gap-1.5 px-3 py-1.5 min-w-[54px] rounded-full transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${item.isCurrent ? (temaNoturno ? 'bg-white/[0.1] shadow-sm' : 'bg-white shadow-sm ring-1 ring-black/[0.05]') : `opacity-${Math.max(40, 90 - (index * 20))} hover:opacity-100 ${temaNoturno ? 'hover:bg-white/[0.06]' : 'hover:bg-black/[0.04]'}`}`}>
-                <span className={`text-[10px] uppercase font-semibold tracking-wide ${item.isCurrent ? (temaNoturno ? 'text-zinc-200' : 'text-zinc-800') : (temaNoturno ? 'text-zinc-500' : 'text-zinc-500')}`}>{item.horaStr}</span>
+              <div key={index} title={item.condicao} className={`flex items-center gap-1.5 px-3 py-1.5 min-w-[54px] rounded-full transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${item.isCurrent ? (isDark ? 'bg-white/[0.1] shadow-sm' : 'bg-white shadow-sm ring-1 ring-black/[0.05]') : `opacity-${Math.max(40, 90 - (index * 20))} hover:opacity-100 ${isDark ? 'hover:bg-white/[0.06]' : 'hover:bg-black/[0.04]'}`}`}>
+                <span className={`text-[10px] uppercase font-semibold tracking-wide ${item.isCurrent ? (isDark ? 'text-zinc-200' : 'text-zinc-800') : (isDark ? 'text-zinc-500' : 'text-zinc-500')}`}>{item.horaStr}</span>
                 <div className="flex items-center gap-1">
-                  {renderClimaIcon(item.condicao, temaNoturno, item.isCurrent)}
-                  <span className={`text-[11px] font-semibold tracking-tight ${item.isCurrent ? (temaNoturno ? 'text-white' : 'text-zinc-900') : (temaNoturno ? 'text-zinc-500' : 'text-zinc-500')}`}>{item.temp}°</span>
+                  {renderClimaIcon(item.condicao, isDark, item.isCurrent)}
+                  <span className={`text-[11px] font-semibold tracking-tight ${item.isCurrent ? (isDark ? 'text-white' : 'text-zinc-900') : (isDark ? 'text-zinc-500' : 'text-zinc-500')}`}>{item.temp}°</span>
                 </div>
               </div>
             ))}

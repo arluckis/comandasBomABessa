@@ -110,28 +110,55 @@ export default function Home() {
   const [scenePhase, setScenePhase] = useState('ignition');
   const [sceneCustomConfig, setSceneCustomConfig] = useState(null); 
   const [isSceneActive, setIsSceneActive] = useState(true); 
+  const [isPreComandaActiveGlobally, setIsPreComandaActiveGlobally] = useState(false); // Adicionado para ouvir instâncias internas
   
   const [isAntecipado, setIsAntecipado] = useState(false);
   const [temPendencia, setTemPendencia] = useState(false);
   const [isShellEntering, setIsShellEntering] = useState(false);
   const preComandaDispensada = useRef(false);
 
-  // Estados críticos para orquestração da sequência visual do Loading
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [minLoadTimePassed, setMinLoadTimePassed] = useState(false);
   const shellTransitionFired = useRef(false);
+  const isTransitioningRef = useRef(false);
   const [loaderExitStage, setLoaderExitStage] = useState('none');
 
   useEffect(() => {
     if (appMode !== 'loading') return;
     
-    const t1 = setTimeout(() => { setScenePhase('reveal'); }, 800);
-    const t2 = setTimeout(() => { setScenePhase('sync'); }, 2200);
-    // Tempo mínimo estético para que o Loading e o planeta sejam devidamente vistos
-    const t3 = setTimeout(() => { setMinLoadTimePassed(true); }, 3500); 
+    const t1 = setTimeout(() => { setScenePhase('reveal'); }, 600);
+    const t2 = setTimeout(() => { setScenePhase('sync'); }, 1600);
+    const t3 = setTimeout(() => { setMinLoadTimePassed(true); }, 2400); 
 
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, [appMode]);
+
+  // RECOVERY E SINCRONIZAÇÃO DE CENA VIA EVENTOS GLOBAIS
+  useEffect(() => {
+    const handleMount = () => setIsPreComandaActiveGlobally(true);
+    const handleUnmount = () => setIsPreComandaActiveGlobally(false);
+    const handleEnvUpdate = (e) => setSceneCustomConfig(e.detail);
+
+    window.addEventListener('arox-precomanda-mounted', handleMount);
+    window.addEventListener('arox-precomanda-unmounted', handleUnmount);
+    window.addEventListener('arox-env-update', handleEnvUpdate);
+
+    return () => {
+       window.removeEventListener('arox-precomanda-mounted', handleMount);
+       window.removeEventListener('arox-precomanda-unmounted', handleUnmount);
+       window.removeEventListener('arox-env-update', handleEnvUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (appMode === 'takeover' && !isSceneActive) {
+      setIsSceneActive(true);
+      setScenePhase('handoff');
+      setSceneCustomConfig(null); 
+      setLoaderExitStage('none'); 
+      isTransitioningRef.current = false;
+    }
+  }, [appMode, isSceneActive]);
 
   useEffect(() => {
     if (isDataLoaded && minLoadTimePassed && appMode === 'loading' && !shellTransitionFired.current) {
@@ -142,14 +169,13 @@ export default function Home() {
        if (shouldBypassPreComanda) {
           transitionToShell(false); 
        } else {
-          // Saída orquestrada do SystemLoader para revelar a PreComanda
           setLoaderExitStage('content');
-          setTimeout(() => setLoaderExitStage('card'), 400);
-          setTimeout(() => setLoaderExitStage('arox'), 1000);
+          setTimeout(() => setLoaderExitStage('card'), 300);
+          setTimeout(() => setLoaderExitStage('arox'), 700);
           setTimeout(() => {
              setScenePhase('handoff');
              setAppMode('takeover');
-          }, 1400);
+          }, 1000);
        }
     }
   }, [isDataLoaded, minLoadTimePassed, appMode, caixaAtual, temPendencia]);
@@ -286,9 +312,10 @@ export default function Home() {
     setAbaAtiva('comandas'); 
     setNomeEmpresa('AROX');
     setLogoEmpresa('https://cdn-icons-png.flaticon.com/512/3135/3135715.png');
-    preComandaDispensada.current = false; 
-    setIsSceneActive(true); 
     
+    preComandaDispensada.current = false; 
+    isTransitioningRef.current = false;
+    setIsSceneActive(true); 
     setAppMode('loading');
     setScenePhase('ignition');
     setIsDataLoaded(false);
@@ -361,7 +388,6 @@ export default function Home() {
         setIsAntecipado(horaAtual < 10); 
       }
       
-      // Libera o gatilho da renderização visual orquestrada do loading
       setIsDataLoaded(true);
 
     } catch (err) {} finally { setIsLoading(false); }
@@ -417,28 +443,29 @@ export default function Home() {
     } catch (err) { mostrarAlerta("Erro", "Erro ao abrir caixa: " + err.message); } finally { setIsLoading(false); }
   };
 
-  // ==========================================
-  // LÓGICA DE TRANSIÇÃO
-  // ==========================================
   const transitionToShell = (fromPreComanda = false) => {
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+
     if (fromPreComanda) {
       executeExplosion();
     } else {
       setLoaderExitStage('content');
-      setTimeout(() => setLoaderExitStage('card'), 400);
-      setTimeout(() => setLoaderExitStage('arox'), 1000);
-      setTimeout(() => executeExplosion(), 1400);
+      setTimeout(() => setLoaderExitStage('card'), 300);
+      setTimeout(() => setLoaderExitStage('arox'), 700);
+      setTimeout(() => executeExplosion(), 1000);
     }
   };
 
   const executeExplosion = () => {
     setScenePhase(temaNoturno ? 'bridgeDark' : 'bridgeLight'); 
+    
     setTimeout(() => {
       setAppMode('shell');
       setIsShellEntering(true);
       setTimeout(() => setIsShellEntering(false), 1200);
       setTimeout(() => setIsSceneActive(false), 2000); 
-    }, 1800); 
+    }, 1100); 
   };
 
   const onFinalizarAbertura = (valor) => {
@@ -446,8 +473,11 @@ export default function Home() {
     abrirCaixaManual({ data_abertura: getHoje(), saldo_inicial: valor });
   };
   
-  const onAcessarSistema = () => {
+  const onAcessarSistema = (forcarFaturamento = true) => {
     preComandaDispensada.current = true;
+    if (forcarFaturamento) {
+      setAbaAtiva('faturamento');
+    }
     transitionToShell(true);
   };
 
@@ -736,11 +766,9 @@ export default function Home() {
 
   return (
     <>
-      {isSceneActive && (
-        <div className={`fixed inset-0 z-0 transition-opacity duration-[1500ms] ease-out ${appMode === 'shell' ? 'opacity-0' : 'opacity-100'}`}>
-          <AroxCinematicScene scenePhase={scenePhase} customConfig={sceneCustomConfig} temaAnterior={temaNoturno ? 'dark' : 'light'} />
-        </div>
-      )}
+      <div className={`fixed inset-0 z-0 transition-opacity duration-[1500ms] ease-out ${(appMode === 'shell' && !isTransitioningRef.current && !isPreComandaActiveGlobally) ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <AroxCinematicScene scenePhase={scenePhase} customConfig={sceneCustomConfig} temaAnterior={temaNoturno ? 'dark' : 'light'} />
+      </div>
 
       <div className="fixed inset-0 z-10 pointer-events-none">
         {(appMode === 'loading' || scenePhase === 'handoff' || scenePhase === 'bridgeDark' || scenePhase === 'bridgeLight') && (
@@ -758,6 +786,8 @@ export default function Home() {
               onResolverPendencia={handleResolverPendencia}
               usuarioNome={sessao?.nome_usuario}
               onEnvUpdate={setSceneCustomConfig}
+              caixaAberto={caixaAtual?.status === 'aberto'}
+              isSistemaJaAcessado={preComandaDispensada.current}
             />
           </div>
         )}
@@ -792,6 +822,7 @@ export default function Home() {
               abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva} setMostrarConfigEmpresa={setMostrarConfigEmpresa}
               setMostrarAdminProdutos={setMostrarAdminProdutos} setMostrarConfigTags={setMostrarConfigTags}
               setMostrarAdminDelivery={setMostrarAdminDelivery} fazerLogout={fazerLogout}
+              caixaAtual={caixaAtual}
             />
 
             <div className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-transparent">

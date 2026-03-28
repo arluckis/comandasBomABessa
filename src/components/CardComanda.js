@@ -31,95 +31,91 @@ export default function CardComanda({ comanda, onClick, temaNoturno }) {
   return (
     <div 
       onClick={onClick}
-      className={`relative w-full sm:w-[280px] cursor-pointer rounded-2xl border p-5 transition-all duration-300 ease-out flex flex-col justify-between min-h-[140px] group overflow-hidden ${
+      className={`relative w-full sm:w-[280px] cursor-pointer rounded-2xl border p-5 transition-all duration-300 ease-out flex flex-col justify-between h-[152px] group overflow-hidden ${
         temaNoturno 
-          ? 'bg-[#0A0A0A] border-white/5 hover:bg-[#121212] hover:border-white/10 hover:shadow-lg hover:-translate-y-0.5' 
-          : 'bg-white border-zinc-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-zinc-300/80 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.06)] hover:-translate-y-0.5'
+          ? 'bg-[#0A0A0A] border-white/[0.08] hover:border-white/[0.15] hover:shadow-lg' 
+          : 'bg-white border-black/[0.08] hover:border-black/[0.15] hover:shadow-md'
       }`}
     >
-      {/* IDENTIDADE LOGÍSTICA SUTIL (Gradient Tint for Delivery) */}
+      {/* IDENTIDADE LOGÍSTICA SUTIL */}
       {isDelivery && (
         <div className={`absolute inset-0 pointer-events-none transition-opacity duration-300 ${temaNoturno ? 'bg-gradient-to-br from-amber-500/[0.03] to-transparent' : 'bg-gradient-to-br from-amber-500/[0.04] to-transparent'}`}></div>
       )}
 
       {/* HEADER DO CARD */}
       <div className="flex justify-between items-start gap-3 w-full relative z-10">
-        <div className="flex flex-col min-w-0 gap-2">
+        <div className="flex flex-col min-w-0 gap-1.5 w-full pr-2">
+          
+          <h3 className={`font-bold text-[15px] truncate tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
+            {comanda.nome}
+          </h3>
           
           <div className="flex items-center gap-2">
-            <h3 className={`font-medium text-base truncate tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
-              {comanda.nome}
-            </h3>
-          </div>
-          
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide uppercase ${
+            <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase border ${
               isDelivery 
-                ? (temaNoturno ? 'bg-amber-500/10 text-amber-500/90' : 'bg-amber-50 text-amber-700')
-                : (temaNoturno ? 'bg-white/5 text-zinc-500' : 'bg-zinc-100 text-zinc-600')
+                ? (temaNoturno ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-amber-50 border-amber-200 text-amber-700')
+                : (temaNoturno ? 'bg-white/5 border-white/5 text-zinc-400' : 'bg-black/5 border-black/5 text-zinc-600')
             }`}>
               {isDelivery ? 'Delivery' : 'Local'}
             </span>
             
             {tempoTexto && (
-               <span className={`text-xs font-medium ${temaNoturno ? 'text-zinc-600' : 'text-zinc-400'}`}>
+               <span className={`text-[10px] font-bold tracking-wider ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>
                  {tempoTexto}
                </span>
             )}
           </div>
-
         </div>
 
         {/* STATUS VISUAL PREMIUM */}
         <div className="shrink-0 flex items-center justify-end">
           {isPagaTotal && (
-             <div className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5 ${temaNoturno ? 'bg-[#0A0A0A] text-emerald-400 ring-1 ring-inset ring-emerald-500/20' : 'bg-white text-emerald-600 ring-1 ring-inset ring-emerald-500/20 shadow-sm'}`}>
-               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+             <div className={`px-2 py-1 rounded text-[9px] font-black tracking-widest uppercase border ${temaNoturno ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>
                Pago
              </div>
           )}
           {isPagaParcial && !isPagaTotal && (
-             <div className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase flex items-center gap-1.5 ${temaNoturno ? 'bg-[#0A0A0A] text-blue-400 ring-1 ring-inset ring-blue-500/20' : 'bg-white text-blue-600 ring-1 ring-inset ring-blue-500/20 shadow-sm'}`}>
-               <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+             <div className={`px-2 py-1 rounded text-[9px] font-black tracking-widest uppercase border ${temaNoturno ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
                Parcial
              </div>
           )}
         </div>
       </div>
 
-      {/* FOOTER DO CARD (Valor reinando absoluto) */}
-      <div className="flex justify-between items-end mt-6 relative z-10">
+      {/* FOOTER DO CARD (O valor riscado não aumenta a altura do card) */}
+      <div className="flex justify-between items-end mt-auto relative z-10">
         
-        <div className="flex flex-col mb-1.5">
-           <span className={`text-xs font-medium ${temaNoturno ? 'text-zinc-600' : 'text-zinc-400'}`}>
+        <div className="flex flex-col mb-1">
+           <span className={`text-[11px] font-bold uppercase tracking-wider ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>
              {qtdProdutos === 0 ? 'Vazio' : `${qtdProdutos} ite${qtdProdutos === 1 ? 'm' : 'ns'}`}
            </span>
         </div>
 
-        <div className="text-right flex flex-col items-end leading-none">
+        <div className="text-right flex flex-col items-end leading-none relative">
            {isPagaParcial && !isPagaTotal ? (
-             <div className="flex flex-col items-end gap-1.5">
-               <span className={`text-xs font-medium line-through decoration-zinc-400/50 ${temaNoturno ? 'text-zinc-600' : 'text-zinc-400'}`}>
+             <>
+               {/* Preço original riscado posicionado de forma ABSOLUTA para não empurrar o layout pra baixo */}
+               <span className={`absolute bottom-full right-0 mb-1 text-[11px] font-bold line-through opacity-40 ${temaNoturno ? 'text-zinc-300' : 'text-zinc-700'}`}>
                  R$ {totalOriginal.toFixed(2)}
                </span>
-               <div className="flex items-baseline gap-1">
-                 <span className={`text-sm font-medium ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
-                 <span className={`font-semibold text-2xl tabular-nums tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
+               <div className="flex items-baseline gap-1.5">
+                 <span className={`text-[12px] font-bold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
+                 <span className={`font-black text-2xl tabular-nums tracking-tighter ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
                    {totalPendente.toFixed(2)}
                  </span>
                </div>
-             </div>
+             </>
            ) : isPagaTotal ? (
-             <div className="flex items-baseline gap-1">
-               <span className={`text-sm font-medium ${temaNoturno ? 'text-emerald-500/60' : 'text-emerald-600/60'}`}>R$</span>
-               <span className={`font-semibold text-2xl tabular-nums tracking-tight ${temaNoturno ? 'text-emerald-400' : 'text-emerald-600'}`}>
+             <div className="flex items-baseline gap-1.5">
+               <span className={`text-[12px] font-bold ${temaNoturno ? 'text-emerald-500/60' : 'text-emerald-600/60'}`}>R$</span>
+               <span className={`font-black text-2xl tabular-nums tracking-tighter ${temaNoturno ? 'text-emerald-400' : 'text-emerald-600'}`}>
                  {totalOriginal.toFixed(2)}
                </span>
              </div>
            ) : (
-             <div className="flex items-baseline gap-1">
-               <span className={`text-sm font-medium ${temaNoturno ? 'text-zinc-600' : 'text-zinc-400'}`}>R$</span>
-               <span className={`font-semibold text-2xl tabular-nums tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
+             <div className="flex items-baseline gap-1.5">
+               <span className={`text-[12px] font-bold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
+               <span className={`font-black text-2xl tabular-nums tracking-tighter ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
                  {totalOriginal.toFixed(2)}
                </span>
              </div>

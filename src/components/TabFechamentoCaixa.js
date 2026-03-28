@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, comandas, fetchData, mostrarAlerta, mostrarConfirmacao }) {
@@ -30,38 +30,6 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
   
   const [solicitouSenhaAuto, setSolicitouSenhaAuto] = useState(false);
   const [isConsolidating, setIsConsolidating] = useState(false);
-  
-  const parallaxRef = useRef(null);
-  const isModalOpen = movModal.visivel || senhaModal.visivel || modalEdicao.visivel;
-
-  const triggerPulse = (type = 'neutral') => {
-    if (!parallaxRef.current) return;
-    parallaxRef.current.setAttribute('data-pulse', type);
-    setTimeout(() => {
-      if (parallaxRef.current) parallaxRef.current.removeAttribute('data-pulse');
-    }, 800);
-  };
-
-  useEffect(() => {
-    let rafId = null;
-    const handleMouseMove = (e) => {
-      if (!parallaxRef.current || isModalOpen) return;
-      
-      if (rafId) cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        const mx = (e.clientX / window.innerWidth) * 100;
-        const my = (e.clientY / window.innerHeight) * 100;
-        parallaxRef.current.style.setProperty('--mouse-x', `${mx}%`);
-        parallaxRef.current.style.setProperty('--mouse-y', `${my}%`);
-      });
-    };
-    
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      if (rafId) cancelAnimationFrame(rafId);
-    };
-  }, [isModalOpen]);
 
   const formatarDataSegura = (isoString) => {
     if (!isoString) return '---';
@@ -170,7 +138,6 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
     const payload = { caixa_id: caixaAtual.id, empresa_id: sessao.empresa_id, tipo: movModal.tipo, valor: val, descricao: movModal.descricao };
     const { data, error } = await supabase.from('caixa_movimentacoes').insert([payload]).select();
     if (data && data.length > 0 && !error) {
-      triggerPulse('success');
       setMovimentacoes(prev => [...prev, ...data]);
       setMovModal({ visivel: false, tipo: '', valor: '', descricao: '' });
     } else {
@@ -179,7 +146,6 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
   };
 
   const excluirCaixaConfirmado = async () => {
-    triggerPulse('neutral');
     const { error } = await supabase.from('caixas').update({ status: 'estornado', data_fechamento: new Date().toISOString() }).eq('id', caixaEditando.id).eq('empresa_id', sessao.empresa_id);
     if (!error) { 
       mostrarAlerta("Auditoria Concluída", "O fechamento foi estornado logicamente."); 
@@ -198,7 +164,6 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
 
       if (autorizado) {
         setSenhaModal({ visivel: false, senha: '' });
-        triggerPulse('success');
         
         if (acaoPendente === 'revelar') setMostrarEsperado(true);
         if (acaoPendente === 'historico') { setHistoricoLiberado(true); setAbaInterna('historico'); }
@@ -237,7 +202,6 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
     const payload = { caixa_id: caixaAtual.id, empresa_id: sessao.empresa_id, tipo: 'sangria', valor: pendenteMotoboy, descricao: 'Liquidação Logística Integrada' };
     const { data, error } = await supabase.from('caixa_movimentacoes').insert([payload]).select();
     if (data && !error) { 
-      triggerPulse('success');
       setMovimentacoes(prev => [...prev, ...data]); 
       setTotalPagoMotoboysDia(prev => prev + pendenteMotoboy); 
     }
@@ -256,7 +220,6 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
 
   const encerrarCaixaConfirmado = async () => {
     setIsConsolidating(true);
-    triggerPulse('success');
 
     const diferencaDinheiro = parseFloat(valorInformadoDinheiro || 0) - saldoGavetaEsperado;
     const relatorioFinal = {
@@ -291,199 +254,214 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
     const novoRelatorio = { ...caixaEditando.relatorio_fechamento, informadoDinheiro: valDinheiro, informadoCartao: valCartao, informadoPix: valPix, diferencaDinheiro: valDinheiro - (caixaEditando.relatorio_fechamento.esperadoDinheiro || 0) };
     const { error } = await supabase.from('caixas').update({ relatorio_fechamento: novoRelatorio }).eq('id', caixaEditando.id).eq('empresa_id', sessao.empresa_id);
     if (!error) { 
-       triggerPulse('success');
        setModalEdicao({ visivel: false, dinheiro: '', cartao: '', pix: '' }); 
        carregarHistorico(); 
     }
   };
 
-  const inputWrapperStyle = `relative flex items-center bg-transparent rounded-xl border transition-colors duration-300 overflow-hidden 
-    ${temaNoturno ? 'border-white/[0.08] focus-within:border-white/20 hover:border-white/15 bg-black/20' : 'border-black/10 focus-within:border-black/30 hover:border-black/20 bg-white/50'}`;
+  const bgPrincipal = temaNoturno ? 'bg-[#050505]' : 'bg-[#FAFAFA]';
+  const textPrincipal = temaNoturno ? 'text-zinc-100' : 'text-zinc-900';
+  const textSecundario = temaNoturno ? 'text-zinc-500' : 'text-zinc-500'; 
+  const bordaDestaque = temaNoturno ? 'border-white/[0.08]' : 'border-black/[0.08]';
+  
+  const inputWrapperStyle = `relative flex items-center bg-transparent rounded-xl border transition-all duration-300 overflow-hidden 
+    ${temaNoturno ? 'border-white/[0.08] focus-within:border-white/20 hover:border-white/15 bg-white/5' : 'border-black/10 focus-within:border-black/30 hover:border-black/20 bg-black/5'}`;
 
-  const inputStyle = `w-full bg-transparent outline-none py-3 pr-4 pl-12 text-[15px] font-medium tracking-tight transition-all duration-300 placeholder-opacity-20 
+  const inputStyle = `w-full bg-transparent outline-none py-3 pr-4 pl-12 text-[15px] font-bold tracking-tight transition-all duration-300 placeholder-opacity-40 
     ${temaNoturno ? 'text-white placeholder-white' : 'text-black placeholder-black'}`;
 
-  const labelStyle = `text-[13px] font-medium tracking-wide mb-2 block ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`;
+  const labelStyle = `text-[10px] font-bold uppercase tracking-widest mb-2 block ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`;
 
-  const cardBaseStyle = `relative p-7 md:p-8 rounded-[24px] border transition-colors duration-500 overflow-hidden group w-full
-    ${temaNoturno ? 'bg-[#09090B]/80 backdrop-blur-xl border-white/[0.05] shadow-lg' : 'bg-white/80 backdrop-blur-xl border-black/[0.04] shadow-sm'}`;
+  const cardBaseStyle = `relative p-6 md:p-8 rounded-[32px] border transition-colors overflow-hidden w-full arox-cinematic
+    ${temaNoturno ? 'bg-[#0A0A0A] border-white/[0.04] shadow-md' : 'bg-white border-black/[0.04] shadow-sm'}`;
+
+  const btnAROXPrimario = `px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 active:scale-95 border ${temaNoturno ? 'bg-zinc-100 text-black border-transparent hover:bg-white' : 'bg-zinc-900 text-white border-transparent hover:bg-black'}`;
+  const btnAROXSecundario = `px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all shadow-sm flex items-center gap-2 active:scale-95 border ${temaNoturno ? 'bg-[#18181B] border-white/10 text-white hover:bg-zinc-800' : 'bg-white border-black/10 text-zinc-900 hover:bg-zinc-50'}`;
+  
+  const tabs = [{ id: 'atual', label: 'Caixa Operacional' }, { id: 'historico', label: 'Trilha de Auditoria' }];
 
   return (
-    <div ref={parallaxRef} className={`w-full min-h-screen relative font-sans pt-8 pb-20 overflow-hidden ${temaNoturno ? 'text-[#EDEDED]' : 'text-[#111111]'}`}>
+    <div className={`w-full min-h-screen relative font-sans pt-4 pb-20 overflow-hidden ${bgPrincipal} ${textPrincipal}`}>
       
-      {/* PREMIUM LIGHTWEIGHT BACKGROUND ENGINE (Degradê Restaurado) */}
-      <div className="fixed inset-0 z-[-1] pointer-events-none transition-all duration-1000 data-[pulse=neutral]:scale-[1.01] data-[pulse=success]:scale-[1.02] data-[pulse=success]:brightness-110">
-        {temaNoturno ? (
-          <div className="absolute inset-0 bg-zinc-950 transition-colors duration-700">
-             <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full blur-[120px] bg-indigo-900/10 mix-blend-screen transition-colors duration-1000" />
-             <div className="absolute bottom-[-10%] right-[-10%] w-[60vw] h-[60vw] rounded-full blur-[140px] bg-orange-900/5 mix-blend-screen transition-colors duration-1000" />
-          </div>
-        ) : (
-          <div className="absolute inset-0 bg-zinc-50 transition-colors duration-700">
-             <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full blur-[120px] bg-blue-500/5 mix-blend-multiply transition-colors duration-1000" />
-             <div className="absolute bottom-[-10%] right-[-10%] w-[60vw] h-[60vw] rounded-full blur-[140px] bg-orange-500/5 mix-blend-multiply transition-colors duration-1000" />
-          </div>
-        )}
-      </div>
+      <style dangerouslySetInnerHTML={{__html: `
+        .arox-cinematic { animation: arox-fade-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(10px); }
+        @keyframes arox-fade-up { 100% { opacity: 1; transform: translateY(0); } }
+      `}} />
 
-      <div className={`relative z-10 flex flex-col lg:flex-row gap-8 w-full max-w-full mx-auto px-6 lg:px-8 transition-all duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] ${isModalOpen || isConsolidating ? 'scale-[0.99] opacity-70 blur-[4px]' : 'scale-100 opacity-100 blur-0'}`}>
+      <div className={`relative z-10 flex flex-col gap-6 w-full max-w-full mx-auto px-4 md:px-6 transition-all duration-400`}>
         
-        <nav className="shrink-0 lg:w-56 flex flex-col gap-2">
-          <div className={`p-1.5 rounded-[16px] flex lg:flex-col gap-1 backdrop-blur-xl border transition-colors duration-300 ${temaNoturno ? 'bg-white/[0.02] border-white/[0.04]' : 'bg-black/[0.02] border-black/[0.04]'}`}>
+        {/* NAV SUPERIOR - IDÊNTICA AO TABFIDELIDADE */}
+        <div className={`flex flex-wrap items-center gap-4 md:gap-6 pb-2 shrink-0 border-b mb-4 ${bordaDestaque}`}>
+          {tabs.map(tab => (
             <button 
-              onClick={() => setAbaInterna('atual')} 
-              className={`w-full text-left px-4 py-3 rounded-xl text-[14px] font-medium transition-all duration-200 ease-out active:scale-[0.98] ${abaInterna === 'atual' ? (temaNoturno ? 'bg-white/[0.08] text-white shadow-sm ring-1 ring-white/[0.05]' : 'bg-white text-zinc-900 shadow-sm ring-1 ring-black/[0.05]') : (temaNoturno ? 'text-zinc-400 hover:text-white hover:bg-white/[0.03]' : 'text-zinc-500 hover:text-zinc-900 hover:bg-black/[0.03]')}`}
+              key={tab.id} 
+              onClick={() => {
+                if(tab.id === 'historico' && !historicoLiberado) {
+                  setAcaoPendente('historico'); setSenhaModal({ visivel: true, senha: '' });
+                } else {
+                  setAbaInterna(tab.id);
+                }
+              }} 
+              className={`relative py-2.5 text-[11px] font-bold tracking-[0.05em] uppercase transition-colors duration-300 ${abaInterna === tab.id ? (temaNoturno ? 'text-white' : 'text-black') : `${textSecundario} hover:${textPrincipal}`}`}
             >
-              Caixa Operacional
+              {tab.label}
+              {abaInterna === tab.id && <div className="absolute bottom-[-1px] left-0 right-0 h-[2px] bg-emerald-500 shadow-[0_-1px_8px_rgba(16,185,129,0.4)]" />}
             </button>
-            <button 
-              onClick={() => { if (historicoLiberado) setAbaInterna('historico'); else { setAcaoPendente('historico'); setSenhaModal({ visivel: true, senha: '' }); } }} 
-              className={`w-full text-left px-4 py-3 rounded-xl text-[14px] font-medium transition-all duration-200 ease-out active:scale-[0.98] ${abaInterna === 'historico' ? (temaNoturno ? 'bg-white/[0.08] text-white shadow-sm ring-1 ring-white/[0.05]' : 'bg-white text-zinc-900 shadow-sm ring-1 ring-black/[0.05]') : (temaNoturno ? 'text-zinc-400 hover:text-white hover:bg-white/[0.03]' : 'text-zinc-500 hover:text-zinc-900 hover:bg-black/[0.03]')}`}
-            >
-              Trilha de Auditoria
-            </button>
-          </div>
-        </nav>
+          ))}
+        </div>
 
         {/* TRANSIÇÃO BI-DIRECIONAL */}
-        <main className="flex-1 min-w-0 grid grid-cols-1 grid-rows-1 relative w-full">
+        <main className="flex-1 min-w-0 w-full relative">
             
             {/* --- ABA: CAIXA OPERACIONAL --- */}
-            <div className={`col-start-1 row-start-1 transition-all duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] ${abaInterna === 'atual' ? 'opacity-100 translate-y-0 scale-100 z-10 pointer-events-auto relative' : 'opacity-0 translate-y-3 scale-[0.99] z-0 pointer-events-none absolute inset-0'}`}>
+            <div className={`w-full ${abaInterna === 'atual' ? 'block' : 'hidden'}`}>
               {caixaAtual?.status === 'aberto' ? (
-                <div className="flex flex-col gap-8 w-full">
+                <div className="flex flex-col gap-6 w-full">
                   
-                  <div className="flex justify-end gap-3 mb-2 w-full">
-                    <button onClick={() => { triggerPulse('neutral'); setMovModal({ visivel: true, tipo: 'suprimento', valor: '', descricao: '' }); }} 
-                      className={`px-5 py-2.5 rounded-xl text-[13px] font-semibold tracking-wide transition-all duration-200 active:scale-[0.97] shadow-sm flex items-center gap-2 border ${temaNoturno ? 'bg-zinc-100 text-black border-transparent hover:bg-white' : 'bg-zinc-900 text-white border-transparent hover:bg-black'}`}>
+                  {/* AÇÕES DE GAVETA */}
+                  <div className="flex justify-end gap-3 mb-2 w-full arox-cinematic" style={{animationDelay: '0ms'}}>
+                    <button onClick={() => { setMovModal({ visivel: true, tipo: 'suprimento', valor: '', descricao: '' }); }} className={btnAROXPrimario}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"></path></svg>
                       Entrada Extra
                     </button>
-                    <button onClick={() => { triggerPulse('neutral'); setMovModal({ visivel: true, tipo: 'sangria', valor: '', descricao: '' }); }} 
-                      className={`px-5 py-2.5 rounded-xl text-[13px] font-semibold tracking-wide transition-all duration-200 active:scale-[0.97] shadow-sm flex items-center gap-2 border ${temaNoturno ? 'bg-[#18181B] text-white border-white/10 hover:bg-zinc-800' : 'bg-white text-zinc-900 border-black/10 hover:bg-zinc-50'}`}>
+                    <button onClick={() => { setMovModal({ visivel: true, tipo: 'sangria', valor: '', descricao: '' }); }} className={btnAROXSecundario}>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M20 12H4"></path></svg>
                       Retirada (Sangria)
                     </button>
                   </div>
 
-                  <section className={cardBaseStyle}>
-                    <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out z-0" style={{ background: `radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${temaNoturno ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}, transparent 40%)` }} />
-                    <div className="relative z-10">
-                      <div className="mb-8 border-b border-transparent">
-                        <h2 className="text-[17px] font-semibold tracking-tight mb-1">Valores Informados</h2>
-                        <p className={`text-[13px] ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Informe os valores contados fisicamente no fechamento.</p>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div>
-                          <label className={labelStyle}>Dinheiro em Espécie</label>
-                          <div className={inputWrapperStyle}>
-                            <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-medium z-10 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
-                            <input type="number" value={valorInformadoDinheiro} onChange={(e) => setValorInformadoDinheiro(e.target.value)} className={`${inputStyle} relative z-10`} placeholder="0,00" />
+                  {/* GRID 2 COLUNAS: Operacional e Valores */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
+                    
+                    {/* COLUNA 1: Apuração do Sistema */}
+                    <section className={cardBaseStyle} style={{animationDelay: '50ms'}}>
+                      <div className="relative z-10 h-full flex flex-col">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                          <div>
+                            <h2 className="text-[20px] font-bold tracking-tight mb-1">Apuração do Sistema</h2>
+                            <p className={`text-[12px] font-medium ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Totais registrados pelas vendas e operações.</p>
+                          </div>
+                          <button onClick={() => { if(mostrarEsperado) setMostrarEsperado(false); else { setAcaoPendente('revelar'); setSenhaModal({ visivel: true, senha: '' }); } }} 
+                            className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] border shadow-sm ${temaNoturno ? 'bg-zinc-800 border-white/10 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-white border-black/10 hover:bg-zinc-50 text-zinc-700 hover:text-black'}`}>
+                            {mostrarEsperado ? 'Ocultar Valores' : 'Desbloquear Visualização'}
+                          </button>
+                        </div>
+                        
+                        <div className={`grid transition-all duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] ${mostrarEsperado ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0 pointer-events-none'}`}>
+                          <div className="overflow-hidden">
+                            <div className="grid grid-cols-2 gap-y-6 gap-x-6">
+                              <div className="col-span-2 mb-2 pb-6 border-b border-dashed border-zinc-500/20">
+                                <p className={labelStyle}>Saldo Esperado em Gaveta</p>
+                                <p className={`text-[36px] font-bold tracking-tight leading-none tabular-nums ${temaNoturno ? 'text-white' : 'text-black'}`}>R$ {saldoGavetaEsperado.toFixed(2)}</p>
+                              </div>
+                              <div>
+                                <p className={labelStyle}>Fundo Inicial</p>
+                                <p className={`text-[15px] font-bold tracking-tight tabular-nums ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>R$ {saldoInicial.toFixed(2)}</p>
+                              </div>
+                              <div>
+                                <p className={labelStyle}>Vendas em Dinheiro</p>
+                                <p className="text-[15px] font-bold tracking-tight tabular-nums text-emerald-500">+ R$ {totalSistemaDinheiro.toFixed(2)}</p>
+                              </div>
+                              <div>
+                                <p className={labelStyle}>Entradas Extras</p>
+                                <p className="text-[15px] font-bold tracking-tight tabular-nums text-emerald-500">+ R$ {totalSuprimentos.toFixed(2)}</p>
+                              </div>
+                              <div>
+                                <p className={labelStyle}>Sangrias / Acertos</p>
+                                <p className="text-[15px] font-bold tracking-tight tabular-nums text-rose-500">- R$ {totalSangrias.toFixed(2)}</p>
+                              </div>
+                              <div className="col-span-2 pt-6 border-t border-dashed border-zinc-500/20 grid grid-cols-2 gap-6">
+                                <div>
+                                  <p className={labelStyle}>Total Maquininhas</p>
+                                  <p className={`text-[18px] font-bold tracking-tight tabular-nums ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>R$ {totalSistemaCartao.toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <p className={labelStyle}>Total Pix</p>
+                                  <p className={`text-[18px] font-bold tracking-tight tabular-nums ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>R$ {totalSistemaPix.toFixed(2)}</p>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                        <div>
-                          <label className={labelStyle}>Maquininhas (Cartão)</label>
-                          <div className={inputWrapperStyle}>
-                            <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-medium z-10 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
-                            <input type="number" value={valorInformadoCartao} onChange={(e) => setValorInformadoCartao(e.target.value)} className={`${inputStyle} relative z-10`} placeholder="0,00" />
-                          </div>
-                        </div>
-                        <div>
-                          <label className={labelStyle}>Recebimentos via Pix</label>
-                          <div className={inputWrapperStyle}>
-                            <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-medium z-10 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
-                            <input type="number" value={valorInformadoPix} onChange={(e) => setValorInformadoPix(e.target.value)} className={`${inputStyle} relative z-10`} placeholder="0,00" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </section>
 
-                  <section className={cardBaseStyle}>
-                    <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out z-0" style={{ background: `radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${temaNoturno ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}, transparent 40%)` }} />
-                    <div className="relative z-10">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <div>
-                          <h2 className="text-[17px] font-semibold tracking-tight mb-1">Apuração do Sistema</h2>
-                          <p className={`text-[13px] ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Totais registrados automaticamente pelas vendas e operações.</p>
-                        </div>
-                        <button onClick={() => { triggerPulse('neutral'); if(mostrarEsperado) setMostrarEsperado(false); else { setAcaoPendente('revelar'); setSenhaModal({ visivel: true, senha: '' }); } }} 
-                          className={`px-4 py-2 rounded-xl text-[12px] font-semibold transition-all duration-200 active:scale-[0.97] border shadow-sm ${temaNoturno ? 'bg-zinc-800 border-white/10 hover:bg-zinc-700 text-zinc-300 hover:text-white' : 'bg-white border-black/10 hover:bg-zinc-50 text-zinc-700 hover:text-black'}`}>
-                          {mostrarEsperado ? 'Ocultar Valores' : 'Desbloquear Visualização'}
-                        </button>
+                        {!mostrarEsperado && (
+                           <div className="flex-1 flex items-center justify-center py-12 opacity-50 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(0,0,0,0.02)_10px,rgba(0,0,0,0.02)_20px)] dark:bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,rgba(255,255,255,0.02)_10px,rgba(255,255,255,0.02)_20px)] rounded-xl mt-4">
+                             <p className={`text-[12px] font-bold uppercase tracking-widest ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>Visualização Bloqueada</p>
+                           </div>
+                        )}
                       </div>
-                      
-                      <div className={`grid transition-all duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] ${mostrarEsperado ? 'grid-rows-[1fr] opacity-100 mt-8 pt-8 border-t' : 'grid-rows-[0fr] opacity-0 mt-0 pt-0 border-t-0 pointer-events-none'} ${temaNoturno ? 'border-white/[0.06]' : 'border-black/[0.06]'}`}>
-                        <div className="overflow-hidden">
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 gap-x-6">
-                            <div className="col-span-2 md:col-span-4 mb-2">
-                              <p className={labelStyle}>Saldo Esperado em Gaveta</p>
-                              <p className={`text-[36px] font-medium tracking-tight leading-none font-mono ${temaNoturno ? 'text-white' : 'text-black'}`}>R$ {saldoGavetaEsperado.toFixed(2)}</p>
+                    </section>
+
+                    {/* COLUNA 2: Valores Informados */}
+                    <section className={cardBaseStyle} style={{animationDelay: '100ms'}}>
+                      <div className="relative z-10 flex flex-col h-full">
+                        <div className="mb-6 border-b border-transparent">
+                          <h2 className="text-[20px] font-bold tracking-tight mb-1">Declaração Física</h2>
+                          <p className={`text-[12px] font-medium ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Informe os valores reais contados no caixa.</p>
+                        </div>
+                        <div className="flex flex-col gap-6 flex-1 justify-center">
+                          <div>
+                            <label className={labelStyle}>Dinheiro em Espécie</label>
+                            <div className={inputWrapperStyle}>
+                              <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-bold z-10 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
+                              <input type="number" value={valorInformadoDinheiro} onChange={(e) => setValorInformadoDinheiro(e.target.value)} className={`${inputStyle} relative z-10`} placeholder="0,00" />
                             </div>
-                            <div>
-                              <p className={labelStyle}>Fundo Inicial</p>
-                              <p className={`text-[15px] font-medium tracking-tight font-mono ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>R$ {saldoInicial.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <label className={labelStyle}>Maquininhas (Cartão)</label>
+                            <div className={inputWrapperStyle}>
+                              <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-bold z-10 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
+                              <input type="number" value={valorInformadoCartao} onChange={(e) => setValorInformadoCartao(e.target.value)} className={`${inputStyle} relative z-10`} placeholder="0,00" />
                             </div>
-                            <div>
-                              <p className={labelStyle}>Vendas em Dinheiro</p>
-                              <p className="text-[15px] font-medium tracking-tight font-mono text-[#34C759]">+ R$ {totalSistemaDinheiro.toFixed(2)}</p>
-                            </div>
-                            <div>
-                              <p className={labelStyle}>Entradas Extras</p>
-                              <p className="text-[15px] font-medium tracking-tight font-mono text-[#34C759]">+ R$ {totalSuprimentos.toFixed(2)}</p>
-                            </div>
-                            <div>
-                              <p className={labelStyle}>Sangrias / Acertos</p>
-                              <p className="text-[15px] font-medium tracking-tight font-mono text-[#FF3B30]">- R$ {totalSangrias.toFixed(2)}</p>
-                            </div>
-                            <div className="col-span-2 pt-2 border-t border-transparent sm:border-t-0">
-                              <p className={labelStyle}>Total Maquininhas</p>
-                              <p className={`text-[17px] font-medium tracking-tight font-mono ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>R$ {totalSistemaCartao.toFixed(2)}</p>
-                            </div>
-                            <div className="col-span-2 pt-2 border-t border-transparent sm:border-t-0">
-                              <p className={labelStyle}>Total Pix</p>
-                              <p className={`text-[17px] font-medium tracking-tight font-mono ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>R$ {totalSistemaPix.toFixed(2)}</p>
+                          </div>
+                          <div>
+                            <label className={labelStyle}>Recebimentos via Pix</label>
+                            <div className={inputWrapperStyle}>
+                              <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-bold z-10 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
+                              <input type="number" value={valorInformadoPix} onChange={(e) => setValorInformadoPix(e.target.value)} className={`${inputStyle} relative z-10`} placeholder="0,00" />
                             </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </section>
+                    </section>
 
-                  <section className={cardBaseStyle}>
-                    <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out z-0" style={{ background: `radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${temaNoturno ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}, transparent 40%)` }} />
+                  </div>
+
+                  {/* BLOCO MOTOBOY */}
+                  <section className={cardBaseStyle} style={{animationDelay: '150ms'}}>
                     <div className="relative z-10">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8">
                         <div className="flex-1">
-                          <h3 className="text-[17px] font-semibold tracking-tight mb-1">Acerto de Motoboys</h3>
-                          <p className={`text-[13px] ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Controle automático de taxas de entrega pendentes.</p>
+                          <h3 className="text-[20px] font-bold tracking-tight mb-1">Acerto de Motoboys</h3>
+                          <p className={`text-[12px] font-medium ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Controle automático de taxas de entrega pendentes.</p>
                         </div>
                         <div className="flex items-center gap-3">
-                           <span className={`text-[13px] font-medium ${motoboyAtivo ? (temaNoturno ? 'text-zinc-300' : 'text-zinc-700') : (temaNoturno ? 'text-zinc-500' : 'text-zinc-400')}`}>Motoboy Ativo</span>
-                           <button onClick={() => { triggerPulse('neutral'); toggleMotoboy(); }} className={`w-11 h-6 rounded-full relative transition-colors duration-300 shrink-0 shadow-inner border ${motoboyAtivo ? (temaNoturno ? 'bg-zinc-200 border-transparent' : 'bg-zinc-900 border-transparent') : (temaNoturno ? 'bg-transparent border-white/20' : 'bg-transparent border-black/20')}`}>
-                              <span className={`absolute left-1 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full transition-transform duration-300 shadow-sm ${temaNoturno ? (motoboyAtivo ? 'bg-zinc-900' : 'bg-zinc-400') : (motoboyAtivo ? 'bg-white' : 'bg-zinc-400')} ${motoboyAtivo ? 'translate-x-5' : 'translate-x-0'}`} />
+                           <span className={`text-[11px] font-bold uppercase tracking-wider ${motoboyAtivo ? (temaNoturno ? 'text-zinc-300' : 'text-zinc-700') : (temaNoturno ? 'text-zinc-600' : 'text-zinc-400')}`}>Motoboy Ativo</span>
+                           <button onClick={() => { toggleMotoboy(); }} className={`w-12 h-6 rounded-full relative transition-colors duration-300 shrink-0 shadow-inner border ${motoboyAtivo ? (temaNoturno ? 'bg-zinc-200 border-transparent' : 'bg-zinc-900 border-transparent') : (temaNoturno ? 'bg-transparent border-white/20' : 'bg-transparent border-black/20')}`}>
+                              <span className={`absolute left-1 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full transition-transform duration-300 shadow-sm ${temaNoturno ? (motoboyAtivo ? 'bg-zinc-900' : 'bg-zinc-400') : (motoboyAtivo ? 'bg-white' : 'bg-zinc-400')} ${motoboyAtivo ? 'translate-x-6' : 'translate-x-0'}`} />
                            </button>
                         </div>
                       </div>
 
-                      <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-6 rounded-[16px] transition-all duration-300 border ${motoboyAtivo ? (temaNoturno ? 'bg-white/[0.03] border-white/[0.08]' : 'bg-black/[0.02] border-black/[0.05]') : (temaNoturno ? 'bg-transparent border-white/[0.05] opacity-50' : 'bg-transparent border-black/[0.05] opacity-50')} ${motoboyAtivo ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+                      <div className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-6 rounded-[20px] transition-all duration-300 border ${motoboyAtivo ? (temaNoturno ? 'bg-white/[0.03] border-white/[0.08]' : 'bg-black/[0.02] border-black/[0.05]') : (temaNoturno ? 'bg-transparent border-white/[0.05] opacity-50' : 'bg-transparent border-black/[0.05] opacity-50')} ${motoboyAtivo ? 'pointer-events-auto' : 'pointer-events-none'}`}>
                          <div className="mb-4 sm:mb-0">
                             <p className={labelStyle}>Valor Pendente Hoje</p>
-                            <p className={`text-[26px] font-medium tracking-tight font-mono ${temaNoturno ? 'text-white' : 'text-black'}`}>
+                            <p className={`text-[28px] font-bold tracking-tight tabular-nums ${temaNoturno ? 'text-white' : 'text-black'}`}>
                                R$ {pendenteMotoboy.toFixed(2)}
                             </p>
                          </div>
-                         <button onClick={() => { triggerPulse('neutral'); abrirConfirmacaoMotoboy(); }} disabled={!motoboyAtivo || pendenteMotoboy <= 0} className={`w-full sm:w-auto px-6 py-3 rounded-xl text-[13px] font-semibold transition-all duration-200 active:scale-[0.97] border shadow-sm disabled:opacity-50 disabled:active:scale-100 ${temaNoturno ? 'bg-zinc-800 border-white/10 text-white hover:bg-zinc-700' : 'bg-white border-black/10 text-zinc-900 hover:bg-zinc-50'}`}>
+                         <button onClick={() => { abrirConfirmacaoMotoboy(); }} disabled={!motoboyAtivo || pendenteMotoboy <= 0} className={`w-full sm:w-auto px-6 py-3 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] border shadow-sm disabled:opacity-50 disabled:active:scale-100 ${temaNoturno ? 'bg-zinc-800 border-white/10 text-white hover:bg-zinc-700' : 'bg-white border-black/10 text-zinc-900 hover:bg-zinc-50'}`}>
                             Autorizar Pagamento
                          </button>
                       </div>
                     </div>
                   </section>
 
-                  <div className="pt-2 pb-12 w-full">
+                  {/* BOTÃO FINALIZAR */}
+                  <div className="pt-4 pb-12 w-full arox-cinematic" style={{animationDelay: '200ms'}}>
                     <button onClick={() => mostrarConfirmacao('Fechar Caixa', 'Confirma o encerramento da sessão atual? O caixa passará a constar no histórico.', encerrarCaixaConfirmado)} 
                       disabled={isConsolidating}
-                      className={`relative w-full py-4 rounded-[16px] text-[15px] font-semibold tracking-wide transition-all duration-200 active:scale-[0.98] shadow-md border disabled:opacity-80 disabled:active:scale-100 flex justify-center items-center gap-3 ${temaNoturno ? 'bg-zinc-100 text-black border-transparent hover:bg-white' : 'bg-zinc-900 text-white border-transparent hover:bg-black'}`}>
+                      className={`relative w-full py-5 rounded-[20px] text-[13px] font-bold uppercase tracking-wider transition-all duration-200 active:scale-[0.98] shadow-md border disabled:opacity-80 disabled:active:scale-100 flex justify-center items-center gap-3 ${temaNoturno ? 'bg-zinc-100 text-black border-transparent hover:bg-white' : 'bg-zinc-900 text-white border-transparent hover:bg-black'}`}>
                       {isConsolidating ? (
                          <>
                            <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -495,50 +473,46 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
                 </div>
               ) : (
                 <div className="flex items-center justify-center h-[50vh] w-full">
-                  <div className="text-center">
-                    <div className={`w-14 h-14 mx-auto mb-5 rounded-[16px] flex items-center justify-center border ${temaNoturno ? 'bg-white/[0.03] border-white/[0.08] text-zinc-500' : 'bg-black/[0.02] border-black/[0.05] text-zinc-400'}`}>
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                  <div className="text-center arox-cinematic">
+                    <div className={`w-16 h-16 mx-auto mb-6 rounded-[20px] flex items-center justify-center border ${temaNoturno ? 'bg-white/[0.03] border-white/[0.08] text-zinc-500' : 'bg-black/[0.02] border-black/[0.05] text-zinc-400'}`}>
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                     </div>
-                    <p className={`text-[15px] font-medium tracking-tight mb-1 ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>Caixa Fechado</p>
-                    <p className={`text-[13px] ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>Nenhuma sessão operacional aberta no momento.</p>
+                    <p className={`text-[18px] font-bold tracking-tight mb-1 ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>Caixa Fechado</p>
+                    <p className={`text-[13px] font-medium ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>Nenhuma sessão operacional aberta no momento.</p>
                   </div>
                 </div>
               )}
             </div>
 
             {/* --- ABA: TRILHA DE AUDITORIA --- */}
-            <div className={`col-start-1 row-start-1 transition-all duration-400 ease-[cubic-bezier(0.25,1,0.5,1)] w-full ${abaInterna === 'historico' ? 'opacity-100 translate-y-0 scale-100 z-10 pointer-events-auto relative' : 'opacity-0 translate-y-3 scale-[0.99] z-0 pointer-events-none absolute inset-0'}`}>
+            <div className={`w-full ${abaInterna === 'historico' ? 'block' : 'hidden'}`}>
                 
-                {/* Header do Histórico com Navegação Premium de Data */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 border-b pb-6 border-transparent">
-                  <div>
-                    <h2 className="text-[18px] font-semibold tracking-tight mb-1">Trilha de Auditoria</h2>
-                    <p className={`text-[13px] ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Histórico financeiro e retificações.</p>
-                  </div>
+                {/* Header de Ações sem os H1s gigantes */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 border-b pb-4 border-transparent arox-cinematic" style={{animationDelay: '0ms'}}>
                   
                   <div className={`flex items-center p-1.5 rounded-xl border ${temaNoturno ? 'bg-white/[0.03] border-white/[0.08]' : 'bg-black/[0.02] border-black/[0.06]'}`}>
-                     <button onClick={() => alterarData(-1)} className={`p-2 rounded-lg transition-colors ${temaNoturno ? 'hover:bg-white/[0.08] text-zinc-400 hover:text-white' : 'hover:bg-black/[0.05] text-zinc-500 hover:text-black'}`}>
+                     <button onClick={() => alterarData(-1)} className={`p-2.5 rounded-lg transition-colors active:scale-95 ${temaNoturno ? 'hover:bg-white/[0.08] text-zinc-400 hover:text-white' : 'hover:bg-black/[0.05] text-zinc-500 hover:text-black'}`}>
                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
                      </button>
-                     <span className={`min-w-[120px] text-center text-[13px] font-semibold tracking-wide ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>
+                     <span className={`min-w-[130px] text-center text-[12px] font-bold uppercase tracking-wider ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>
                        {renderDataLabel()}
                      </span>
-                     <button onClick={() => alterarData(1)} disabled={isHoje} className={`p-2 rounded-lg transition-colors disabled:opacity-20 disabled:hover:bg-transparent ${temaNoturno ? 'hover:bg-white/[0.08] text-zinc-400 hover:text-white' : 'hover:bg-black/[0.05] text-zinc-500 hover:text-black'}`}>
+                     <button onClick={() => alterarData(1)} disabled={isHoje} className={`p-2.5 rounded-lg transition-colors active:scale-95 disabled:opacity-20 disabled:hover:bg-transparent ${temaNoturno ? 'hover:bg-white/[0.08] text-zinc-400 hover:text-white' : 'hover:bg-black/[0.05] text-zinc-500 hover:text-black'}`}>
                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg>
                      </button>
                   </div>
                 </div>
 
                 {historicoCaixas.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-[30vh] text-center border-t border-dashed pt-10 mt-2 opacity-60 w-full" style={{ borderColor: temaNoturno ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }}>
-                    <p className={`text-[14px] font-medium ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Nenhum fechamento registrado nesta data.</p>
+                  <div className="flex flex-col items-center justify-center h-[30vh] text-center border-t border-dashed pt-10 mt-2 opacity-60 w-full arox-cinematic" style={{ borderColor: temaNoturno ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', animationDelay: '50ms' }}>
+                    <p className={`text-[14px] font-bold ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Nenhum fechamento registrado nesta data.</p>
                   </div>
                 ) : (
                   <div className="relative pt-2 pb-12 w-full">
                     <div className={`absolute top-6 bottom-12 left-[18px] md:left-[26px] w-[2px] rounded-full ${temaNoturno ? 'bg-white/[0.06]' : 'bg-black/[0.06]'}`} />
 
                     <div className="flex flex-col gap-6 relative z-10 w-full">
-                      {historicoCaixas.map((caixa) => {
+                      {historicoCaixas.map((caixa, index) => {
                         const isEstornado = caixa.status === 'estornado';
                         const isDiferenca = caixa.relatorio_fechamento?.diferencaDinheiro !== 0;
                         const diferenca = caixa.relatorio_fechamento?.diferencaDinheiro || 0;
@@ -548,32 +522,30 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
                         else if (isDiferenca) corMarcador = diferenca > 0 ? 'bg-emerald-500 ring-emerald-500/20' : 'bg-amber-500 ring-amber-500/20';
 
                         return (
-                          <div key={caixa.id} className="relative pl-12 md:pl-16 group w-full">
+                          <div key={caixa.id} className="relative pl-12 md:pl-16 group w-full arox-cinematic" style={{animationDelay: `${index * 50 + 50}ms`}}>
                             
                             <div className={`absolute left-[13.5px] md:left-[21.5px] top-7 w-2.5 h-2.5 rounded-full ring-4 shadow-sm transition-transform duration-300 group-hover:scale-125 ${corMarcador}`} />
 
-                            <div className={`relative p-6 md:p-8 rounded-[20px] transition-all duration-300 border shadow-sm hover:shadow-md overflow-hidden ${isEstornado ? (temaNoturno ? 'bg-rose-950/5 border-rose-500/10 opacity-70 grayscale-[50%]' : 'bg-rose-50/50 border-rose-200/50 opacity-70 grayscale-[50%]') : cardBaseStyle.replace('shadow-sm', '').replace('shadow-lg', '')}`}>
+                            <div className={`relative p-6 md:p-8 rounded-[24px] transition-all duration-300 border shadow-sm hover:shadow-md overflow-hidden ${isEstornado ? (temaNoturno ? 'bg-rose-950/5 border-rose-500/10 opacity-70 grayscale-[50%]' : 'bg-rose-50/50 border-rose-200/50 opacity-70 grayscale-[50%]') : cardBaseStyle.replace('arox-cinematic', '')}`}>
                               
-                              <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 ease-out z-0" style={{ background: `radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), ${temaNoturno ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'}, transparent 40%)` }} />
-
                               <div className="relative z-10 flex flex-col gap-6">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 border-transparent">
                                   <div>
                                      <div className="flex items-center gap-3 mb-1.5">
-                                       <h3 className={`text-[15px] font-semibold tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
+                                       <h3 className={`text-[15px] font-bold tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
                                           {isEstornado ? 'Caixa Estornado' : 'Fechamento de Caixa'}
                                        </h3>
                                        {isEstornado ? (
-                                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-widest ${temaNoturno ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-600'}`}>Anulado</span>
+                                         <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest ${temaNoturno ? 'bg-rose-500/10 text-rose-400' : 'bg-rose-50 text-rose-600'}`}>Anulado</span>
                                        ) : isDiferenca ? (
-                                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-widest ${diferenca > 0 ? (temaNoturno ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600') : (temaNoturno ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600')}`}>
+                                         <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest ${diferenca > 0 ? (temaNoturno ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600') : (temaNoturno ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600')}`}>
                                            {diferenca > 0 ? 'Sobra de Dinheiro' : 'Falta de Dinheiro'}
                                          </span>
                                        ) : (
-                                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-widest ${temaNoturno ? 'bg-white/10 text-zinc-300' : 'bg-black/5 text-zinc-600'}`}>Conciliado</span>
+                                         <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-widest ${temaNoturno ? 'bg-white/10 text-zinc-300' : 'bg-black/5 text-zinc-600'}`}>Conciliado</span>
                                        )}
                                      </div>
-                                     <p className={`text-[12.5px] flex items-center gap-2 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                                     <p className={`text-[12px] flex items-center font-bold gap-2 opacity-60 ${temaNoturno ? 'text-zinc-400' : 'text-zinc-600'}`}>
                                        <span>Aberto às {formatarHora(caixa.data_abertura)}</span>
                                        <span className="w-1 h-1 rounded-full bg-current opacity-30" />
                                        <span>Fechado às {formatarHora(caixa.data_fechamento)}</span>
@@ -582,8 +554,8 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
 
                                   {!isEstornado && (
                                     <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
-                                      <button onClick={() => { triggerPulse('neutral'); setCaixaEditando(caixa); setAcaoPendente('editar_fechamento'); setSenhaModal({ visivel: true, senha: '' }); }} className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors border shadow-sm ${temaNoturno ? 'bg-zinc-800 border-white/10 text-zinc-300 hover:text-white hover:bg-zinc-700' : 'bg-white border-black/10 text-zinc-600 hover:text-black hover:bg-zinc-50'}`}>Editar Fechamento</button>
-                                      <button onClick={() => { triggerPulse('neutral'); setCaixaEditando(caixa); setAcaoPendente('excluir_fechamento'); setSenhaModal({ visivel: true, senha: '' }); }} className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors border shadow-sm ${temaNoturno ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}>Estornar Fechamento</button>
+                                      <button onClick={() => { setCaixaEditando(caixa); setAcaoPendente('editar_fechamento'); setSenhaModal({ visivel: true, senha: '' }); }} className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors border shadow-sm ${temaNoturno ? 'bg-zinc-800 border-white/10 text-zinc-300 hover:text-white hover:bg-zinc-700' : 'bg-white border-black/10 text-zinc-600 hover:text-black hover:bg-zinc-50'}`}>Editar Fechamento</button>
+                                      <button onClick={() => { setCaixaEditando(caixa); setAcaoPendente('excluir_fechamento'); setSenhaModal({ visivel: true, senha: '' }); }} className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors border shadow-sm ${temaNoturno ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}>Estornar Fechamento</button>
                                     </div>
                                   )}
                                 </div>
@@ -591,17 +563,17 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
                                 <div className={`grid grid-cols-2 sm:grid-cols-4 gap-4 ${isEstornado ? 'opacity-50' : ''}`}>
                                    <div>
                                       <p className={labelStyle}>Dinheiro Informado</p>
-                                      <p className={`text-[14px] font-medium tracking-tight font-mono ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>R$ {(caixa.relatorio_fechamento?.informadoDinheiro || 0).toFixed(2)}</p>
+                                      <p className={`text-[14px] font-bold tracking-tight tabular-nums ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>R$ {(caixa.relatorio_fechamento?.informadoDinheiro || 0).toFixed(2)}</p>
                                    </div>
                                    <div>
                                       <p className={labelStyle}>Total Digital</p>
-                                      <p className={`text-[14px] font-medium tracking-tight font-mono ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>R$ {((caixa.relatorio_fechamento?.informadoCartao || 0) + (caixa.relatorio_fechamento?.informadoPix || 0)).toFixed(2)}</p>
+                                      <p className={`text-[14px] font-bold tracking-tight tabular-nums ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>R$ {((caixa.relatorio_fechamento?.informadoCartao || 0) + (caixa.relatorio_fechamento?.informadoPix || 0)).toFixed(2)}</p>
                                    </div>
                                    <div className="col-span-2 sm:text-right">
                                       {isDiferenca && !isEstornado && (
                                          <>
                                            <p className={labelStyle}>Diferença (Dinheiro)</p>
-                                           <p className={`text-[15px] font-medium tracking-tight font-mono ${diferenca > 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
+                                           <p className={`text-[16px] font-bold tracking-tight tabular-nums ${diferenca > 0 ? 'text-[#34C759]' : 'text-[#FF3B30]'}`}>
                                               {diferenca > 0 ? '+' : '-'} R$ {Math.abs(diferenca).toFixed(2)}
                                            </p>
                                          </>
@@ -622,16 +594,16 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
       </div>
 
       {movModal.visivel && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in" onClick={() => setMovModal({ visivel: false, tipo: '', valor: '', descricao: '' })} />
-          <div className={`relative w-full max-w-[420px] p-8 md:p-10 rounded-[24px] shadow-2xl animate-in zoom-in-[0.98] fade-in duration-200 ${temaNoturno ? 'bg-[#0A0A0C] border border-white/[0.08]' : 'bg-white border border-black/[0.05]'}`}>
-            <h2 className="text-[18px] font-semibold tracking-tight mb-8">{movModal.tipo === 'sangria' ? 'Retirada (Sangria)' : 'Entrada Extra'}</h2>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className={`absolute inset-0 transition-opacity duration-300 animate-in fade-in backdrop-blur-md ${temaNoturno ? 'bg-black/60' : 'bg-white/40'}`} onClick={() => setMovModal({ visivel: false, tipo: '', valor: '', descricao: '' })} />
+          <div className={`relative w-full max-w-[420px] p-8 md:p-10 rounded-[32px] shadow-2xl animate-in zoom-in-[0.98] fade-in duration-200 border ${temaNoturno ? 'bg-[#0A0A0C] border-white/[0.08]' : 'bg-white/90 backdrop-blur-2xl border-black/[0.05]'}`}>
+            <h2 className="text-[20px] font-bold tracking-tight mb-8">{movModal.tipo === 'sangria' ? 'Retirada (Sangria)' : 'Entrada Extra'}</h2>
             
-            <div className="space-y-5 mb-8">
+            <div className="space-y-6 mb-8">
               <div>
                 <label className={labelStyle}>Valor</label>
                 <div className={inputWrapperStyle}>
-                   <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-medium ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
+                   <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-bold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
                    <input type="number" step="0.01" value={movModal.valor} onChange={e => setMovModal({...movModal, valor: e.target.value})} autoFocus className={inputStyle} placeholder="0,00" />
                 </div>
               </div>
@@ -644,68 +616,68 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
             </div>
 
             <div className="flex justify-end gap-3">
-              <button onClick={() => setMovModal({ visivel: false, tipo: '', valor: '', descricao: '' })} className={`px-5 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${temaNoturno ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-black'}`}>Cancelar</button>
-              <button onClick={handleSalvarMovimentacao} className={`px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-all active:scale-[0.97] shadow-sm border ${temaNoturno ? 'bg-zinc-100 text-black border-transparent hover:bg-white' : 'bg-zinc-900 text-white border-transparent hover:bg-black'}`}>Confirmar Registro</button>
+              <button onClick={() => setMovModal({ visivel: false, tipo: '', valor: '', descricao: '' })} className={`px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-colors border border-transparent ${temaNoturno ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-500 hover:text-black hover:bg-black/5'}`}>Cancelar</button>
+              <button onClick={handleSalvarMovimentacao} className={btnAROXPrimario}>Confirmar</button>
             </div>
           </div>
         </div>
       )}
 
       {senhaModal.visivel && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in" onClick={() => setSenhaModal({ visivel: false, senha: '' })} />
-          <div className={`relative w-full max-w-[420px] p-8 md:p-10 rounded-[24px] shadow-2xl animate-in zoom-in-[0.98] fade-in duration-200 ${temaNoturno ? 'bg-[#0A0A0C] border border-white/[0.08]' : 'bg-white border border-black/[0.05]'}`}>
-            <h2 className="text-[18px] font-semibold tracking-tight mb-2">Autorização Gerencial</h2>
-            <p className={`text-[13px] mb-8 ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Senha de administrador exigida para confirmar operação.</p>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className={`absolute inset-0 transition-opacity duration-300 animate-in fade-in backdrop-blur-md ${temaNoturno ? 'bg-black/60' : 'bg-white/40'}`} onClick={() => setSenhaModal({ visivel: false, senha: '' })} />
+          <div className={`relative w-full max-w-[420px] p-8 md:p-10 rounded-[32px] shadow-2xl animate-in zoom-in-[0.98] fade-in duration-200 border ${temaNoturno ? 'bg-[#0A0A0C] border-white/[0.08]' : 'bg-white/90 backdrop-blur-2xl border-black/[0.05]'}`}>
+            <h2 className="text-[20px] font-bold tracking-tight mb-2">Autorização Gerencial</h2>
+            <p className={`text-[12px] mb-8 font-medium ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Senha de administrador exigida para confirmar operação.</p>
             
             <div className="mb-8">
               <div className={inputWrapperStyle}>
-                <input type="password" value={senhaModal.senha} onChange={e => setSenhaModal({...senhaModal, senha: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleVerificarSenha()} autoFocus className={`${inputStyle} !pl-4 tracking-[0.5em] font-bold text-center`} placeholder="••••••" />
+                <input type="password" value={senhaModal.senha} onChange={e => setSenhaModal({...senhaModal, senha: e.target.value})} onKeyDown={e => e.key === 'Enter' && handleVerificarSenha()} autoFocus className={`${inputStyle} !pl-4 tracking-[0.5em] font-black text-center`} placeholder="••••••" />
               </div>
             </div>
             
             <div className="flex justify-end gap-3">
-              <button onClick={() => setSenhaModal({ visivel: false, senha: '' })} className={`px-5 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${temaNoturno ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-black'}`}>Cancelar</button>
-              <button onClick={handleVerificarSenha} className={`px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-all active:scale-[0.97] shadow-sm border ${temaNoturno ? 'bg-zinc-100 text-black border-transparent hover:bg-white' : 'bg-zinc-900 text-white border-transparent hover:bg-black'}`}>Autenticar</button>
+              <button onClick={() => setSenhaModal({ visivel: false, senha: '' })} className={`px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-colors border border-transparent ${temaNoturno ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-500 hover:text-black hover:bg-black/5'}`}>Cancelar</button>
+              <button onClick={handleVerificarSenha} className={btnAROXPrimario}>Autenticar</button>
             </div>
           </div>
         </div>
       )}
 
       {modalEdicao.visivel && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in" onClick={() => setModalEdicao({ visivel: false, dinheiro: '', cartao: '', pix: '' })} />
-          <div className={`relative w-full max-w-[420px] p-8 md:p-10 rounded-[24px] shadow-2xl animate-in zoom-in-[0.98] fade-in duration-200 ${temaNoturno ? 'bg-[#0A0A0C] border border-white/[0.08]' : 'bg-white border border-black/[0.05]'}`}>
-            <h2 className="text-[18px] font-semibold tracking-tight mb-2">Editar Valores de Fechamento</h2>
-            <p className={`text-[13px] mb-8 ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Corrija a declaração física de um turno já encerrado.</p>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className={`absolute inset-0 transition-opacity duration-300 animate-in fade-in backdrop-blur-md ${temaNoturno ? 'bg-black/60' : 'bg-white/40'}`} onClick={() => setModalEdicao({ visivel: false, dinheiro: '', cartao: '', pix: '' })} />
+          <div className={`relative w-full max-w-[420px] p-8 md:p-10 rounded-[32px] shadow-2xl animate-in zoom-in-[0.98] fade-in duration-200 border ${temaNoturno ? 'bg-[#0A0A0C] border-white/[0.08]' : 'bg-white/90 backdrop-blur-2xl border-black/[0.05]'}`}>
+            <h2 className="text-[20px] font-bold tracking-tight mb-2">Editar Valores de Fechamento</h2>
+            <p className={`text-[12px] mb-8 font-medium ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Corrija a declaração física de um turno já encerrado.</p>
             
-            <div className="space-y-5 mb-8">
+            <div className="space-y-6 mb-8">
               <div>
                 <label className={labelStyle}>Dinheiro em Espécie</label>
                 <div className={inputWrapperStyle}>
-                   <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-medium ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
+                   <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-bold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
                    <input type="number" value={modalEdicao.dinheiro} onChange={e => setModalEdicao({...modalEdicao, dinheiro: e.target.value})} className={inputStyle} />
                 </div>
               </div>
               <div>
                 <label className={labelStyle}>Maquininhas (Cartão)</label>
                 <div className={inputWrapperStyle}>
-                   <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-medium ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
+                   <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-bold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
                    <input type="number" value={modalEdicao.cartao} onChange={e => setModalEdicao({...modalEdicao, cartao: e.target.value})} className={inputStyle} />
                 </div>
               </div>
               <div>
                 <label className={labelStyle}>Recebimentos via Pix</label>
                 <div className={inputWrapperStyle}>
-                   <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-medium ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
+                   <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[15px] font-bold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
                    <input type="number" value={modalEdicao.pix} onChange={e => setModalEdicao({...modalEdicao, pix: e.target.value})} className={inputStyle} />
                 </div>
               </div>
             </div>
 
             <div className="flex justify-end gap-3">
-              <button onClick={() => setModalEdicao({ visivel: false, dinheiro: '', cartao: '', pix: '' })} className={`px-5 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${temaNoturno ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-black'}`}>Cancelar</button>
-              <button onClick={salvarEdicaoFechamento} className={`px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-all active:scale-[0.97] shadow-sm border ${temaNoturno ? 'bg-zinc-100 text-black border-transparent hover:bg-white' : 'bg-zinc-900 text-white border-transparent hover:bg-black'}`}>Salvar Edição</button>
+              <button onClick={() => setModalEdicao({ visivel: false, dinheiro: '', cartao: '', pix: '' })} className={`px-5 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-colors border border-transparent ${temaNoturno ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-500 hover:text-black hover:bg-black/5'}`}>Cancelar</button>
+              <button onClick={salvarEdicaoFechamento} className={btnAROXPrimario}>Salvar Edição</button>
             </div>
           </div>
         </div>

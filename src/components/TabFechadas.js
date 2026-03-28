@@ -29,54 +29,62 @@ export default function TabFechadas({
     return timeB - timeA; 
   });
 
+  const renderDataLabel = () => {
+    if (dataFiltro === hoje) return 'Hoje';
+    const dataObj = new Date(dataFiltro + 'T12:00:00');
+    return dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace(' de ', ' ');
+  };
+
+  // Cores Base AROX
+  const bgPrincipal = temaNoturno ? 'bg-[#050505]' : 'bg-[#FAFAFA]';
+  const surfaceBase = temaNoturno ? 'bg-[#0A0A0A]' : 'bg-white/80 backdrop-blur-xl';
+  const bordaBase = temaNoturno ? 'border-white/[0.04]' : 'border-black/[0.04]';
+  const bordaDestaque = temaNoturno ? 'border-white/[0.08]' : 'border-black/[0.08]';
+  const textSecundario = temaNoturno ? 'text-zinc-500' : 'text-zinc-500';
+
   return (
-    <div className="w-full max-w-full animate-in fade-in duration-500 pb-20">
+    <div className={`w-full max-w-full font-sans arox-cinematic pb-20 ${bgPrincipal}`}>
       
-      {/* HEADER OPERACIONAL PREMIUM */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10 w-full pb-5 border-b transition-colors duration-300 border-zinc-200/60 dark:border-white/[0.08]">
+      {/* 1. HEADER OPERACIONAL PREMIUM */}
+      <div className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 w-full pb-6 border-b transition-colors duration-300 ${bordaDestaque}`}>
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-3">
-              <h1 className={`text-2xl font-semibold tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
-                Histórico Operacional
+              <h1 className={`text-2xl font-bold tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
+                Trilha Histórica
               </h1>
-              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border ${temaNoturno ? 'bg-white/5 border-white/10' : 'bg-zinc-100/80 border-zinc-200/80'}`}>
-                <span className={`text-xs font-semibold tabular-nums ${temaNoturno ? 'text-zinc-300' : 'text-zinc-700'}`}>
-                  {comandasOrdenadas.length}
+              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border ${temaNoturno ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5'}`}>
+                <span className={`text-[11px] font-bold tabular-nums ${temaNoturno ? 'text-zinc-300' : 'text-zinc-700'}`}>
+                  {comandasOrdenadas.length} {comandasOrdenadas.length === 1 ? 'registro' : 'registros'}
                 </span>
               </div>
             </div>
-            <div className={`text-sm font-medium tracking-tight flex items-center gap-2 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>
-              <span>Registros finalizados e arquivados</span>
+            <div className={`text-[13px] font-medium tracking-tight flex items-center gap-2 ${textSecundario}`}>
+              <span>Comandas finalizadas e arquivadas do dia selecionado</span>
             </div>
           </div>
           
-          <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-            <button 
-              onClick={() => mudarDia(-1)} 
-              title="Dia Anterior" 
-              className={`w-10 h-10 rounded-lg border flex flex-shrink-0 items-center justify-center transition-all outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-[#0A0A0A] ${temaNoturno ? 'bg-[#111] border-white/10 text-zinc-400 hover:bg-[#1A1A1A] hover:text-zinc-200 focus:ring-zinc-700' : 'bg-white border-zinc-200/80 text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 focus:ring-zinc-300 shadow-sm'}`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-            </button>
-            
-            <div className="relative group flex items-center">
-              <input 
-                type="date" 
-                value={dataFiltro}
-                max={hoje}
-                onChange={(e) => setDataFiltro(e.target.value)}
-                className={`w-full md:w-40 px-3 h-10 border rounded-lg outline-none text-sm font-semibold transition-all focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-[#0A0A0A] ${temaNoturno ? 'bg-[#111] border-white/10 text-zinc-300 focus:ring-zinc-700 [color-scheme:dark]' : 'bg-white border-zinc-200/80 text-zinc-700 focus:ring-zinc-300 shadow-sm'}`} 
-              />
-            </div>
+          {/* Navegador de Data Padrão AROX */}
+          <div className={`flex items-center p-1.5 rounded-xl border shadow-sm ${surfaceBase} ${bordaDestaque}`}>
+             <button onClick={() => mudarDia(-1)} className={`p-2.5 rounded-lg transition-colors active:scale-95 ${temaNoturno ? 'hover:bg-white/[0.08] text-zinc-400 hover:text-white' : 'hover:bg-black/[0.05] text-zinc-500 hover:text-black'}`}>
+               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg>
+             </button>
+             
+             <div className="relative flex items-center justify-center min-w-[140px]">
+               <input 
+                 type="date" 
+                 value={dataFiltro}
+                 max={hoje}
+                 onChange={(e) => setDataFiltro(e.target.value)}
+                 className={`absolute inset-0 w-full h-full opacity-0 cursor-pointer ${temaNoturno ? '[color-scheme:dark]' : ''}`} 
+               />
+               <span className={`text-[13px] font-bold uppercase tracking-wider ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>
+                 {renderDataLabel()}
+               </span>
+             </div>
 
-            <button 
-              onClick={() => mudarDia(1)} 
-              disabled={dataFiltro >= hoje}
-              title="Dia Seguinte" 
-              className={`w-10 h-10 rounded-lg border flex flex-shrink-0 items-center justify-center transition-all outline-none focus:ring-2 focus:ring-offset-1 dark:focus:ring-offset-[#0A0A0A] ${dataFiltro >= hoje ? 'opacity-40 cursor-not-allowed' : ''} ${temaNoturno ? 'bg-[#111] border-white/10 text-zinc-400 hover:bg-[#1A1A1A] hover:text-zinc-200 focus:ring-zinc-700' : 'bg-white border-zinc-200/80 text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900 focus:ring-zinc-300 shadow-sm'}`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-            </button>
+             <button onClick={() => mudarDia(1)} disabled={dataFiltro >= hoje} className={`p-2.5 rounded-lg transition-colors active:scale-95 disabled:opacity-20 disabled:hover:bg-transparent disabled:active:scale-100 ${temaNoturno ? 'hover:bg-white/[0.08] text-zinc-400 hover:text-white' : 'hover:bg-black/[0.05] text-zinc-500 hover:text-black'}`}>
+               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg>
+             </button>
           </div>
       </div>
 
@@ -84,49 +92,49 @@ export default function TabFechadas({
         {comandasOrdenadas.length === 0 ? (
           
           /* EMPTY STATE PREMIUM */
-          <div className="w-full py-28 flex flex-col items-center justify-center animate-in fade-in zoom-in-95">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-5 ${temaNoturno ? 'bg-white/5 text-zinc-500' : 'bg-white shadow-sm text-zinc-400 border border-zinc-100'}`}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M7 14l5-5 5 5"/></svg>
-            </div>
-            <p className={`text-base font-semibold tracking-tight ${temaNoturno ? 'text-zinc-300' : 'text-zinc-700'}`}>Nenhum registro finalizado nesta data</p>
-            <p className={`text-sm mt-2 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>
-              Navegue pelos dias anteriores para visualizar o histórico operacional.
+          <div className={`w-full py-32 flex flex-col items-center justify-center rounded-3xl border border-dashed transition-colors ${temaNoturno ? 'border-white/[0.08] bg-white/[0.01]' : 'border-black/[0.08] bg-black/[0.01]'}`}>
+            <p className={`text-[15px] font-bold tracking-tight mb-2 ${temaNoturno ? 'text-zinc-300' : 'text-zinc-700'}`}>Radar Limpo</p>
+            <p className={`text-[13px] ${textSecundario}`}>
+              Nenhum registro finalizado na data selecionada.
             </p>
           </div>
 
         ) : (
           
-          /* GRID PRINCIPAL (Expansivo) */
+          /* GRID PRINCIPAL DE HISTÓRICO */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
-            {comandasOrdenadas.map(c => {
+            {comandasOrdenadas.map((c, idx) => {
               const valorTotalComanda = c.pagamentos.reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
               const isDelivery = c.tipo === 'Delivery';
               
               return (
-                <div key={c.id} className={`relative flex flex-col rounded-2xl border p-5 transition-all duration-300 ease-out group overflow-hidden animate-in fade-in zoom-in-95 w-full ${temaNoturno ? 'bg-[#0A0A0A] border-white/[0.08] hover:border-white/[0.15] hover:-translate-y-0.5 hover:shadow-lg' : 'bg-white border-zinc-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] hover:border-zinc-300/80 hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.06)] hover:-translate-y-0.5'}`}>
+                <div key={c.id} className={`relative flex flex-col rounded-3xl border p-5 transition-all duration-300 ease-out group overflow-hidden arox-cinematic w-full ${surfaceBase} hover:shadow-lg hover:-translate-y-1 ${temaNoturno ? 'border-white/[0.06] hover:border-white/[0.12]' : 'border-black/[0.04] hover:border-black/[0.08]'}`} style={{ animationDelay: `${idx * 20}ms` }}>
                   
-                  {/* IDENTIDADE LOGÍSTICA SUTIL (Side strip indicator) */}
+                  {/* IDENTIDADE LOGÍSTICA SUTIL (Dot / Canto) */}
                   {isDelivery && (
-                    <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-amber-500/80 dark:bg-amber-500/60"></div>
+                    <div className="absolute top-0 right-0 w-16 h-16 pointer-events-none overflow-hidden rounded-tr-3xl">
+                       <div className="absolute top-[-20px] right-[-20px] w-10 h-10 bg-amber-500/20 blur-xl"></div>
+                       <div className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]"></div>
+                    </div>
                   )}
 
                   {/* HEADER DO CARD */}
-                  <div className={`flex justify-between items-start gap-3 w-full relative z-10 ${isDelivery ? 'pl-1' : ''}`}>
-                    <div className="flex flex-col min-w-0 gap-1.5 w-full">
-                      <h3 className={`font-semibold text-base truncate tracking-tight w-full ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
+                  <div className="flex justify-between items-start gap-3 w-full relative z-10">
+                    <div className="flex flex-col min-w-0 gap-1.5 w-full pr-4">
+                      <h3 className={`text-[15px] font-bold truncate tracking-tight w-full group-hover:text-emerald-500 transition-colors duration-300 ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
                         {c.nome}
                       </h3>
                       <div className="flex items-center gap-2">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase border ${
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase border ${
                           isDelivery 
-                            ? (temaNoturno ? 'bg-amber-500/10 border-amber-500/20 text-amber-500/90' : 'bg-amber-50 border-amber-200/60 text-amber-700')
-                            : (temaNoturno ? 'bg-white/5 border-white/5 text-zinc-500' : 'bg-zinc-50 border-zinc-200/60 text-zinc-500')
+                            ? (temaNoturno ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-amber-50 border-amber-200 text-amber-700')
+                            : (temaNoturno ? 'bg-white/5 border-white/5 text-zinc-400' : 'bg-black/5 border-black/5 text-zinc-600')
                         }`}>
                           {c.tipo}
                         </span>
                         
                         {c.hora_fechamento && (
-                           <span className={`text-[11px] font-medium flex items-center gap-1 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                           <span className={`text-[10px] font-bold tracking-wider flex items-center gap-1 ${textSecundario}`}>
                              {new Date(c.hora_fechamento).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })}
                            </span>
                         )}
@@ -135,55 +143,55 @@ export default function TabFechadas({
                   </div>
 
                   {/* CORPO DO CARD (Resumo Sintético) */}
-                  <div className={`mt-5 flex-1 relative z-10 ${isDelivery ? 'pl-1' : ''}`}>
-                    <p className={`text-xs font-medium line-clamp-2 leading-relaxed ${temaNoturno ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                      {c.produtos?.length > 0 ? c.produtos.map(p => p.nome).join(', ') : 'Sem produtos registrados'}
+                  <div className="mt-5 flex-1 relative z-10">
+                    <p className={`text-[12px] font-medium line-clamp-2 leading-relaxed ${textSecundario}`}>
+                      {c.produtos?.length > 0 ? c.produtos.map(p => p.nome).join(', ') : 'Sem itens registrados'}
                     </p>
-                    <p className={`text-[11px] font-semibold mt-1.5 opacity-60 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-wider mt-2 opacity-60 ${textSecundario}`}>
                       {c.produtos?.length || 0} {(c.produtos?.length === 1) ? 'item' : 'itens'}
                     </p>
                   </div>
 
                   {/* ZONA DE PAGAMENTO E VALOR */}
-                  <div className={`mt-5 pt-4 border-t flex justify-between items-end relative z-10 ${temaNoturno ? 'border-white/5' : 'border-zinc-100'} ${isDelivery ? 'pl-1' : ''}`}>
-                    <div className="flex flex-col gap-1.5 mb-0.5 w-full">
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${temaNoturno ? 'text-zinc-600' : 'text-zinc-400'}`}>
-                        Pagamento
+                  <div className={`mt-5 pt-4 border-t flex justify-between items-end relative z-10 ${bordaBase}`}>
+                    <div className="flex flex-col gap-1 mb-0.5 w-full">
+                      <span className={`text-[9px] font-bold uppercase tracking-widest ${textSecundario}`}>
+                        Pagamento via
                       </span>
                       <div className="flex flex-wrap gap-1">
                         {c.pagamentos?.length > 0 ? (
                           c.pagamentos.map((p, i) => (
-                            <span key={i} className={`text-[10px] font-semibold ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                            <span key={i} className={`text-[11px] font-bold ${temaNoturno ? 'text-zinc-300' : 'text-zinc-700'}`}>
                               {p.forma}{i < c.pagamentos.length - 1 ? ', ' : ''}
                             </span>
                           ))
                         ) : (
-                          <span className={`text-[10px] font-semibold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>Não informado</span>
+                          <span className={`text-[11px] font-bold ${textSecundario}`}>Não informado</span>
                         )}
                       </div>
                     </div>
 
                     <div className="flex items-baseline gap-1 leading-none text-right flex-shrink-0">
-                      <span className={`text-sm font-medium ${temaNoturno ? 'text-emerald-500/60' : 'text-emerald-600/60'}`}>R$</span>
-                      <span className={`font-bold text-2xl tabular-nums tracking-tighter ${temaNoturno ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                      <span className={`text-[12px] font-bold ${temaNoturno ? 'text-emerald-500/60' : 'text-emerald-600/60'}`}>R$</span>
+                      <span className={`text-2xl font-black tabular-nums tracking-tighter ${temaNoturno ? 'text-emerald-400' : 'text-emerald-600'}`}>
                         {valorTotalComanda.toFixed(2)}
                       </span>
                     </div>
                   </div>
 
                   {/* FOOTER DE AÇÕES (Alta Fidelidade) */}
-                  <div className={`flex gap-2 mt-5 pt-3 border-t relative z-10 ${temaNoturno ? 'border-white/[0.04]' : 'border-zinc-100'} ${isDelivery ? 'pl-1' : ''}`}>
+                  <div className={`flex gap-2 mt-5 pt-4 border-t relative z-10 ${bordaBase}`}>
                     <button 
                       onClick={() => reabrirComandaFechada(c.id)} 
-                      className={`flex-1 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all w-full ${temaNoturno ? 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5' : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100'}`}
+                      className={`flex-1 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors w-full ${temaNoturno ? 'text-zinc-400 hover:text-white hover:bg-white/10' : 'text-zinc-500 hover:text-black hover:bg-black/5'}`}
                     >
                       Reabrir
                     </button>
                     <button 
                       onClick={() => excluirComandaFechada(c.id)} 
-                      className={`flex-1 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all w-full ${temaNoturno ? 'text-red-400/60 hover:text-red-400 hover:bg-red-500/10' : 'text-red-500/70 hover:text-red-600 hover:bg-red-50'}`}
+                      className={`flex-1 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors w-full ${temaNoturno ? 'text-red-400/80 hover:text-red-400 hover:bg-red-500/10' : 'text-red-500/80 hover:text-red-600 hover:bg-red-50'}`}
                     >
-                      Apagar
+                      Estornar
                     </button>
                   </div>
                   
@@ -193,6 +201,11 @@ export default function TabFechadas({
           </div>
         )}
       </div>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        .arox-cinematic { animation: arox-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(10px); }
+        @keyframes arox-fade-up { 100% { opacity: 1; transform: translateY(0); } }
+      `}} />
     </div>
   );
 }

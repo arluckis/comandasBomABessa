@@ -49,9 +49,6 @@ export default function TabFechadas({
       <div className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-8 w-full pb-6 border-b transition-colors duration-300 ${bordaDestaque}`}>
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-3">
-              <h1 className={`text-2xl font-bold tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
-                Trilha Histórica
-              </h1>
               <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border ${temaNoturno ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5'}`}>
                 <span className={`text-[11px] font-bold tabular-nums ${temaNoturno ? 'text-zinc-300' : 'text-zinc-700'}`}>
                   {comandasOrdenadas.length} {comandasOrdenadas.length === 1 ? 'registro' : 'registros'}

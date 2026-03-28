@@ -103,7 +103,7 @@ export default function TabComandas({
               {!modoExclusao ? (
                 <>
                   <div className="flex items-center gap-3">
-                    <h1 className={`text-2xl font-bold tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
+                    <h1 className={`text-[11px] font-bold tabular-nums ${temaNoturno ? 'text-zinc-300' : 'text-zinc-700'}`}>
                       Contas Abertas
                     </h1>
                     <div className={`flex items-center gap-2 px-2.5 py-1 rounded-md border ${temaNoturno ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5'}`}>

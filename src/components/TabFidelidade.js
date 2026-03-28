@@ -184,7 +184,7 @@ export default function TabFidelidade({ temaNoturno, sessao, mostrarAlerta, clie
     return { label: 'Acumulando', color: temaNoturno ? 'text-zinc-300' : 'text-zinc-600', bg: temaNoturno ? 'bg-white/5' : 'bg-black/5' };
   };
 
-  const tabs = [{ id: 'clientes', label: 'Radar de Clientes' }, { id: 'ranking', label: 'Top Engajamento' }, { id: 'insights', label: 'Inteligência' }, { id: 'config', label: 'Regras do Jogo' }];
+  const tabs = [{ id: 'clientes', label: 'Clientes' }, { id: 'ranking', label: 'Pódio' }, { id: 'insights', label: 'Inteligência' }, { id: 'config', label: 'Regras da Premiação' }];
 
   const bgPrincipal = temaNoturno ? 'bg-[#050505]' : 'bg-[#FAFAFA]';
   const surfaceBase = temaNoturno ? 'bg-[#0A0A0A]/80 backdrop-blur-xl' : 'bg-white/80 backdrop-blur-xl';
@@ -299,7 +299,7 @@ export default function TabFidelidade({ temaNoturno, sessao, mostrarAlerta, clie
               <div className="flex flex-col gap-6 md:gap-10 w-full">
                 <div className="flex flex-col items-center justify-center relative arox-cinematic w-full" style={{animationDelay: '50ms'}}>
                   <div onClick={() => setClientePerfil(ranking[0])} className={`relative z-10 flex flex-col items-center p-6 md:p-8 rounded-[32px] border transition-all duration-500 cursor-pointer hover:scale-[1.02] ${temaNoturno ? 'bg-gradient-to-b from-[#14120C] to-[#0A0A0A] border-amber-500/20 shadow-[0_10px_40px_rgba(245,158,11,0.05)]' : 'bg-gradient-to-b from-amber-50/50 to-white/50 backdrop-blur-xl border-amber-200 shadow-[0_10px_40px_rgba(245,158,11,0.08)]'} w-full max-w-sm text-center`}>
-                    <div className="absolute -top-3 px-4 py-1.5 bg-black dark:bg-white text-white dark:text-black text-[10px] font-bold uppercase tracking-widest rounded-full shadow-md">Líder de Engajamento</div>
+                    <div className="absolute -top-3 px-4 py-1.5 bg-black dark:bg-white text-white dark:text-black text-[10px] font-bold uppercase tracking-widest rounded-full shadow-md">Cliente mais Popular</div>
                     <div className="w-14 h-14 mb-4 rounded-full flex items-center justify-center text-2xl font-black bg-gradient-to-br from-amber-300 to-amber-600 text-black shadow-sm">{ranking[0].nome.charAt(0).toUpperCase()}</div>
                     <h2 className={`text-2xl md:text-3xl font-bold tracking-tight mb-1 truncate w-full px-4 ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>{ranking[0].nome}</h2>
                     <div className="mt-2 flex items-baseline gap-1.5"><span className="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-amber-500 to-amber-700 dark:from-amber-400 dark:to-amber-600">{ranking[0].pontos_totais || ranking[0].pontos}</span><span className={`text-[11px] font-bold uppercase tracking-widest ${textSecundario}`}>Pontos Totais</span></div>

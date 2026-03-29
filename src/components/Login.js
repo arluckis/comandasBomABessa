@@ -4,13 +4,20 @@ import { supabase } from '@/lib/supabase';
 
 const LoadingDots = () => (
   <div className="flex items-center gap-1.5">
-    <div className="w-2.5 h-2.5 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-    <div className="w-2.5 h-2.5 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-    <div className="w-2.5 h-2.5 bg-current rounded-full animate-bounce"></div>
+    <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+    <div className="w-2 h-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+    <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
   </div>
 );
 
-export default function Login({ getHoje, setSessao }) {
+// MOTION FIX: Microinterações nos validadores
+const CheckIcon = ({ active }) => (
+  <svg className={`w-4 h-4 transition-all duration-500 ease-out ${active ? 'text-emerald-400 scale-100 opacity-100' : 'text-zinc-600 scale-90 opacity-50'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+export default function Login({ getHoje, setSessao, setScenePhase }) {
   const [credenciais, setCredenciais] = useState({ email: '', senha: '' });
   const [loadingLogin, setLoadingLogin] = useState(false);
   const [erro, setErro] = useState('');
@@ -24,12 +31,22 @@ export default function Login({ getHoje, setSessao }) {
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarNovaSenha, setConfirmarNovaSenha] = useState('');
 
+  // MOTION FIX: Lógica de Validação Estrita (Storytelling & Security)
+  const isNotEmpty = novaSenha.length > 0;
   const hasLength = novaSenha.length >= 8;
   const hasNumber = /\d/.test(novaSenha);
   const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(novaSenha);
-  const matchPasswords = novaSenha !== '' && novaSenha === confirmarNovaSenha;
-  const pwdScore = [hasLength, hasNumber, hasSpecial].filter(Boolean).length;
-  const progressColor = pwdScore === 0 ? 'bg-zinc-200' : pwdScore === 1 ? 'bg-rose-500' : pwdScore === 2 ? 'bg-amber-400' : 'bg-emerald-500';
+  const matchPasswords = isNotEmpty && novaSenha === confirmarNovaSenha;
+  const confirmTouched = confirmarNovaSenha.length > 0;
+  
+  let pwdScore = 0;
+  if (hasLength) pwdScore++;
+  if (hasNumber) pwdScore++;
+  if (hasSpecial) pwdScore++;
+  if (pwdScore === 3 && matchPasswords) pwdScore++; 
+
+  const progressWidth = `${(pwdScore / 4) * 100}%`;
+  const progressColor = pwdScore <= 1 ? 'bg-rose-500' : pwdScore === 2 ? 'bg-amber-400' : pwdScore === 3 ? 'bg-emerald-500' : 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.6)]';
 
   useEffect(() => {
     setIsMounted(true);
@@ -48,7 +65,6 @@ export default function Login({ getHoje, setSessao }) {
 
   const concluirAcesso = (data) => {
     const logoEmpresa = data.empresas?.logo_url || data.empresas?.logo || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
-    // Nome dinâmico para não ficar "AROX" no avatar do Super Admin
     const nomeEmpresa = data.empresas?.nome || (data.role === 'super_admin' ? 'Console Admin' : 'AROX');
 
     localStorage.setItem('arox_last_login', JSON.stringify({
@@ -59,62 +75,33 @@ export default function Login({ getHoje, setSessao }) {
     delete sessionObj.empresas; 
     localStorage.setItem('bessa_session', JSON.stringify(sessionObj)); 
     
-    // CORREÇÃO CRÍTICA: Intercepta o Super Admin imediatamente
-    if (data.role === 'super_admin') {
-      window.location.href = '/admin';
-      return;
-    }
-
-    // A partir daqui, executa apenas para Lojistas comuns
+    if (data.role === 'super_admin') { window.location.href = '/admin'; return; }
     setSessao(sessionObj);
     
-    // SISTEMA DE SESSÃO REAL E AUDITORIA
     (async () => {
       try {
         const ipRes = await fetch('https://api.ipify.org?format=json');
-        const ipData = await ipRes.json();
-        const ip = ipData.ip;
+        const ip = (await ipRes.json()).ip;
         const ua = navigator.userAgent;
-
-        // 1. Log Simples de Evento
-        await supabase.from('logs_acesso').insert([{
-          usuario_id: data.id, empresa_id: data.empresa_id, email: data.email, ip: ip, navegador: ua
-        }]);
-
-        // 2. Abertura de Sessão Operacional
-        const { data: sessaoDb, error: errSessao } = await supabase.from('sessoes_acesso').insert([{
-          usuario_id: data.id, empresa_id: data.empresa_id, ip_origem: ip, user_agent: ua
-        }]).select().single();
-
-        if (sessaoDb) {
-           localStorage.setItem('arox_session_id', sessaoDb.id);
-        }
-
-        // 3. Atualiza Presença
-        await supabase.from('usuarios').update({ 
-          status_presenca: 'online', 
-          ultimo_ping_at: new Date().toISOString() 
-        }).eq('id', data.id);
-
-      } catch (err) { console.log("Erro log/sessão", err); }
+        await supabase.from('logs_acesso').insert([{ usuario_id: data.id, empresa_id: data.empresa_id, email: data.email, ip: ip, navegador: ua }]);
+        const { data: sessaoDb } = await supabase.from('sessoes_acesso').insert([{ usuario_id: data.id, empresa_id: data.empresa_id, ip_origem: ip, user_agent: ua }]).select().single();
+        if (sessaoDb) localStorage.setItem('arox_session_id', sessaoDb.id);
+        await supabase.from('usuarios').update({ status_presenca: 'online', ultimo_ping_at: new Date().toISOString() }).eq('id', data.id);
+      } catch (err) {}
     })();
   };
 
   const processarAutenticacao = async (emailBusca, senhaBusca) => {
-    setLoadingLogin(true);
-    setErro('');
+    setLoadingLogin(true); setErro('');
+    if(setScenePhase) setScenePhase('sync'); 
 
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*, empresas ( ativo, nome, logo_url )')
-      .eq('email', emailBusca.trim())
-      .eq('senha', senhaBusca)
-      .single();
+    const { data, error } = await supabase.from('usuarios').select('*, empresas ( ativo, nome, logo_url )').eq('email', emailBusca.trim()).eq('senha', senhaBusca).single();
 
     if (data && !error) { 
       if (data.role !== 'super_admin' && data.empresas && data.empresas.ativo === false) {
-        setErro("Acesso suspenso. Contate o suporte.");
+        setErro("Acesso suspenso pelo administrador.");
         setLoadingLogin(false);
+        if(setScenePhase) setScenePhase('reveal');
         return;
       }
       if (data.primeiro_login === true) {
@@ -125,177 +112,199 @@ export default function Login({ getHoje, setSessao }) {
       }
       concluirAcesso(data);
     } else { 
-      setErro("Credenciais incorretas."); 
+      setErro("Credenciais inválidas ou não autorizadas."); 
       setLoadingLogin(false);
+      if(setScenePhase) setScenePhase('reveal'); 
     }
   };
 
-  const fazerLogin = (e) => {
-    e.preventDefault(); 
-    if (!credenciais.email || !credenciais.senha) return setErro("Preencha email e senha.");
-    processarAutenticacao(credenciais.email, credenciais.senha);
-  };
-
-  const loginComContaSalva = () => {
-    if (lastLogin && lastLogin.email) processarAutenticacao(lastLogin.email, lastLogin.senha);
-    else setMostrarFormPadrao(true);
-  };
+  const fazerLogin = (e) => { e.preventDefault(); if (!credenciais.email || !credenciais.senha) return setErro("Preencha email e senha."); processarAutenticacao(credenciais.email, credenciais.senha); };
+  const loginComContaSalva = () => { if (lastLogin && lastLogin.email) processarAutenticacao(lastLogin.email, lastLogin.senha); else setMostrarFormPadrao(true); };
 
   const salvarNovaSenha = async (e) => {
-    e.preventDefault();
-    setErro('');
-    if (pwdScore < 3) return setErro("A senha não atende aos requisitos mínimos.");
-    if (!matchPasswords) return setErro("As senhas não coincidem.");
+    e.preventDefault(); setErro('');
+    if (pwdScore < 4) return setErro("A senha não atende aos requisitos corporativos.");
+    
     setLoadingLogin(true);
+    if(setScenePhase) setScenePhase('sync');
     
     const { error } = await supabase.from('usuarios').update({ senha: novaSenha, primeiro_login: false }).eq('id', tempUser.id);
     if (error) {
-      setErro("Erro ao atualizar senha.");
+      setErro("Falha no túnel de segurança. Tente novamente.");
       setLoadingLogin(false);
+      if(setScenePhase) setScenePhase('reveal');
     } else {
       const dataAtualizada = { ...tempUser, senha: novaSenha, primeiro_login: false };
       concluirAcesso(dataAtualizada);
     }
   };
 
-  if (!isMounted) return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50">
-      <div className="text-zinc-900 scale-125"><LoadingDots /></div>
-    </div>
-  );
+  if (!isMounted) return null;
 
   return (
-    <div className="min-h-screen flex bg-zinc-50 font-sans selection:bg-purple-200 selection:text-purple-900">
+    <div className="min-h-[100dvh] flex w-full font-sans selection:bg-white/20 selection:text-white relative z-10 overflow-x-hidden">
       
-      <div className="hidden lg:flex lg:w-[55%] relative bg-[#09090b] overflow-hidden flex-col justify-between px-20 py-16">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:32px_32px] opacity-40 mix-blend-overlay pointer-events-none"></div>
-        <div className="absolute inset-0 bg-gradient-to-br from-zinc-950 via-[#09090b] to-[#120a1f] pointer-events-none"></div>
-        <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full bg-purple-600/10 blur-[120px] mix-blend-screen animate-[spin_60s_linear_infinite] [transform-origin:100%_100%] pointer-events-none"></div>
-        <div className="absolute bottom-[-20%] right-[-10%] w-[700px] h-[700px] rounded-full bg-indigo-600/10 blur-[150px] mix-blend-screen animate-[spin_50s_linear_infinite_reverse] [transform-origin:0%_0%] pointer-events-none"></div>
-
-        <div className="relative z-20"><span className="text-white font-black tracking-tighter text-3xl">AROX</span></div>
+      {/* LADO ESQUERDO - MARKETING */}
+      <div className="hidden lg:flex lg:w-[55%] relative flex-col justify-between px-20 py-16 pointer-events-none">
+        <div className="relative z-20">
+          <span className="text-white font-black tracking-[0.2em] text-2xl drop-shadow-lg">AROX</span>
+        </div>
         
-        <div className="relative z-20 w-full max-w-lg mt-8">
-          <div className="mb-12 w-full h-40 flex items-end justify-between gap-3 p-6 rounded-2xl border border-white/5 bg-white/[0.02] backdrop-blur-sm shadow-2xl relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.04] to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]"></div>
-            {[35, 60, 45, 80, 55, 100, 75].map((height, i) => (
-              <div key={i} className="w-full bg-gradient-to-t from-purple-600/60 to-indigo-500/80 rounded-t-sm transition-all duration-1000 ease-out" style={{ height: `${height}%`, opacity: 0.8 + (i * 0.03) }}></div>
-            ))}
-          </div>
-          <h1 className="text-[3.25rem] font-bold text-white leading-[1.05] tracking-tight mb-6">Domine sua operação.</h1>
-          <p className="text-zinc-400 text-lg leading-relaxed max-w-md font-medium">Controle absoluto, métricas em tempo real e confiabilidade máxima para escalar seu negócio.</p>
+        <div className="relative z-20 w-full max-w-lg mt-8 pointer-events-auto">
+          <h1 className="text-[3.5rem] font-bold text-white leading-[1.05] tracking-tight mb-6 drop-shadow-2xl">Domine sua operação.</h1>
+          <p className="text-zinc-300 text-lg leading-relaxed max-w-md font-medium drop-shadow-md">A arquitetura definitiva para alta performance, controle absoluto e métricas em tempo real.</p>
         </div>
 
-        <div className="relative z-20 grid grid-cols-2 gap-x-12 gap-y-6 text-sm font-medium text-zinc-400 max-w-md border-t border-white/10 pt-8 mt-12">
-          <div className="flex items-center gap-3"><div className="w-1.5 h-1.5 rounded-full bg-white"></div><span>Workspaces Seguros</span></div>
-          <div className="flex items-center gap-3"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></div><span className="text-zinc-300">99.9% Uptime</span></div>
-          <div className="flex items-center gap-3"><svg className="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg><span>Criptografia Ativa</span></div>
-           <div className="flex items-center gap-3"><svg className="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg><span>Alta Performance</span></div>
+        <div className="relative z-20 grid grid-cols-2 gap-x-12 gap-y-6 text-[13px] font-medium text-zinc-400 max-w-md border-t border-white/10 pt-8 mt-12">
+          <div className="flex items-center gap-3"><div className="w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"></div><span className="text-zinc-200">Workspaces Seguros</span></div>
+          <div className="flex items-center gap-3"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div><span className="text-zinc-200">99.9% Uptime</span></div>
+          <div className="flex items-center gap-3"><svg className="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg><span>Criptografia Avançada</span></div>
+          <div className="flex items-center gap-3"><svg className="w-4 h-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg><span>Instância Dedicada</span></div>
         </div>
       </div>
 
-      <div className="w-full lg:w-[45%] flex flex-col justify-center items-center p-8 sm:p-12 lg:p-24 relative bg-white">
-        <div className="w-full max-w-[380px] animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-10">
+      {/* LADO DIREITO - FORMULÁRIO */}
+      <div className="w-full lg:w-[45%] flex flex-col justify-center items-center p-6 sm:p-12 relative">
+        
+        <div className="w-full max-w-[400px] mt-[10vh] lg:mt-0 bg-[#05060A]/60 backdrop-blur-[30px] border border-white/[0.08] p-8 sm:p-10 rounded-[32px] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.8)] animate-in fade-in slide-in-from-bottom-6 duration-1000 relative z-20">
           
-          <div className="lg:hidden mb-12"><span className="text-zinc-950 font-black tracking-tighter text-3xl">AROX</span></div>
+          <div className="lg:hidden mb-12 text-center">
+            <span className="text-white font-black tracking-[0.3em] text-2xl drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">AROX</span>
+          </div>
 
           {stepTrocaSenha ? (
             <div className="animate-in fade-in duration-500">
-              <div className="mb-10">
-                <h2 className="text-2xl font-semibold text-zinc-900 mb-2 tracking-tight">Crie sua senha</h2>
-                <p className="text-sm text-zinc-500 leading-relaxed">Defina uma nova senha para <span className="font-medium text-zinc-800">{tempUser?.nome_usuario}</span>.</p>
+              <div className="mb-8">
+                <h2 className="text-[1.75rem] font-semibold text-white tracking-tight">Credencial Blindada</h2>
+                <p className="mt-2 text-[14px] text-zinc-400 leading-relaxed font-light">
+                  Seja bem-vindo, <span className="font-medium text-zinc-200">{tempUser?.nome_usuario}</span>. A arquitetura exige que você defina uma chave de acesso robusta.
+                </p>
               </div>
 
               <form onSubmit={salvarNovaSenha} className="space-y-6">
                 <div>
-                  <input type="password" placeholder="Nova senha" className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg focus:border-zinc-400 focus:ring-0 outline-none transition-colors font-medium text-zinc-900 placeholder:text-zinc-400 shadow-sm" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} autoFocus />
-                  <div className="mt-3">
-                    <div className="h-[3px] w-full bg-zinc-100 rounded-full overflow-hidden">
-                      <div className={`h-full transition-all duration-500 ease-out rounded-full ${progressColor}`} style={{ width: `${(pwdScore / 3) * 100}%` }}></div>
+                  <input 
+                    type="password" placeholder="Nova senha" 
+                    className="w-full px-5 py-4 bg-white/[0.03] border border-white/10 rounded-2xl focus:border-white/30 focus:bg-white/[0.05] focus:ring-0 outline-none transition-all font-medium text-white placeholder:text-zinc-600 shadow-inner text-[15px]" 
+                    value={novaSenha} onChange={e => setNovaSenha(e.target.value)} 
+                    onFocus={() => setScenePhase && setScenePhase('sync')} onBlur={() => setScenePhase && setScenePhase('reveal')} autoFocus 
+                  />
+                </div>
+                <div>
+                  <input 
+                    type="password" placeholder="Confirme a senha" 
+                    className={`w-full px-5 py-4 bg-white/[0.03] border rounded-2xl focus:bg-white/[0.05] focus:ring-0 outline-none transition-all font-medium text-white placeholder:text-zinc-600 shadow-inner text-[15px] ${confirmTouched && !matchPasswords ? 'border-rose-500/50 focus:border-rose-400 text-rose-200' : 'border-white/10 focus:border-white/30'}`} 
+                    value={confirmarNovaSenha} onChange={e => setConfirmarNovaSenha(e.target.value)} 
+                    onFocus={() => setScenePhase && setScenePhase('sync')} onBlur={() => setScenePhase && setScenePhase('reveal')}
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <div className="h-[3px] w-full bg-white/10 rounded-full overflow-hidden mb-5">
+                    <div className={`h-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] rounded-full ${progressColor}`} style={{ width: progressWidth }}></div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className={`flex items-center gap-2 text-[12px] font-medium transition-colors duration-300 ${hasLength ? 'text-zinc-200' : 'text-zinc-500'}`}>
+                      <CheckIcon active={hasLength} /> Mín. 8 dígitos
                     </div>
-                    <div className="flex items-center gap-4 mt-3">
-                      <div className={`flex items-center gap-1.5 text-xs font-medium transition-colors duration-300 ${hasLength ? 'text-zinc-900' : 'text-zinc-400'}`}>
-                        <svg className={`w-3.5 h-3.5 transition-colors ${hasLength ? 'text-emerald-500' : 'text-zinc-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                        8+ caracteres
-                      </div>
-                      <div className={`flex items-center gap-1.5 text-xs font-medium transition-colors duration-300 ${hasNumber ? 'text-zinc-900' : 'text-zinc-400'}`}>
-                        <svg className={`w-3.5 h-3.5 transition-colors ${hasNumber ? 'text-emerald-500' : 'text-zinc-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                        Número
-                      </div>
-                      <div className={`flex items-center gap-1.5 text-xs font-medium transition-colors duration-300 ${hasSpecial ? 'text-zinc-900' : 'text-zinc-400'}`}>
-                        <svg className={`w-3.5 h-3.5 transition-colors ${hasSpecial ? 'text-emerald-500' : 'text-zinc-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                        Especial
-                      </div>
+                    <div className={`flex items-center gap-2 text-[12px] font-medium transition-colors duration-300 ${hasNumber ? 'text-zinc-200' : 'text-zinc-500'}`}>
+                      <CheckIcon active={hasNumber} /> Pelo menos 1 número
+                    </div>
+                    <div className={`flex items-center gap-2 text-[12px] font-medium transition-colors duration-300 ${hasSpecial ? 'text-zinc-200' : 'text-zinc-500'}`}>
+                      <CheckIcon active={hasSpecial} /> Caractere Especial
+                    </div>
+                    <div className={`flex items-center gap-2 text-[12px] font-medium transition-colors duration-300 ${matchPasswords ? 'text-zinc-200' : 'text-zinc-500'}`}>
+                      <CheckIcon active={matchPasswords} /> Senhas idênticas
                     </div>
                   </div>
                 </div>
-                <div>
-                  <input type="password" placeholder="Confirmar senha" className={`w-full px-4 py-3 bg-white border rounded-lg focus:ring-0 outline-none transition-colors font-medium text-zinc-900 placeholder:text-zinc-400 shadow-sm ${confirmarNovaSenha.length > 0 && !matchPasswords ? 'border-rose-300 focus:border-rose-400 text-rose-900' : 'border-zinc-200 focus:border-zinc-400'}`} value={confirmarNovaSenha} onChange={e => setConfirmarNovaSenha(e.target.value)} />
-                </div>
-                {erro && <div className="text-sm text-rose-600 font-medium animate-in fade-in">{erro}</div>}
-                <button type="submit" disabled={loadingLogin || pwdScore < 3 || !matchPasswords} className={`w-full flex justify-center items-center py-3.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${pwdScore === 3 && matchPasswords ? 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-md active:scale-[0.98]' : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'}`}>
-                  {loadingLogin ? <LoadingDots /> : 'Confirmar e acessar'}
+
+                {erro && <div className="text-[13px] text-rose-400 font-medium animate-in fade-in bg-rose-500/10 p-3 rounded-lg border border-rose-500/20">{erro}</div>}
+                
+                <button type="submit" disabled={loadingLogin || pwdScore < 4} className={`w-full flex justify-center items-center py-4 px-4 rounded-2xl text-[14px] font-semibold tracking-wide transition-all duration-500 mt-6 ${pwdScore === 4 ? 'bg-white text-black hover:bg-zinc-200 shadow-[0_0_30px_rgba(255,255,255,0.15)] active:scale-[0.98]' : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/5'}`}>
+                  {loadingLogin ? <LoadingDots /> : 'Confirmar Credencial'}
                 </button>
               </form>
             </div>
+
           ) : (!mostrarFormPadrao && lastLogin) ? (
             <div className="animate-in fade-in duration-500 w-full">
               <div className="mb-10 text-center sm:text-left">
-                <h2 className="text-[1.75rem] font-semibold text-zinc-900 tracking-tight">Bem-vindo de volta</h2>
-                <p className="mt-1 text-zinc-500 text-sm">Acesse seu ambiente de trabalho.</p>
+                <h2 className="text-[1.75rem] font-semibold text-white tracking-tight">Bem-vindo de volta</h2>
+                <p className="mt-2 text-[14px] text-zinc-400 font-light">Acesse seu ambiente de trabalho.</p>
               </div>
 
-              <div className="w-full flex items-center justify-between p-4 bg-white border border-zinc-200 rounded-xl shadow-sm hover:border-zinc-300 transition-colors mb-6 group cursor-default">
+              <div 
+                className="w-full flex items-center justify-between p-5 bg-white/[0.03] border border-white/10 rounded-[20px] shadow-inner hover:bg-white/[0.06] hover:border-white/20 transition-all duration-300 mb-8 group cursor-pointer"
+                onMouseEnter={() => setScenePhase && setScenePhase('sync')} onMouseLeave={() => setScenePhase && setScenePhase('reveal')}
+                onClick={loginComContaSalva}
+              >
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full overflow-hidden border border-zinc-100 shadow-sm bg-zinc-50 flex items-center justify-center">
-                    <img src={lastLogin.logo || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} alt="Logo" className="w-full h-full object-cover" onError={(e) => e.currentTarget.style.display = 'none'} />
+                  <div className="w-12 h-12 rounded-full overflow-hidden border border-white/20 shadow-lg bg-black/50 flex items-center justify-center relative">
+                    <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent"></div>
+                    <img src={lastLogin.logo || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} alt="Logo" className="w-full h-full object-cover z-10" onError={(e) => e.currentTarget.style.display = 'none'} />
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-zinc-900">{lastLogin.nome_usuario}</span>
-                    <span className="text-xs font-medium text-zinc-500">{lastLogin.nome_empresa}</span>
+                    <span className="text-[15px] font-semibold text-white tracking-wide">{lastLogin.nome_usuario}</span>
+                    <span className="text-[12px] font-medium text-zinc-400">{lastLogin.nome_empresa}</span>
                   </div>
                 </div>
-                <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)] relative">
+                  <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-50"></div>
+                </div>
               </div>
 
-              {erro && <div className="text-sm text-rose-600 font-medium animate-in fade-in mb-6">{erro}</div>}
+              {erro && <div className="text-[13px] text-rose-400 font-medium animate-in fade-in mb-6 bg-rose-500/10 p-3 rounded-lg border border-rose-500/20">{erro}</div>}
 
               <div className="space-y-3">
-                <button onClick={loginComContaSalva} disabled={loadingLogin} className="w-full flex justify-center items-center py-3.5 px-4 rounded-lg text-sm font-semibold text-white bg-zinc-900 hover:bg-zinc-800 shadow-md transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed">
-                  {loadingLogin ? <LoadingDots /> : 'Continuar'}
+                <button onClick={loginComContaSalva} disabled={loadingLogin} className="w-full flex justify-center items-center py-4 px-4 rounded-2xl text-[14px] font-semibold text-black tracking-wide bg-white hover:bg-zinc-200 shadow-[0_0_30px_rgba(255,255,255,0.1)] transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed">
+                  {loadingLogin ? <LoadingDots /> : 'Entrar na Operação'}
                 </button>
-                <button onClick={() => setMostrarFormPadrao(true)} className="w-full flex justify-center items-center py-3.5 px-4 rounded-lg text-sm font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 transition-all">
-                  Entrar com outra conta
+                <button onClick={() => setMostrarFormPadrao(true)} className="w-full flex justify-center items-center py-4 px-4 rounded-2xl text-[13px] font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-all border border-transparent hover:border-white/10">
+                  Acessar com outra conta
                 </button>
               </div>
             </div>
+
           ) : (
             <div className="animate-in fade-in duration-500">
-              <div className="mb-10">
-                <h2 className="text-[1.75rem] font-semibold text-zinc-900 tracking-tight">Acessar conta</h2>
-                <p className="mt-2 text-sm text-zinc-500">Digite seus dados para entrar na sua conta AROX.</p>
+              <div className="mb-10 text-center sm:text-left">
+                <h2 className="text-[1.75rem] font-semibold text-white tracking-tight">Autenticação</h2>
+                <p className="mt-2 text-[14px] text-zinc-400 font-light">Identifique-se para acessar o cluster da AROX.</p>
               </div>
               
               <form className="space-y-5" onSubmit={fazerLogin}>
                 <div className="space-y-4">
                   <div>
-                    <input id="email" type="email" placeholder="E-mail corporativo" className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg focus:border-zinc-400 focus:ring-0 outline-none transition-colors font-medium text-zinc-900 placeholder:text-zinc-400 shadow-sm" value={credenciais.email} onChange={e => setCredenciais({...credenciais, email: e.target.value})} autoFocus />
+                    <input 
+                      id="email" type="email" placeholder="E-mail corporativo" 
+                      className="w-full px-5 py-4 bg-white/[0.03] border border-white/10 rounded-2xl focus:border-white/30 focus:bg-white/[0.05] focus:ring-0 outline-none transition-all font-medium text-white placeholder:text-zinc-600 shadow-inner text-[15px]" 
+                      value={credenciais.email} onChange={e => setCredenciais({...credenciais, email: e.target.value})} 
+                      onFocus={() => setScenePhase && setScenePhase('sync')} onBlur={() => setScenePhase && setScenePhase('reveal')} autoFocus 
+                    />
                   </div>
                   <div>
-                    <input id="senha" type="password" placeholder="Senha" className="w-full px-4 py-3 bg-white border border-zinc-200 rounded-lg focus:border-zinc-400 focus:ring-0 outline-none transition-colors font-medium text-zinc-900 placeholder:text-zinc-400 shadow-sm" value={credenciais.senha} onChange={e => setCredenciais({...credenciais, senha: e.target.value})} />
+                    <input 
+                      id="senha" type="password" placeholder="Sua senha" 
+                      className="w-full px-5 py-4 bg-white/[0.03] border border-white/10 rounded-2xl focus:border-white/30 focus:bg-white/[0.05] focus:ring-0 outline-none transition-all font-medium text-white placeholder:text-zinc-600 shadow-inner text-[15px]" 
+                      value={credenciais.senha} onChange={e => setCredenciais({...credenciais, senha: e.target.value})} 
+                      onFocus={() => setScenePhase && setScenePhase('sync')} onBlur={() => setScenePhase && setScenePhase('reveal')}
+                    />
                   </div>
                 </div>
 
-                {erro && <div className="text-sm text-rose-600 font-medium animate-in fade-in pt-1">{erro}</div>}
+                {erro && <div className="text-[13px] text-rose-400 font-medium animate-in fade-in pt-1 bg-rose-500/10 p-3 rounded-lg border border-rose-500/20">{erro}</div>}
 
-                <button type="submit" disabled={loadingLogin} className="w-full flex justify-center items-center py-3.5 px-4 rounded-lg text-sm font-semibold text-white bg-zinc-900 hover:bg-zinc-800 shadow-md transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mt-2">
-                  {loadingLogin ? <LoadingDots /> : 'Entrar'}
+                <button type="submit" disabled={loadingLogin} className="w-full flex justify-center items-center py-4 px-4 rounded-2xl text-[14px] tracking-wide font-semibold text-black bg-white hover:bg-zinc-200 shadow-[0_0_30px_rgba(255,255,255,0.1)] transition-all active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mt-4">
+                  {loadingLogin ? <LoadingDots /> : 'Entrar no Sistema'}
                 </button>
                 
                 {lastLogin && (
-                   <div className="text-center pt-4">
-                     <button type="button" onClick={() => setMostrarFormPadrao(false)} className="text-sm font-medium text-zinc-500 hover:text-zinc-900 transition-colors">
-                       ← Voltar para {lastLogin.nome_usuario}
+                   <div className="text-center pt-6">
+                     <button type="button" onClick={() => setMostrarFormPadrao(false)} className="text-[13px] font-medium text-zinc-500 hover:text-zinc-300 transition-colors flex items-center justify-center gap-2 mx-auto">
+                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                       Retornar para {lastLogin.nome_usuario}
                      </button>
                    </div>
                 )}
@@ -303,10 +312,12 @@ export default function Login({ getHoje, setSessao }) {
             </div>
           )}
           
-          <div className="mt-16 text-left">
-            <p className="text-xs font-medium text-zinc-400">© {new Date().getFullYear()} AROX.</p>
-          </div>
         </div>
+        
+        <div className="mt-12 text-center lg:text-left relative z-20 w-full max-w-[400px]">
+          <p className="text-[11px] font-medium tracking-widest uppercase text-zinc-600">© {new Date().getFullYear()} AROX Core</p>
+        </div>
+
       </div>
     </div>
   );

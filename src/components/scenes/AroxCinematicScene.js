@@ -21,12 +21,13 @@ export default function AroxCinematicScene({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   
+  // MOTION FIX: Coroa de luz no eixo Y para Mobile
   const phaseConfig = {
-    ignition:    { light: 0.00, rotation: -2,   planetY: isMobile ? -10 : 60, scale: 0.85, blur: 0,   overlay: 0 },
-    reveal:      { light: 0.05, rotation: -1,   planetY: isMobile ? -30 : 20, scale: 0.95, blur: 0,   overlay: 0 },
-    sync:        { light: 0.15, rotation: 0.5,  planetY: isMobile ? -40 : 5,  scale: 0.98, blur: 2,   overlay: 0.1 },
-    handoff:     { light: 0.40, rotation: 1.5,  planetY: -10, scale: 1.00, blur: 4,   overlay: 0.2 },
-    bridgeLight: { light: 80.0, rotation: 25.0, planetY: -20, scale: 1.30, blur: 0,   overlay: 0 },
+    ignition:    { light: 0.00, rotation: -2,   planetY: isMobile ? -140 : 60, scale: isMobile ? 0.90 : 0.85, blur: 0,   overlay: 0 },
+    reveal:      { light: 0.05, rotation: -1,   planetY: isMobile ? -160 : 20, scale: isMobile ? 1.00 : 0.95, blur: 0,   overlay: 0 },
+    sync:        { light: 0.15, rotation: 0.5,  planetY: isMobile ? -180 : 5,  scale: isMobile ? 1.05 : 0.98, blur: isMobile ? 0 : 2, overlay: isMobile ? 0 : 0.1 },
+    handoff:     { light: 0.40, rotation: 1.5,  planetY: isMobile ? -100 : -10, scale: 1.00, blur: 4,   overlay: 0.2 },
+    bridgeLight: { light: 80.0, rotation: 25.0, planetY: isMobile ? -50 : -20, scale: 1.30, blur: 0,   overlay: 0 },
     bridgeDark:  { light: 0.00, rotation: -10.0,planetY: 50,  scale: 0.80, blur: 20,  overlay: 1 } 
   };
 
@@ -48,6 +49,8 @@ export default function AroxCinematicScene({
     physics.current.targetScale = activeConfig.scale;
   }, [activeConfig]);
 
+  // MOTION FIX CRÍTICO: Removido o scenePhase da dependência. 
+  // O canvas nunca mais será destruído. Flui a 60 FPS ininterruptos.
   useEffect(() => {
     if (!isClient) return;
 
@@ -98,7 +101,7 @@ export default function AroxCinematicScene({
       p.mouseY = lerp(p.mouseY, p.targetMouseY, 0.04);
       p.light = lerp(p.light, p.targetLight, p.targetLight > 5 ? 0.09 : 0.015); 
       p.rotation = lerp(p.rotation, p.targetRotation, 0.01); 
-      p.planetY = lerp(p.planetY, p.targetPlanetY, scenePhase === 'reveal' ? 0.03 : 0.015);
+      p.planetY = lerp(p.planetY, p.targetPlanetY, 0.02);
       p.scale = lerp(p.scale, p.targetScale, p.targetLight > 5 ? 0.02 : 0.01);
 
       ctx.fillStyle = '#030406';
@@ -159,7 +162,7 @@ export default function AroxCinematicScene({
       window.removeEventListener('mousemove', handleMouseMove); 
       cancelAnimationFrame(requestRef.current); 
     };
-  }, [isClient, scenePhase]);
+  }, [isClient]); // <--- Dependência isolada e limpa
 
   if (!isClient) return null;
 
@@ -218,7 +221,6 @@ export default function AroxCinematicScene({
 
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
 
-      {/* Renderizado incondicionalmente para o rim light funcionar nos dois temas */}
       <div className="orbital-backlight"></div>
 
       <div className="arox-planet-container cinematic-entry">

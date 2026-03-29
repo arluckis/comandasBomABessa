@@ -22,12 +22,12 @@ export default function SystemLoader({ variant = 'section', text = '', phase = '
   );
 
   if (variant === 'full') {
-    const isExitingLoaderGlobal = phase === 'handoff' || phase === 'operational' || phase === 'bridgeDark' || phase === 'bridgeLight';
+    const isExitingLoaderGlobal = phase === 'operational' || phase === 'bridgeDark' || phase === 'bridgeLight';
     const isEarly = phase === 'ignition' || phase === 'reveal';
 
     return (
       <div className={`absolute inset-0 z-50 w-full h-full flex flex-col items-center justify-center perspective-[1200px] transition-all duration-[1000ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
-        isExitingLoaderGlobal ? 'pointer-events-none' : 
+        isExitingLoaderGlobal ? 'pointer-events-none opacity-0 scale-105 blur-lg' : 
         isEarly ? 'opacity-0 scale-95 blur-md pointer-events-none' : 'opacity-100 scale-100 blur-0'
       }`}>
         

@@ -2,102 +2,204 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-export default function Login({ getHoje, setSessao }) {
+// --- COMPONENTES AUXILIARES ---
+
+const LoadingDots = () => (
+  <div className="flex items-center gap-2 justify-center">
+    <div className="w-1.5 h-1.5 bg-white rounded-sm animate-[pulse_1.5s_ease-in-out_infinite]"></div>
+    <div className="w-1.5 h-1.5 bg-white rounded-sm animate-[pulse_1.5s_ease-in-out_0.2s_infinite]"></div>
+    <div className="w-1.5 h-1.5 bg-white rounded-sm animate-[pulse_1.5s_ease-in-out_0.4s_infinite]"></div>
+  </div>
+);
+
+const CheckIcon = ({ active }) => (
+  <svg className={`w-3.5 h-3.5 transition-all duration-500 ease-out ${active ? 'text-emerald-400 scale-100 opacity-100' : 'text-zinc-700 scale-75 opacity-50'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+const PolicyModal = ({ isOpen, onClose, title, content }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 lg:p-10 animate-in fade-in duration-300">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose} />
+      <div className="relative w-full max-w-2xl max-h-[80vh] bg-[#0a0a0a] border border-white/10 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden">
+        <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+          <h3 className="text-zinc-100 font-medium tracking-widest uppercase text-[11px] font-mono">{title}</h3>
+          <button onClick={onClose} className="text-zinc-500 hover:text-white transition-colors text-2xl leading-none">&times;</button>
+        </div>
+        <div className="p-8 overflow-y-auto text-zinc-400 text-[13px] leading-relaxed font-light custom-scrollbar">
+          {content}
+        </div>
+        <div className="p-4 border-t border-white/5 bg-white/[0.01] flex justify-end">
+          <button onClick={onClose} className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-zinc-300 rounded-lg text-[11px] font-mono uppercase tracking-widest transition-all">
+            Compreendido
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// --- COMPONENTE PRINCIPAL ---
+
+export default function Login({ getHoje, setSessao, setScenePhase }) {
   const [credenciais, setCredenciais] = useState({ email: '', senha: '' });
   const [loadingLogin, setLoadingLogin] = useState(false);
   const [erro, setErro] = useState('');
 
-  // Estados 
   const [lastLogin, setLastLogin] = useState(null);
   const [mostrarFormPadrao, setMostrarFormPadrao] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
-  // Estados Troca de Senha
   const [stepTrocaSenha, setStepTrocaSenha] = useState(false);
   const [tempUser, setTempUser] = useState(null);
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarNovaSenha, setConfirmarNovaSenha] = useState('');
+  
+  // Estados para Termos e Privacidade
+  const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [modalContent, setModalContent] = useState({ open: false, title: '', text: null });
 
-  // Validações em tempo real da senha
+  const [activeInput, setActiveInput] = useState(null);
+  const [typingParticles, setTypingParticles] = useState([]);
+
+  // Textos Jurídicos Adaptados para o Domínio do AROX (PDV/ERP)
+  const policies = {
+    privacidade: (
+      <div className="space-y-5 font-sans">
+        <div>
+          <h4 className="text-white font-medium mb-1">1. Coleta e Processamento de Dados</h4>
+          <p>O AROX Core processa dados operacionais inerentes à gestão do seu negócio, incluindo, mas não se limitando a: métricas de faturamento, fluxo de caixa, registros de comandas, dados de fidelidade e logs de acesso de operadores.</p>
+        </div>
+        <div>
+          <h4 className="text-white font-medium mb-1">2. Armazenamento e Criptografia</h4>
+          <p>Todos os dados financeiros e credenciais de acesso são criptografados (AES-256) em trânsito e em repouso. A infraestrutura em nuvem garante redundância e backups automatizados diários, visando a disponibilidade contínua da operação de PDV.</p>
+        </div>
+        <div>
+          <h4 className="text-white font-medium mb-1">3. Acesso e Compartilhamento</h4>
+          <p>Os dados pertencem exclusivamente à organização contratante. A equipe técnica da AROX não compartilha, vende ou analisa transações individuais para fins de terceiros. O suporte técnico acessa logs exclusivamente mediante autorização do administrador da instância.</p>
+        </div>
+      </div>
+    ),
+    termos: (
+      <div className="space-y-5 font-sans">
+        <div>
+          <h4 className="text-white font-medium mb-1">1. Licenciamento Empresarial</h4>
+          <p>Esta instância do AROX é licenciada exclusivamente para uso operacional da empresa contratante. A engenharia reversa, sublicenciamento ou extração automatizada de dados da plataforma é rigorosamente proibida.</p>
+        </div>
+        <div>
+          <h4 className="text-white font-medium mb-1">2. Responsabilidade do Operador e Auditoria</h4>
+          <p>O administrador do workspace é responsável por manter o sigilo de sua credencial e gerenciar as permissões dos operadores de caixa. Recomendamos que o fechamento de caixa e alterações de produtos sejam sempre acompanhados por um gestor. Todas as ações críticas geram logs de auditoria inalteráveis.</p>
+        </div>
+        <div>
+          <h4 className="text-white font-medium mb-1">3. Concordância Legal</h4>
+          <p>Ao estabelecer a sua "Chave Master" e acessar a plataforma, você confirma estar autorizado legalmente a operar os dados fiscais e gerenciais inseridos, isentando a AROX Systems de responsabilidades sobre a inserção incorreta de valores, impostos ou fraudes internas executadas por funcionários cadastrados.</p>
+        </div>
+      </div>
+    )
+  };
+
+  const handleTyping = (e, field) => {
+    const value = e.target.value;
+    if (field === 'email' || field === 'senha') setCredenciais({ ...credenciais, [field]: value });
+    else if (field === 'novaSenha') setNovaSenha(value);
+    else if (field === 'confirmarNovaSenha') setConfirmarNovaSenha(value);
+    
+    const newParticle = {
+      id: Date.now() + Math.random(),
+      x: Math.random() * 100, 
+      y: Math.random() * 100, 
+      size: Math.random() * 1.5 + 0.5,
+      opacity: Math.random() * 0.5 + 0.2
+    };
+    setTypingParticles(prev => [...prev.slice(-10), newParticle]);
+  };
+
+  useEffect(() => {
+    if (typingParticles.length > 0) {
+      const timer = setTimeout(() => setTypingParticles([]), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [typingParticles]);
+
+  const getSaudacao = () => {
+    const hora = new Date().getHours();
+    if (hora >= 5 && hora < 12) return 'Bom dia';
+    if (hora >= 12 && hora < 18) return 'Boa tarde';
+    return 'Boa noite';
+  };
+
+  const isNotEmpty = novaSenha.length > 0;
   const hasLength = novaSenha.length >= 8;
   const hasNumber = /\d/.test(novaSenha);
   const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(novaSenha);
-  const matchPasswords = novaSenha !== '' && novaSenha === confirmarNovaSenha;
+  const matchPasswords = isNotEmpty && novaSenha === confirmarNovaSenha;
+  const confirmTouched = confirmarNovaSenha.length > 0;
   
-  // Calcula o "score" da senha (de 0 a 3)
-  const pwdScore = [hasLength, hasNumber, hasSpecial].filter(Boolean).length;
-  // Cor da barra de progresso
-  const progressColor = pwdScore === 0 ? 'bg-gray-200' : pwdScore === 1 ? 'bg-rose-500' : pwdScore === 2 ? 'bg-amber-400' : 'bg-emerald-500';
+  let pwdScore = 0;
+  if (hasLength) pwdScore++;
+  if (hasNumber) pwdScore++;
+  if (hasSpecial) pwdScore++;
+  if (pwdScore === 3 && matchPasswords) pwdScore++; 
+
+  const progressColor = pwdScore <= 1 ? 'bg-red-500' : pwdScore === 2 ? 'bg-amber-500' : pwdScore === 3 ? 'bg-blue-400' : 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.5)]';
 
   useEffect(() => {
     setIsMounted(true);
     try {
-      const saved = localStorage.getItem('bessa_last_login');
+      const saved = localStorage.getItem('arox_last_login');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.email) {
-          setLastLogin(parsed);
-        } else {
-          setMostrarFormPadrao(true);
-        }
-      } else {
-        setMostrarFormPadrao(true);
-      }
+        if (parsed && parsed.email) setLastLogin(parsed);
+        else setMostrarFormPadrao(true);
+      } else setMostrarFormPadrao(true);
     } catch (e) {
-      localStorage.removeItem('bessa_last_login');
+      localStorage.removeItem('arox_last_login');
       setMostrarFormPadrao(true);
     }
   }, []);
 
   const concluirAcesso = (data) => {
     const logoEmpresa = data.empresas?.logo_url || data.empresas?.logo || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
-    const nomeEmpresa = data.empresas?.nome || 'Painel de Gestão';
+    const nomeEmpresa = data.empresas?.nome || (data.role === 'super_admin' ? 'Console Admin' : 'AROX');
 
-    localStorage.setItem('bessa_last_login', JSON.stringify({
-      email: data.email,
-      senha: data.senha,
-      nome_usuario: data.nome_usuario,
-      nome_empresa: nomeEmpresa,
-      logo: logoEmpresa
+    localStorage.setItem('arox_last_login', JSON.stringify({
+      email: data.email, senha: data.senha, nome_usuario: data.nome_usuario, nome_empresa: nomeEmpresa, logo: logoEmpresa
     }));
 
-    const sessionObj = { ...data, data: getHoje() };
+    const sessionObj = { ...data, data: getHoje ? getHoje() : new Date().toISOString() };
     delete sessionObj.empresas; 
+    localStorage.setItem('bessa_session', JSON.stringify(sessionObj)); 
     
-    setSessao(sessionObj);
-    localStorage.setItem('bessa_session', JSON.stringify(sessionObj));
-    
-    (async () => {
-      try {
-        const ipRes = await fetch('https://api.ipify.org?format=json');
-        const ipData = await ipRes.json();
-        await supabase.from('logs_acesso').insert([{
-          usuario_id: data.id,
-          empresa_id: data.empresa_id,
-          email: data.email,
-          ip: ipData.ip,
-          navegador: navigator.userAgent
-        }]);
-      } catch (err) { console.log("Erro log", err); }
-    })();
+    if (data.role === 'super_admin') { window.location.href = '/admin'; return; }
+    if (setSessao) setSessao(sessionObj);
   };
 
   const processarAutenticacao = async (emailBusca, senhaBusca) => {
-    setLoadingLogin(true);
-    setErro('');
+    setLoadingLogin(true); setErro('');
+    if(setScenePhase) setScenePhase('sync'); 
 
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*, empresas ( ativo, nome, logo_url )')
-      .eq('email', emailBusca.trim())
-      .eq('senha', senhaBusca)
-      .single();
+    // ATUALIZAÇÃO: Inclusão do validade_plano na query para garantir a segurança em tempo de login
+    const { data, error } = await supabase.from('usuarios').select('*, empresas ( ativo, nome, logo_url, validade_plano )').eq('email', emailBusca.trim()).eq('senha', senhaBusca).single();
 
     if (data && !error) { 
-      if (data.role !== 'super_admin' && data.empresas && data.empresas.ativo === false) {
-        setErro("Acesso temporariamente suspenso. Por favor, entre em contato com o suporte ou setor financeiro.");
-        setLoadingLogin(false);
-        return;
+      if (data.role !== 'super_admin' && data.empresas) {
+         const agora = new Date();
+         const expirou = data.empresas.validade_plano ? new Date(data.empresas.validade_plano) < agora : false;
+
+         if (data.empresas.ativo === false) {
+            setErro("Conta temporariamente bloqueada. Consulte o suporte do sistema para mais informações.");
+            setLoadingLogin(false);
+            if(setScenePhase) setScenePhase('reveal');
+            return;
+         } else if (expirou) {
+            setErro("Seu plano expirou. Regularize sua assinatura para acessar.");
+            setLoadingLogin(false);
+            if(setScenePhase) setScenePhase('reveal');
+            return;
+         }
       }
 
       if (data.primeiro_login === true) {
@@ -106,288 +208,256 @@ export default function Login({ getHoje, setSessao }) {
         setLoadingLogin(false);
         return;
       }
-
       concluirAcesso(data);
     } else { 
-      setErro("E-mail ou senha incorretos. Tente novamente."); 
+      setErro("Credenciais inválidas ou não autorizadas."); 
       setLoadingLogin(false);
+      if(setScenePhase) setScenePhase('reveal'); 
     }
   };
 
-  const fazerLogin = (e) => {
-    e.preventDefault(); 
-    if (!credenciais.email || !credenciais.senha) return setErro("Por favor, preencha o e-mail e a senha.");
-    processarAutenticacao(credenciais.email, credenciais.senha);
-  };
-
-  const loginComContaSalva = () => {
-    if (lastLogin && lastLogin.email) {
-      processarAutenticacao(lastLogin.email, lastLogin.senha);
-    } else {
-      setMostrarFormPadrao(true);
-    }
-  };
+  const fazerLogin = (e) => { e.preventDefault(); if (!credenciais.email || !credenciais.senha) return setErro("Forneça suas credenciais completas."); processarAutenticacao(credenciais.email, credenciais.senha); };
+  const loginComContaSalva = () => { if (lastLogin && lastLogin.email) processarAutenticacao(lastLogin.email, lastLogin.senha); else setMostrarFormPadrao(true); };
 
   const salvarNovaSenha = async (e) => {
-    e.preventDefault();
-    setErro('');
-
-    if (pwdScore < 3) return setErro("A senha não atende a todos os critérios de segurança.");
-    if (!matchPasswords) return setErro("As senhas não coincidem.");
-
+    e.preventDefault(); setErro('');
+    if (pwdScore < 4) return setErro("A senha não atinge os critérios de segurança corporativa.");
+    if (!aceitouTermos) return setErro("É necessário aceitar as Políticas Operacionais do AROX.");
+    
     setLoadingLogin(true);
     
-    const { error } = await supabase
-      .from('usuarios')
-      .update({ senha: novaSenha, primeiro_login: false })
-      .eq('id', tempUser.id);
+    const { error } = await supabase.from('usuarios').update({ 
+        senha: novaSenha, 
+        primeiro_login: false,
+        aceitou_termos_em: new Date().toISOString() 
+    }).eq('id', tempUser.id);
 
     if (error) {
-      setErro("Ocorreu um erro ao atualizar sua senha.");
+      setErro("Falha na comunicação segura. Tente novamente.");
       setLoadingLogin(false);
     } else {
-      const dataAtualizada = { ...tempUser, senha: novaSenha, primeiro_login: false };
-      concluirAcesso(dataAtualizada);
+      concluirAcesso({ ...tempUser, senha: novaSenha, primeiro_login: false });
     }
   };
 
-  // Previne Hydration Mismatch renderizando um loading elegante
-  if (!isMounted) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-spin h-10 w-10 border-4 border-purple-600 border-t-transparent rounded-full"></div>
-    </div>
-  );
+  if (!isMounted) return null;
 
   return (
-    <div className="min-h-screen flex bg-gray-50">
+    <div className="min-h-[100dvh] flex flex-col lg:flex-row w-full font-sans selection:bg-white/20 selection:text-white relative z-10 text-white bg-transparent">
       
-      {/* LADO ESQUERDO: Arte Abstrata  */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-[#0B0F19] overflow-hidden justify-center items-center">
-        <div className="absolute top-8 left-10 flex items-center gap-3 z-20">
-          <div className="w-8 h-8 bg-purple-500/20 border border-purple-500/30 rounded-lg flex items-center justify-center shadow-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-purple-300"><path d="M3 18h18" /><path d="M5 14c0-3.87 3.13-7 7-7s7 3.13 7 7" /><path d="M12 7V4" /><path d="M10 4h4" /></svg>
+      {/* PARTICULAS - Feedback Visual */}
+      <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden mix-blend-screen">
+        {typingParticles.map(particle => (
+          <div 
+            key={particle.id}
+            className="absolute rounded-full bg-blue-200/50 animate-in fade-in zoom-in duration-700 ease-out"
+            style={{
+              left: `${particle.x}%`, top: `${particle.y}%`,
+              width: `${particle.size}px`, height: `${particle.size}px`,
+              opacity: particle.opacity,
+              animation: 'fadeOutParticle 1s forwards'
+            }}
+          />
+        ))}
+      </div>
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes fadeOutParticle { 0% { transform: scale(0.5); } 100% { opacity: 0; transform: scale(1.5) translateY(-10px); } }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+      `}} />
+
+      {/* LADO ESQUERDO: INSTITUCIONAL & COMERCIAL */}
+      <div className="w-full lg:w-[55%] flex flex-col justify-end lg:justify-center p-8 lg:p-24 relative z-20 h-[35dvh] lg:h-auto">
+        <div className="animate-in fade-in slide-in-from-left-4 duration-1000">
+          <div className="flex items-center gap-3 mb-6 pointer-events-none">
+            <div className="h-[1px] w-8 bg-white/20"></div>
+            <span className="font-mono tracking-[0.2em] text-[10px] uppercase text-zinc-400">AROX Core v3.0.4</span>
           </div>
-          <span className="text-white/80 font-black tracking-widest text-sm uppercase">Comandas Bom a Bessa</span>
+          
+          <h1 className="text-[2rem] lg:text-[4.5rem] font-medium leading-[1.05] tracking-tight text-white drop-shadow-lg pointer-events-none">
+            Gestão <br className="hidden lg:block"/> em escala.
+          </h1>
+          <p className="mt-4 lg:mt-6 text-zinc-400 text-[14px] lg:text-[16px] leading-relaxed max-w-md font-light pointer-events-none">
+            Ecossistema centralizado de vendas, comandas e inteligência financeira. Disponibilidade e velocidade absolutas para a sua operação.
+          </p>
+
+          {/* NOVO BOTÃO COMERCIAL: Demonstração */}
+          <div className="mt-8 flex gap-4 pointer-events-auto">
+            <button 
+              onClick={() => window.open('https://wa.me/seunumeroaqui', '_blank')}
+              className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[13px] font-medium text-white hover:bg-white/10 hover:border-white/20 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] transition-all duration-300 flex items-center gap-2 group backdrop-blur-sm"
+            >
+              Agendar Demonstração
+              <svg className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="hidden lg:flex gap-10 text-[11px] font-mono text-zinc-500 pt-8 mt-12 border-t border-white/5 pointer-events-none">
+            <div>
+               <span className="block text-white/30 mb-1">STATUS</span>
+               <span className="text-emerald-400/80 flex items-center gap-2"><span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Sistema Operacional</span>
+            </div>
+            <div>
+               <span className="block text-white/30 mb-1">ENCRYPTION</span>
+               <span className="text-zinc-300">AES-256 E2E</span>
+            </div>
+          </div>
         </div>
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0B0F19] via-indigo-950/40 to-purple-900/20"></div>
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
-        <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-purple-600/20 blur-[120px] mix-blend-screen pointer-events-none"></div>
-        <div className="absolute bottom-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-indigo-600/20 blur-[150px] mix-blend-screen pointer-events-none"></div>
-        
-        <div className="relative z-10 w-full max-w-lg p-10 mx-16 rounded-[2rem] bg-white/5 border border-white/10 backdrop-blur-md shadow-2xl">
-          <div className="w-14 h-14 bg-purple-500/20 border border-purple-500/30 rounded-2xl flex items-center justify-center mb-8 shadow-inner">
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-300"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
-          </div>
-          <h3 className="text-3xl font-bold text-white mb-4 leading-tight">O controle do seu negócio na palma da mão.</h3>
-          <p className="text-indigo-100/70 text-lg leading-relaxed mb-8">Acompanhe o fluxo de comandas, gerencie sua equipe e tenha uma visão clara do seu faturamento em tempo real, com total segurança e performance.</p>
-          <div className="flex gap-4">
-            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full border border-white/5"><div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div><span className="text-xs font-semibold text-gray-300 tracking-wide uppercase">Tempo Real</span></div>
-            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-full border border-white/5"><div className="w-2 h-2 rounded-full bg-blue-400"></div><span className="text-xs font-semibold text-gray-300 tracking-wide uppercase">Nuvem Segura</span></div>
-          </div>
-        </div>
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/50 to-transparent"></div>
       </div>
 
-      {/* LADO DIREITO: Componentes Interativos */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 sm:p-12 lg:p-24 bg-white shadow-2xl z-10 relative">
+      {/* LADO DIREITO: CONSOLE DE ACESSO */}
+      <div className="w-full lg:w-[45%] flex flex-col justify-start lg:justify-center items-center lg:items-start p-6 lg:p-20 relative z-20 h-[65dvh] lg:h-auto">
         
-        {/* Glow de fundo sutil no lado branco para ficar mais  */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-purple-50 rounded-full blur-[100px] pointer-events-none opacity-60"></div>
-        
-        <div className="w-full max-w-md space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative z-10">
+        <div className="w-full max-w-[400px] bg-white/[0.02] backdrop-blur-md border border-white/[0.08] p-8 lg:p-10 rounded-[24px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] transition-all duration-700 hover:bg-white/[0.03] hover:border-white/[0.12] animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
           
-          <div className="text-center sm:text-left">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 mb-6">
-              <div className="h-14 w-14 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/30 shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7 text-white"><path d="M3 18h18" /><path d="M5 14c0-3.87 3.13-7 7-7s7 3.13 7 7" /><path d="M12 7V4" /><path d="M10 4h4" /></svg>
-              </div>
-              <div className="flex flex-col justify-center pt-1">
-                <h1 className="text-2xl font-black text-gray-900 tracking-tight">Comandas Bom a Bessa</h1>
-                <p className="text-sm font-semibold text-purple-600 uppercase tracking-widest mt-0.5">Painel de Gestão</p>
-              </div>
-            </div>
+          <div className="mb-8">
+            <h2 className="text-[1.25rem] font-medium tracking-tight text-zinc-100">
+              {stepTrocaSenha ? 'Credencial Master' : (!mostrarFormPadrao && lastLogin) ? `${getSaudacao()}, ${(lastLogin.nome_usuario || 'Operador').split(' ')[0]}` : 'Acesso ao Workspace'}
+            </h2>
+            <p className="mt-1.5 text-[13px] text-zinc-500 font-light">
+               {stepTrocaSenha ? 'Estabeleça a chave raiz da sua instância administrativa.' : (!mostrarFormPadrao && lastLogin) ? 'Autorize a conexão segura.' : 'Identificação segura requerida.'}
+            </p>
           </div>
 
           {stepTrocaSenha ? (
-             
-            <div className="mt-8 animate-in slide-in-from-right-8 duration-500">
-              <div className="mb-6">
-                <h2 className="text-xl font-black text-gray-900 mb-2">Bem-vindo(a), {tempUser?.nome_usuario}!</h2>
-                <p className="text-sm text-gray-500 leading-relaxed">Por questões de segurança, altere a senha criada pelo administrador por uma definitiva para a sua conta.</p>
+            <form onSubmit={salvarNovaSenha} className="space-y-5">
+              <div className="space-y-3">
+                <div className={`transition-all duration-300 border rounded-xl overflow-hidden bg-black/30 ${activeInput === 'novaSenha' ? 'border-white/30 ring-1 ring-white/10' : 'border-white/10'}`}>
+                  <input 
+                    type="password" placeholder="Nova Senha Master" 
+                    className="w-full px-4 py-3.5 bg-transparent outline-none font-light text-white placeholder:text-zinc-600 text-[14px]" 
+                    value={novaSenha} onChange={e => handleTyping(e, 'novaSenha')} 
+                    onFocus={() => { setActiveInput('novaSenha'); if(setScenePhase) setScenePhase('sync'); }} 
+                    onBlur={() => { setActiveInput(null); if(setScenePhase) setScenePhase('reveal'); }} autoFocus 
+                  />
+                </div>
+                <div className={`transition-all duration-300 border rounded-xl overflow-hidden bg-black/30 ${activeInput === 'confirm' ? 'border-white/30 ring-1 ring-white/10' : confirmTouched && !matchPasswords ? 'border-red-500/50' : 'border-white/10'}`}>
+                  <input 
+                    type="password" placeholder="Confirmar Senha Master" 
+                    className="w-full px-4 py-3.5 bg-transparent outline-none font-light text-white placeholder:text-zinc-600 text-[14px]" 
+                    value={confirmarNovaSenha} onChange={e => handleTyping(e, 'confirmarNovaSenha')} 
+                    onFocus={() => setActiveInput('confirm')} onBlur={() => setActiveInput(null)}
+                  />
+                </div>
               </div>
 
-              <form onSubmit={salvarNovaSenha} className="space-y-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Nova Senha</label>
-                  <input type="password" placeholder="Digite sua senha" className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl shadow-sm focus:bg-white focus:ring-2 focus:ring-purple-600 focus:border-purple-600 outline-none transition-all font-medium text-gray-800" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} autoFocus />
-                </div>
-                
-                {/* MEDIDOR DE FORÇA E REGRAS */}
-                <div className="p-4 bg-gray-50/80 border border-gray-100 rounded-2xl">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Força da Senha</span>
-                    <span className={`text-xs font-black uppercase tracking-wider ${pwdScore === 3 ? 'text-emerald-500' : pwdScore === 2 ? 'text-amber-500' : pwdScore === 1 ? 'text-rose-500' : 'text-gray-400'}`}>
-                      {pwdScore === 3 ? 'Forte' : pwdScore === 2 ? 'Média' : pwdScore === 1 ? 'Fraca' : 'Muito Fraca'}
-                    </span>
-                  </div>
-                  
-                  {/* Barra de Progresso Animada */}
-                  <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden mb-4">
-                    <div className={`h-full transition-all duration-500 ease-out rounded-full ${progressColor}`} style={{ width: `${(pwdScore / 3) * 100}%` }}></div>
-                  </div>
-
-                  {/* Lista de Requisitos Dinâmica */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 transition-colors duration-300">
-                      <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${hasLength ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30' : 'bg-gray-200 text-transparent'}`}>
-                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                      </div>
-                      <span className={`text-xs font-semibold transition-colors duration-300 ${hasLength ? 'text-gray-800' : 'text-gray-400'}`}>Mínimo de 8 caracteres</span>
+              <div className="pt-2 bg-white/[0.02] rounded-lg p-3 border border-white/5">
+                <div className="flex gap-1 mb-4">
+                  {[1, 2, 3, 4].map((step) => (
+                    <div key={step} className="h-[3px] w-full bg-black/60 rounded-full overflow-hidden">
+                      <div className={`h-full transition-all duration-500 ease-out rounded-full ${pwdScore >= step ? progressColor : 'w-0'}`} style={{ width: pwdScore >= step ? '100%' : '0%' }}></div>
                     </div>
-
-                    <div className="flex items-center gap-2 transition-colors duration-300">
-                      <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${hasNumber ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30' : 'bg-gray-200 text-transparent'}`}>
-                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                      </div>
-                      <span className={`text-xs font-semibold transition-colors duration-300 ${hasNumber ? 'text-gray-800' : 'text-gray-400'}`}>Pelo menos 1 número (0-9)</span>
-                    </div>
-
-                    <div className="flex items-center gap-2 transition-colors duration-300">
-                      <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${hasSpecial ? 'bg-emerald-500 text-white shadow-sm shadow-emerald-500/30' : 'bg-gray-200 text-transparent'}`}>
-                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                      </div>
-                      <span className={`text-xs font-semibold transition-colors duration-300 ${hasSpecial ? 'text-gray-800' : 'text-gray-400'}`}>Pelo menos 1 caractere especial (!@#$%)</span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-
-                <div>
-                  <div className="flex justify-between mb-1">
-                    <label className="block text-sm font-semibold text-gray-700">Confirmar Nova Senha</label>
-                    {confirmarNovaSenha.length > 0 && (
-                      <span className={`text-xs font-bold ${matchPasswords ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {matchPasswords ? 'As senhas coincidem' : 'As senhas não coincidem'}
-                      </span>
-                    )}
-                  </div>
-                  <input type="password" placeholder="Repita a senha" className={`mt-1 block w-full px-4 py-3 bg-gray-50 border rounded-xl shadow-sm focus:bg-white focus:ring-2 outline-none transition-all font-medium text-gray-800 ${confirmarNovaSenha.length > 0 && !matchPasswords ? 'border-rose-300 focus:ring-rose-500 focus:border-rose-500' : 'border-gray-200 focus:ring-purple-600 focus:border-purple-600'}`} value={confirmarNovaSenha} onChange={e => setConfirmarNovaSenha(e.target.value)} />
+                <div className="grid grid-cols-2 gap-y-2 gap-x-2">
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400"><CheckIcon active={hasLength} /> Mín. 8 Chars</div>
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400"><CheckIcon active={hasNumber} /> Numérico</div>
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400"><CheckIcon active={hasSpecial} /> Simbólico</div>
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400"><CheckIcon active={matchPasswords} /> Validação</div>
                 </div>
+              </div>
 
-                {erro && (
-                  <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 animate-in fade-in">
-                    <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <p className="text-sm text-red-700 font-medium">{erro}</p>
-                  </div>
-                )}
+              {/* CHECKBOX DE TERMOS INTEGRADO (Refinado) */}
+              <div className="flex items-start gap-3 px-1 py-1 mt-2">
+                <div className="relative flex items-center mt-0.5">
+                  <input 
+                    type="checkbox" id="termos" checked={aceitouTermos} onChange={e => setAceitouTermos(e.target.checked)}
+                    className="peer appearance-none w-4 h-4 border border-white/20 rounded-[4px] bg-black/30 checked:bg-white checked:border-white transition-all cursor-pointer"
+                  />
+                  <svg className="absolute w-3 h-3 text-black pointer-events-none opacity-0 peer-checked:opacity-100 top-0.5 left-0.5 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <label htmlFor="termos" className="text-[11.5px] text-zinc-400 font-light leading-[1.4] select-none cursor-pointer">
+                  Confirmo que li e aceito as <button type="button" onClick={() => setModalContent({ open: true, title: 'Termos de Operação', text: policies.termos })} className="text-zinc-200 hover:text-white transition-colors underline underline-offset-2">Políticas Operacionais</button> e a <button type="button" onClick={() => setModalContent({ open: true, title: 'Privacidade de Dados', text: policies.privacidade })} className="text-zinc-200 hover:text-white transition-colors underline underline-offset-2">Privacidade de Dados</button>.
+                </label>
+              </div>
 
-                <button type="submit" disabled={loadingLogin || pwdScore < 3 || !matchPasswords} className={`w-full flex justify-center py-4 px-4 border border-transparent rounded-xl shadow-lg text-sm font-black text-white transition-all duration-300 active:scale-[0.98] ${pwdScore === 3 && matchPasswords ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-purple-500/30' : 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'}`}>
-                  {loadingLogin ? (
-                    <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Salvando...</span>
-                  ) : 'Salvar e Acessar'}
-                </button>
-              </form>
-            </div>
+              {erro && <p className="text-[12px] text-red-400 animate-in fade-in pt-1 font-mono">{erro}</p>}
+              
+              <button type="submit" disabled={loadingLogin || pwdScore < 4 || !aceitouTermos} className={`w-full py-3.5 text-[13px] font-medium transition-all duration-300 mt-4 rounded-xl ${pwdScore === 4 && aceitouTermos ? 'bg-zinc-100 text-black hover:bg-white hover:shadow-[0_0_20px_rgba(255,255,255,0.2)] active:scale-[0.98]' : 'bg-white/5 text-zinc-500 cursor-not-allowed border border-white/5'}`}>
+                {loadingLogin ? <LoadingDots /> : 'Ativar Credencial'}
+              </button>
+            </form>
 
           ) : (!mostrarFormPadrao && lastLogin) ? (
-            
-            <div className="mt-8 flex flex-col items-center animate-in zoom-in-95 duration-500 w-full relative">
-              
-              <div className="w-full relative bg-white border border-gray-100 p-8 pt-10 rounded-[2.5rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] flex flex-col items-center text-center overflow-hidden z-10 group transition-all hover:shadow-[0_20px_50px_-12px_rgba(147,51,234,0.15)]">
-                
-                {/* Linha gradiente no topo do card */}
-                <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500"></div>
-                
-                {/* AVATAR 100% REDONDO COM BORDA */}
-                <div className="relative mb-6">
-                  {/* Anel de brilho pulsante atrás do avatar */}
-                  <div className="absolute inset-[-4px] bg-gradient-to-tr from-purple-600 to-blue-400 rounded-full opacity-30 blur-md group-hover:opacity-50 transition-opacity duration-500"></div>
-                  
-                  {/* Borda gradiente do avatar */}
-                  <div className="relative w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-purple-600 via-indigo-500 to-blue-500 shadow-lg">
-                    {/* Imagem redonda */}
-                    <div className="w-full h-full rounded-full overflow-hidden bg-white border-2 border-white">
-                      <img src={lastLogin.logo || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} alt="Logo" className="w-full h-full object-cover" />
-                    </div>
-                  </div>
-                  
-                  {/* Badge de "Logado" */}
-                  <div className="absolute bottom-0 right-0 w-6 h-6 bg-emerald-500 border-4 border-white rounded-full shadow-sm"></div>
+            <div className="w-full flex flex-col">
+              <div className="flex items-center gap-4 mb-8 bg-black/30 p-4 rounded-xl border border-white/5">
+                <div className="w-12 h-12 rounded-lg overflow-hidden bg-zinc-900 flex-shrink-0 flex items-center justify-center border border-white/5">
+                  <img src={lastLogin.logo || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} alt="Logo" className="w-full h-full object-cover" onError={(e) => e.currentTarget.style.display = 'none'} />
                 </div>
-                
-                <h2 className="text-2xl font-black text-gray-900 tracking-tight mb-1">{lastLogin.nome_empresa}</h2>
-                <p className="text-sm font-medium text-gray-500 mb-8">Bem-vindo de volta, <span className="font-bold text-gray-800">{lastLogin.nome_usuario}</span></p>
-
-                {erro && (
-                  <div className="w-full p-3 bg-red-50 border border-red-100 rounded-xl mb-6 flex items-center gap-2">
-                    <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <p className="text-sm text-red-600 font-medium text-left leading-tight">{erro}</p>
-                  </div>
-                )}
-
-                <button onClick={loginComContaSalva} disabled={loadingLogin} className="w-full flex justify-center items-center py-4 px-4 rounded-xl shadow-lg shadow-purple-500/25 text-sm font-black text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98]">
-                  {loadingLogin ? (
-                    <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Autenticando...</span>
-                  ) : (
-                    <span className="flex items-center gap-2">Acessar Painel <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg></span>
-                  )}
+                <div className="overflow-hidden">
+                  <p className="text-[14px] font-medium text-zinc-100 truncate">{lastLogin.nome_usuario || 'Administrador'}</p>
+                  <p className="text-[12px] text-zinc-500 truncate font-mono mt-0.5">{lastLogin.nome_empresa}</p>
+                </div>
+              </div>
+              {erro && <p className="text-[12px] text-red-400 animate-in fade-in pb-4 font-mono">{erro}</p>}
+              <div className="space-y-3">
+                <button onClick={loginComContaSalva} disabled={loadingLogin} className="w-full py-3.5 rounded-xl text-[13px] font-medium bg-zinc-100 text-black hover:bg-white transition-all duration-300 active:scale-[0.98] disabled:opacity-50">
+                  {loadingLogin ? <LoadingDots /> : 'Acessar Instância'}
+                </button>
+                <button onClick={() => setMostrarFormPadrao(true)} className="w-full py-3.5 rounded-xl text-[12px] font-medium text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent hover:border-white/10 transition-all duration-300">
+                  Utilizar outra credencial
                 </button>
               </div>
-
-              <button onClick={() => setMostrarFormPadrao(true)} className="mt-8 text-sm font-bold text-gray-400 hover:text-purple-600 transition-colors flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg> Entrar com outra conta
-              </button>
             </div>
-
           ) : (
-            
-             // ==========================================
-             // PASSO 1: FORMULÁRIO PADRÃO
-             // ==========================================
-            <div className="mt-8 animate-in fade-in duration-300">
-              <h2 className="text-xl font-bold text-gray-800">Acesso ao Sistema</h2>
-              <p className="mt-1 text-sm text-gray-500 mb-8">Insira suas credenciais para continuar.</p>
-              
-              <form className="space-y-6" onSubmit={fazerLogin}>
-                <div className="space-y-5">
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1">E-mail Corporativo</label>
-                    <input id="email" type="email" placeholder="seu@restaurante.com.br" className="mt-1 block w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl shadow-sm focus:bg-white focus:ring-2 focus:ring-purple-600 focus:border-purple-600 outline-none transition-all font-medium text-gray-800" value={credenciais.email} onChange={e => setCredenciais({...credenciais, email: e.target.value})} />
-                  </div>
-                  <div>
-                    <label htmlFor="senha" className="block text-sm font-semibold text-gray-700 mb-1">Senha</label>
-                    <input id="senha" type="password" placeholder="••••••••" className="mt-1 block w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl shadow-sm focus:bg-white focus:ring-2 focus:ring-purple-600 focus:border-purple-600 outline-none transition-all font-medium text-gray-800" value={credenciais.senha} onChange={e => setCredenciais({...credenciais, senha: e.target.value})} />
-                  </div>
+            <form className="space-y-5" onSubmit={fazerLogin}>
+              <div className="space-y-3">
+                <div className={`transition-all duration-300 border rounded-xl overflow-hidden bg-black/30 ${activeInput === 'email' ? 'border-white/30 ring-1 ring-white/10' : 'border-white/10'}`}>
+                  <input 
+                    id="email" type="email" placeholder="Endereço de E-mail" 
+                    className="w-full px-4 py-3.5 bg-transparent outline-none font-light text-white placeholder:text-zinc-600 text-[14px]"
+                    value={credenciais.email} onChange={e => handleTyping(e, 'email')} 
+                    onFocus={() => { setActiveInput('email'); if(setScenePhase) setScenePhase('sync'); }} 
+                    onBlur={() => { setActiveInput(null); if(setScenePhase) setScenePhase('reveal'); }} autoFocus={!lastLogin}
+                  />
                 </div>
-
-                {erro && (
-                  <div className="p-3 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 animate-in fade-in">
-                    <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <p className="text-sm text-red-700 font-medium">{erro}</p>
-                  </div>
-                )}
-
-                <button type="submit" disabled={loadingLogin} className="w-full flex justify-center items-center py-4 px-4 rounded-xl shadow-lg shadow-purple-500/25 text-sm font-black text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed active:scale-[0.98]">
-                  {loadingLogin ? (
-                    <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Autenticando...</span>
-                  ) : 'Entrar no Painel'}
-                </button>
-                
-                {lastLogin && (
-                   <div className="text-center pt-4">
-                     <button type="button" onClick={() => setMostrarFormPadrao(false)} className="text-sm font-bold text-gray-400 hover:text-purple-600 transition-colors flex items-center justify-center gap-2 w-full">
-                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg> Voltar para {lastLogin.nome_usuario}
-                     </button>
-                   </div>
-                )}
-              </form>
-            </div>
+                <div className={`transition-all duration-300 border rounded-xl overflow-hidden bg-black/30 ${activeInput === 'senha' ? 'border-white/30 ring-1 ring-white/10' : 'border-white/10'}`}>
+                  <input 
+                    id="senha" type="password" placeholder="Chave de Acesso" 
+                    className="w-full px-4 py-3.5 bg-transparent outline-none font-light text-white placeholder:text-zinc-600 text-[14px]"
+                    value={credenciais.senha} onChange={e => handleTyping(e, 'senha')} 
+                    onFocus={() => setActiveInput('senha')} onBlur={() => setActiveInput(null)}
+                  />
+                </div>
+              </div>
+              {erro && <p className="text-[12px] text-red-400 animate-in fade-in pt-1 font-mono">{erro}</p>}
+              <button type="submit" disabled={loadingLogin} className="w-full py-3.5 rounded-xl text-[13px] font-medium bg-zinc-100 text-black hover:bg-white transition-all duration-300 active:scale-[0.98] disabled:opacity-50 mt-2 shadow-[0_4px_14px_0_rgba(255,255,255,0.1)] hover:shadow-[0_6px_20px_rgba(255,255,255,0.15)]">
+                {loadingLogin ? <LoadingDots /> : 'Autorizar Conexão'}
+              </button>
+              {lastLogin && (
+                 <div className="pt-4 text-center">
+                   <button type="button" onClick={() => setMostrarFormPadrao(false)} className="text-[12px] font-medium text-zinc-500 hover:text-zinc-300 transition-colors duration-300">
+                     &larr; Voltar para conta salva
+                   </button>
+                 </div>
+              )}
+            </form>
           )}
-          
-          <div className="pt-8 mt-8 border-t border-gray-100">
-            <p className="text-xs text-center font-semibold text-gray-400">© {new Date().getFullYear()} Comandas Bom a Bessa. Todos os direitos reservados.</p>
+        </div>
+        
+        {/* Rodapé Corporativo com Modais Integrados */}
+        <div className="w-full max-w-[400px] mt-8 text-center lg:text-left flex justify-between items-center px-2">
+          <p className="text-[10px] font-mono text-zinc-600 uppercase tracking-wider">Arox Systems © {new Date().getFullYear()}</p>
+          <div className="flex gap-4 text-[10px] font-mono text-zinc-500 uppercase">
+             <button onClick={() => setModalContent({ open: true, title: 'Privacidade de Dados', text: policies.privacidade })} className="hover:text-zinc-300 transition-colors">Privacidade</button>
+             <button onClick={() => setModalContent({ open: true, title: 'Termos de Operação', text: policies.termos })} className="hover:text-zinc-300 transition-colors">Termos</button>
           </div>
         </div>
+
       </div>
+
+      {/* Renderização Externa do Modal */}
+      <PolicyModal 
+        isOpen={modalContent.open} 
+        title={modalContent.title} 
+        content={modalContent.text} 
+        onClose={() => setModalContent({ ...modalContent, open: false })}
+      />
     </div>
   );
 }

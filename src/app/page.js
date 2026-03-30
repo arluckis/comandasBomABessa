@@ -1,5 +1,6 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 import Login from '@/components/Login';
@@ -12,23 +13,25 @@ import TabAnalises from '@/components/TabAnalises';
 import PainelComanda from '@/components/PainelComanda';
 import TabFechamentoCaixa from '@/components/TabFechamentoCaixa';
 import TabFidelidade from '@/components/TabFidelidade';
+import PreComanda from '@/components/PreComanda'; 
+import SystemLoader from '@/components/SystemLoader';
+import AroxCinematicScene from '@/components/scenes/AroxCinematicScene';
 
 import ModalConfigEmpresa from '@/components/ModalConfigEmpresa';
 import ModalConfigTags from '@/components/ModalConfigTags';
 import ModalPeso from '@/components/ModalPeso';
 import ModalPagamento from '@/components/ModalPagamento';
 import AdminProdutos from '@/components/AdminProdutos';
-import AdminUsuarios from '@/components/AdminUsuarios';
 import AdminDelivery from '@/components/AdminDelivery'; 
-import SuperAdminPainel from '@/components/SuperAdminPainel';
 
 export default function Home() {
+  const router = useRouter();
 
   useEffect(() => {
-    const VERSAO_ATUAL = '1.1.5'; 
-    const versaoNoNavegador = localStorage.getItem('bessa_versao_sistema');
+    const VERSAO_ATUAL = '1.2.0'; 
+    const versaoNoNavegador = localStorage.getItem('arox_versao_sistema');
     if (versaoNoNavegador !== VERSAO_ATUAL) {
-      localStorage.setItem('bessa_versao_sistema', VERSAO_ATUAL);
+      localStorage.setItem('arox_versao_sistema', VERSAO_ATUAL);
       if (typeof window !== 'undefined') {
         window.location.href = window.location.pathname + '?v=' + new Date().getTime();
       }
@@ -42,15 +45,30 @@ export default function Home() {
   const getMesAtual = () => getHoje().substring(0, 7);
   const getAnoAtual = () => getHoje().substring(0, 4);
 
-  const fraseCarregamento = useMemo(() => {
-    const frases = ["Iniciando conexão segura", "Carregando módulos", "Sincronizando banco de dados", "Validando criptografia", "Quase pronto"];
-    return frases[Math.floor(Math.random() * frases.length)];
-  }, []);
+  const frasesLoading = useMemo(() => [
+    "Autenticando sessão segura", 
+    "Sincronizando ambiente", 
+    "Estabelecendo conexão", 
+    "Aferindo módulos operacionais",
+    "Preparando cockpit"
+  ], []);
+
+  const [fraseCarregamento, setFraseCarregamento] = useState(frasesLoading[0]);
+
+  useEffect(() => {
+    let indiceAtual = 0;
+    const interval = setInterval(() => {
+      indiceAtual = (indiceAtual + 1) % frasesLoading.length;
+      setFraseCarregamento(frasesLoading[indiceAtual]);
+    }, 3000); 
+
+    return () => clearInterval(interval);
+  }, [frasesLoading]);
 
   const [sessao, setSessao] = useState(null); 
-  const [credenciais, setCredenciais] = useState({ email: '', senha: '' });
-  const [nomeEmpresa, setNomeEmpresa] = useState('Bom a Bessa'); // Nome genérico padrão
-  const [temaNoturno, setTemaNoturno] = useState(false);
+  const [statusPresenca, setStatusPresenca] = useState('online'); // CONTROLE DE PRESENÇA
+  const [nomeEmpresa, setNomeEmpresa] = useState('AROX'); 
+  const [temaNoturno, setTemaNoturno] = useState(true);
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
 
   const [mostrarConfigEmpresa, setMostrarConfigEmpresa] = useState(false);
@@ -59,10 +77,9 @@ export default function Home() {
   const [logoEmpresaEdicao, setLogoEmpresaEdicao] = useState('');
   const [nomeUsuarioEdicao, setNomeUsuarioEdicao] = useState('');
   
-  const [dadosPlano, setDadosPlano] = useState({ nome: 'Free', validade: null });
+  const [dadosPlano, setDadosPlano] = useState({ nome: 'Free', validade: null, criado_em: null });
 
-  const [ignorarAvisoAntigas, setIgnorarAvisoAntigas] = useState(false);
-  const [caixaAtual, setCaixaAtual] = useState({ data_abertura: getHoje(), status: 'aberto' });
+  const [caixaAtual, setCaixaAtual] = useState(null); 
   const [comandas, setComandas] = useState([]);
   const [menuCategorias, setMenuCategorias] = useState([]);
   const [tagsGlobais, setTagsGlobais] = useState([]);
@@ -93,10 +110,178 @@ export default function Home() {
 
   const [modalGlobal, setModalGlobal] = useState({ visivel: false, tipo: 'alerta', titulo: '', mensagem: '', valorInput: '', acaoConfirmar: null });
 
+  const [appMode, setAppMode] = useState('loading'); 
+  const [scenePhase, setScenePhase] = useState('ignition');
+  const [sceneCustomConfig, setSceneCustomConfig] = useState(null); 
+  const [isSceneActive, setIsSceneActive] = useState(true); 
+  const [isPreComandaActiveGlobally, setIsPreComandaActiveGlobally] = useState(false); 
+  
+  const [isAntecipado, setIsAntecipado] = useState(false);
+  const [temPendencia, setTemPendencia] = useState(false);
+  const [isShellEntering, setIsShellEntering] = useState(false);
+  const [isLoginFading, setIsLoginFading] = useState(false); 
+
+  const preComandaDispensada = useRef(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [minLoadTimePassed, setMinLoadTimePassed] = useState(false);
+  const shellTransitionFired = useRef(false);
+  const isTransitioningRef = useRef(false);
+  const [loaderExitStage, setLoaderExitStage] = useState('none');
+  
+  const isFirstLoad = useRef(true);
+
+  useEffect(() => {
+    if (appMode !== 'loading') return;
+    
+    if (isFirstLoad.current) {
+      const t1 = setTimeout(() => { setScenePhase('reveal'); }, 300);
+      const t2 = setTimeout(() => { setScenePhase('sync'); }, 800);
+      const t3 = setTimeout(() => { setMinLoadTimePassed(true); }, 2500); 
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    } else {
+      setScenePhase('handoff');
+      setLoaderExitStage('none');
+      const t1 = setTimeout(() => { setMinLoadTimePassed(true); }, 1000); 
+      return () => clearTimeout(t1);
+    }
+  }, [appMode]);
+
+  useEffect(() => {
+    const handleMount = () => setIsPreComandaActiveGlobally(true);
+    const handleUnmount = () => setIsPreComandaActiveGlobally(false);
+    const handleEnvUpdate = (e) => setSceneCustomConfig(e.detail);
+
+    window.addEventListener('arox-precomanda-mounted', handleMount);
+    window.addEventListener('arox-precomanda-unmounted', handleUnmount);
+    window.addEventListener('arox-env-update', handleEnvUpdate);
+
+    return () => {
+       window.removeEventListener('arox-precomanda-mounted', handleMount);
+       window.removeEventListener('arox-precomanda-unmounted', handleUnmount);
+       window.removeEventListener('arox-env-update', handleEnvUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (appMode === 'takeover' && !isSceneActive) {
+      setIsSceneActive(true);
+      setScenePhase('handoff');
+      setSceneCustomConfig(null); 
+      setLoaderExitStage('none'); 
+      isTransitioningRef.current = false;
+    }
+  }, [appMode, isSceneActive]);
+
+  useEffect(() => {
+    if (isDataLoaded && minLoadTimePassed && appMode === 'loading' && !shellTransitionFired.current) {
+       shellTransitionFired.current = true;
+       
+       const shouldBypassPreComanda = preComandaDispensada.current || caixaAtual?.status === 'aberto';
+
+       if (shouldBypassPreComanda) {
+          transitionToShell(false); 
+       } else {
+          setLoaderExitStage('content');
+          setTimeout(() => setLoaderExitStage('card'), 250);
+          setTimeout(() => setLoaderExitStage('arox'), 500);
+          setTimeout(() => {
+             setScenePhase('handoff');
+             setAppMode('takeover');
+          }, 700);
+       }
+    }
+  }, [isDataLoaded, minLoadTimePassed, appMode, caixaAtual]);
+
   const mostrarAlerta = (titulo, mensagem) => setModalGlobal({ visivel: true, tipo: 'alerta', titulo, mensagem, valorInput: '', acaoConfirmar: null });
   const mostrarConfirmacao = (titulo, mensagem, acaoConfirmar) => setModalGlobal({ visivel: true, tipo: 'confirmacao', titulo, mensagem, valorInput: '', acaoConfirmar });
   const mostrarPrompt = (titulo, mensagem, valorInicial, acaoConfirmar) => setModalGlobal({ visivel: true, tipo: 'prompt', titulo, mensagem, valorInput: valorInicial || '', acaoConfirmar });
   const fecharModalGlobal = () => setModalGlobal({ visivel: false, tipo: 'alerta', titulo: '', mensagem: '', valorInput: '', acaoConfirmar: null });
+
+  const isSessionExpired = () => {
+    const sessionStart = localStorage.getItem('arox_session_start');
+    if (!sessionStart) return false; 
+    
+    const now = new Date();
+    const sessionDate = new Date(sessionStart);
+    
+    const limit = new Date(now);
+    limit.setHours(5, 0, 0, 0);
+    
+    if (now >= limit && sessionDate < limit) return true;
+    
+    const limitYesterday = new Date(limit);
+    limitYesterday.setDate(limitYesterday.getDate() - 1);
+    if (now < limit && sessionDate < limitYesterday) return true;
+    
+    return false;
+  };
+
+  useEffect(() => {
+    if (appMode === 'takeover' || appMode === 'shell') return; 
+    
+    const temaSalvo = localStorage.getItem('arox_tema_noturno');
+    if (temaSalvo !== null) setTemaNoturno(JSON.parse(temaSalvo));
+    const logoSalva = localStorage.getItem('arox_logo_empresa');
+    if (logoSalva) setLogoEmpresa(logoSalva);
+    
+    const sessionData = localStorage.getItem('bessa_session');
+    
+    if (sessionData) {
+      try {
+        const parsed = JSON.parse(sessionData);
+        if (parsed.role === 'super_admin') {
+          router.push('/admin');
+          return;
+        }
+
+        if (isSessionExpired()) {
+          fazerLogout(true);
+          return;
+        }
+
+        if (parsed.empresa_id) {
+          if (!sessao) {
+            isFirstLoad.current = false;
+            setSessao(parsed);
+            if (!localStorage.getItem('arox_session_start')) {
+              localStorage.setItem('arox_session_start', new Date().toISOString());
+            }
+          }
+        } else {
+          localStorage.removeItem('bessa_session');
+          triggerLoginTransition();
+        }
+      } catch(e) { 
+        localStorage.removeItem('bessa_session'); 
+        triggerLoginTransition();
+      }
+    } else {
+      triggerLoginTransition();
+    }
+
+    function triggerLoginTransition() {
+      if (appMode === 'loading' && !isTransitioningRef.current) {
+         if (isFirstLoad.current) {
+            isTransitioningRef.current = true;
+            setAppMode('login'); 
+            setScenePhase('ignition');
+            isFirstLoad.current = false;
+            isTransitioningRef.current = false;
+         } else if (minLoadTimePassed) {
+            isTransitioningRef.current = true;
+            setLoaderExitStage('content');
+            setTimeout(() => setLoaderExitStage('card'), 200);
+            setTimeout(() => setLoaderExitStage('arox'), 400);
+            setTimeout(() => {
+               setAppMode('login'); 
+               setScenePhase('ignition');
+               isFirstLoad.current = false;
+               isTransitioningRef.current = false;
+            }, 600);
+         }
+      }
+    }
+  }, [appMode, minLoadTimePassed, router, sessao]);
 
   useEffect(() => {
     const verificarHorario = () => {
@@ -105,49 +290,122 @@ export default function Home() {
        const minutos = agora.getMinutes();
        if ((horas === 22 && minutos >= 50) || horas >= 23 || horas < 4) setAvisoFechamento(true);
        else setAvisoFechamento(false);
+
+       if (sessao && isSessionExpired()) fazerLogout(true);
     };
     verificarHorario();
     const intervalo = setInterval(verificarHorario, 60000); 
     return () => clearInterval(intervalo);
-  }, []);
+  }, [sessao]);
+
+  // SISTEMA DE HEARTBEAT E PRESENÇA (MODIFICADO)
+  useEffect(() => {
+    if (!sessao || sessao.role === 'super_admin') return;
+    
+    let timeoutInatividade;
+    
+    const atualizarBanco = async (novoStatus) => {
+      setStatusPresenca(novoStatus);
+      
+      const sessionId = localStorage.getItem('arox_session_id');
+      const now = new Date().toISOString();
+      
+      if (sessionId) {
+        await supabase.from('sessoes_acesso').update({ ultimo_heartbeat: now }).eq('id', sessionId);
+      }
+      await supabase.from('usuarios').update({ ultimo_ping_at: now, status_presenca: novoStatus }).eq('id', sessao.id);
+    };
+
+    // 1. Inicia o heartbeat de 1 minuto
+    atualizarBanco('online'); 
+    const heartbeatInterval = setInterval(() => {
+       atualizarBanco(document.hidden ? 'ausente' : 'online');
+    }, 60000); 
+
+    // 2. Detecta mudança de aba
+    const handleVisibilidade = () => {
+      atualizarBanco(document.hidden ? 'ausente' : 'online');
+    };
+
+    // 3. Detecta ociosidade de 3 minutos
+    const resetarTemporizador = () => {
+      if (document.hidden) return; 
+      
+      setStatusPresenca((prev) => {
+        if (prev === 'ausente') atualizarBanco('online');
+        return 'online';
+      });
+
+      clearTimeout(timeoutInatividade);
+      timeoutInatividade = setTimeout(() => {
+         atualizarBanco('ausente');
+      }, 3 * 60 * 1000); 
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilidade);
+    window.addEventListener('mousemove', resetarTemporizador);
+    window.addEventListener('keydown', resetarTemporizador);
+    window.addEventListener('click', resetarTemporizador);
+    resetarTemporizador();
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      clearTimeout(timeoutInatividade);
+      document.removeEventListener('visibilitychange', handleVisibilidade);
+      window.removeEventListener('mousemove', resetarTemporizador);
+      window.removeEventListener('keydown', resetarTemporizador);
+      window.removeEventListener('click', resetarTemporizador);
+    };
+  }, [sessao]);
 
   useEffect(() => {
-    const temaSalvo = localStorage.getItem('bessa_tema_noturno');
-    if (temaSalvo !== null) setTemaNoturno(JSON.parse(temaSalvo));
-    const logoSalva = localStorage.getItem('bessa_logo_empresa');
-    if (logoSalva) setLogoEmpresa(logoSalva);
-    const sessionData = localStorage.getItem('bessa_session');
-    if (sessionData) {
-      try {
-        const parsed = JSON.parse(sessionData);
-        if (parsed.empresa_id) setSessao(parsed);
-        else localStorage.removeItem('bessa_session');
-      } catch(e) { localStorage.removeItem('bessa_session'); }
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('bessa_tema_noturno', JSON.stringify(temaNoturno));
-    document.body.style.backgroundColor = temaNoturno ? '#0f172a' : '#f8fafc'; 
+    if (appMode === 'takeover' || !sessao) return; 
+    localStorage.setItem('arox_tema_noturno', JSON.stringify(temaNoturno));
+    document.body.style.backgroundColor = temaNoturno ? '#09090b' : '#fafafa'; 
     let metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (!metaThemeColor) {
       metaThemeColor = document.createElement('meta');
       metaThemeColor.name = 'theme-color';
       document.head.appendChild(metaThemeColor);
     }
-    metaThemeColor.setAttribute('content', temaNoturno ? '#1e293b' : '#ffffff');
-  }, [temaNoturno]);
+    metaThemeColor.setAttribute('content', temaNoturno ? '#09090b' : '#ffffff');
+  }, [temaNoturno, appMode, sessao]);
 
-  const fazerLogout = () => {
+  const fazerLogout = async (silent = false) => {
+    const sessionId = localStorage.getItem('arox_session_id');
+    const now = new Date().toISOString();
+    
+    if (sessionId) {
+      await supabase.from('sessoes_acesso').update({ fim_sessao: now }).eq('id', sessionId);
+    }
+    if (sessao?.id) {
+      await supabase.from('usuarios').update({ status_presenca: 'offline' }).eq('id', sessao.id);
+    }
+
     localStorage.removeItem('bessa_session');
-    localStorage.removeItem('bessa_logo_empresa');
+    localStorage.removeItem('arox_logo_empresa');
+    localStorage.removeItem('arox_session_id');
+    localStorage.removeItem('arox_session_start');
+    
     setSessao(null); 
-    setCredenciais({ email: '', senha: '' }); 
     setMostrarMenuPerfil(false); 
     setMenuMobileAberto(false); 
     setAbaAtiva('comandas'); 
-    setNomeEmpresa('Bom a Bessa'); // Reseta para o padrão
-    setLogoEmpresa('https://cdn-icons-png.flaticon.com/512/3135/3135715.png'); // Reseta para a logo padrão
+    setNomeEmpresa('AROX');
+    setLogoEmpresa('https://cdn-icons-png.flaticon.com/512/3135/3135715.png');
+    
+    preComandaDispensada.current = false; 
+    isTransitioningRef.current = false;
+    setIsSceneActive(true); 
+    setAppMode('loading');
+    setScenePhase('ignition');
+    setIsDataLoaded(false);
+    setMinLoadTimePassed(false);
+    shellTransitionFired.current = false;
+    setLoaderExitStage('none');
+    isFirstLoad.current = true; 
+
+    if (silent) window.location.reload();
   };
 
   const fetchDadosEstaticos = async () => {
@@ -155,11 +413,11 @@ export default function Home() {
     try {
       const { data: empData } = await supabase.from('empresas').select('*').eq('id', sessao.empresa_id).single();
       if (empData) {
-        setNomeEmpresa(empData.nome || "Bom a Bessa");
+        setNomeEmpresa(empData.nome || "AROX");
         setNomeEmpresaEdicao(empData.nome || "");
-        setDadosPlano({ nome: empData.plano || 'Free', validade: empData.validade_plano || null });
+        setDadosPlano({ nome: empData.plano || 'Starter', validade: empData.validade_plano || null, criado_em: empData.created_at });
         const urlLogo = empData.logo || empData.logo_url;
-        if (urlLogo) { setLogoEmpresa(urlLogo); setLogoEmpresaEdicao(urlLogo); localStorage.setItem('bessa_logo_empresa', urlLogo); }
+        if (urlLogo) { setLogoEmpresa(urlLogo); setLogoEmpresaEdicao(urlLogo); localStorage.setItem('arox_logo_empresa', urlLogo); }
       }
 
       const { data: catData } = await supabase.from('categorias').select('*, itens:produtos(*)').eq('empresa_id', sessao.empresa_id);
@@ -184,21 +442,84 @@ export default function Home() {
     if (!sessao?.empresa_id) return;
     setIsLoading(true);
     try {
-      const { data: caixasAbertos } = await supabase.from('caixas').select('*').eq('empresa_id', sessao.empresa_id).eq('status', 'aberto').order('id', { ascending: false }).limit(1); 
+      const { data: caixasAbertos } = await supabase.from('caixas')
+        .select('*')
+        .eq('empresa_id', sessao.empresa_id)
+        .eq('status', 'aberto')
+        .order('criado_em', { ascending: false })
+        .limit(1); 
+        
       let caixaData = caixasAbertos && caixasAbertos.length > 0 ? caixasAbertos[0] : null;
-      if (caixaData) setCaixaAtual(caixaData); else setCaixaAtual({ status: 'fechado' });
       
       const { data: comData } = await supabase.from('comandas').select('*, produtos:comanda_produtos(*), pagamentos(*)').eq('empresa_id', sessao.empresa_id).order('id', { ascending: false }).limit(3000);
       if (comData) setComandas(comData.reverse());
+
+      const hoje = getHoje();
+      let hasPendencia = false;
+
+      if (caixaData && caixaData.data_abertura && caixaData.data_abertura < hoje) {
+        hasPendencia = true;
+      }
+      
+      const comandasPendentes = comData ? comData.filter(c => c.status === 'aberta' && c.data && c.data < hoje) : [];
+      if (comandasPendentes.length > 0) {
+        hasPendencia = true;
+      }
+
+      setTemPendencia(hasPendencia);
+
+      if (caixaData && !hasPendencia) {
+        setCaixaAtual(caixaData);
+      } else if (!caixaData) {
+        setCaixaAtual(null);
+        const horaAtual = new Date().getHours();
+        setIsAntecipado(horaAtual < 10); 
+      } else {
+         setCaixaAtual(caixaData);
+      }
+      
+      setIsDataLoaded(true);
+
     } catch (err) {} finally { setIsLoading(false); }
   };
 
   const fetchApenasAtualizacoes = async () => {
     if (!sessao?.empresa_id) return;
     try {
-      const { data: caixasAbertos } = await supabase.from('caixas').select('*').eq('empresa_id', sessao.empresa_id).eq('status', 'aberto').order('id', { ascending: false }).limit(1); 
-      if (caixasAbertos && caixasAbertos.length > 0) setCaixaAtual(caixasAbertos[0]); 
-      else setCaixaAtual({ status: 'fechado' });
+      // 🛡️ VERIFICAÇÃO DE SEGURANÇA PROFISSIONAL: Trava de Inadimplência/Bloqueio
+      const { data: statusConta } = await supabase.from('empresas').select('ativo, validade_plano').eq('id', sessao.empresa_id).single();
+      
+      if (statusConta) {
+        const agora = new Date();
+        const planoExpirado = statusConta.validade_plano ? new Date(statusConta.validade_plano) < agora : false;
+        
+        if (statusConta.ativo === false || planoExpirado) {
+          mostrarAlerta(
+            "Conta suspensa", 
+            statusConta.ativo === false 
+              ? "Sua conta foi temporariamente suspensa pelo administrador." 
+              : "Seu plano expirou. Regularize sua assinatura para continuar."
+          );
+
+          setTimeout(() => {
+            fazerLogout(true);
+          }, 4000);
+          return; 
+        }
+      }
+
+      const { data: caixasAbertos } = await supabase.from('caixas')
+        .select('*')
+        .eq('empresa_id', sessao.empresa_id)
+        .eq('status', 'aberto')
+        .order('criado_em', { ascending: false })
+        .limit(1); 
+      
+      if (caixasAbertos && caixasAbertos.length > 0) {
+          setCaixaAtual(caixasAbertos[0]); 
+      } else {
+          setCaixaAtual(null); 
+      }
 
       const { data: comDataHoje } = await supabase.from('comandas')
         .select('*, produtos:comanda_produtos(*), pagamentos(*)')
@@ -218,8 +539,13 @@ export default function Home() {
   useEffect(() => {
     if (!sessao?.empresa_id) return;
     setNomeUsuarioEdicao(sessao.nome_usuario || '');
-    fetchDadosEstaticos();
-    fetchHistoricoCompleto(); 
+    
+    const initializeSession = async () => {
+      await fetchDadosEstaticos();
+      await fetchHistoricoCompleto(); 
+    };
+    
+    initializeSession();
     const intervaloPolling = setInterval(() => { fetchApenasAtualizacoes(); }, 30000); 
     return () => clearInterval(intervaloPolling);
   }, [sessao]);
@@ -231,33 +557,94 @@ export default function Home() {
       const payload = { empresa_id: sessao.empresa_id, data_abertura: dadosCaixa.data_abertura, saldo_inicial: dadosCaixa.saldo_inicial || 0, status: 'aberto' };
       const { data, error } = await supabase.from('caixas').insert([payload]).select().single();
       if (error) throw error;
-      if (data) { setCaixaAtual(data); mostrarAlerta("Sucesso", "Caixa aberto com sucesso!"); fetchApenasAtualizacoes(); }
+      if (data) { 
+        setCaixaAtual(data); 
+        fetchApenasAtualizacoes(); 
+      }
     } catch (err) { mostrarAlerta("Erro", "Erro ao abrir caixa: " + err.message); } finally { setIsLoading(false); }
+  };
+
+  const transitionToShell = (fromPreComanda = false) => {
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+
+    if (fromPreComanda) {
+      setAppMode('shell');
+      setIsShellEntering(true);
+      setTimeout(() => setIsShellEntering(false), 800);
+      setTimeout(() => {
+          setIsSceneActive(false);
+          isTransitioningRef.current = false;
+      }, 1200);
+    } else {
+      setLoaderExitStage('content');
+      setTimeout(() => setLoaderExitStage('card'), 150);
+      setTimeout(() => setLoaderExitStage('arox'), 350);
+      setTimeout(() => {
+        setScenePhase(temaNoturno ? 'bridgeDark' : 'bridgeLight');
+        setTimeout(() => {
+          setAppMode('shell');
+          setIsShellEntering(true);
+          setTimeout(() => setIsShellEntering(false), 800);
+          setTimeout(() => {
+              setIsSceneActive(false);
+              isTransitioningRef.current = false;
+          }, 1200);
+        }, 700);
+      }, 500);
+    }
+  };
+
+  const onFinalizarAbertura = (valor) => {
+    transitionToShell(true);
+    abrirCaixaManual({ data_abertura: getHoje(), saldo_inicial: valor });
+  };
+  
+  const onAcessarSistema = (forcarFaturamento = true) => {
+    preComandaDispensada.current = true;
+    if (forcarFaturamento) {
+      setAbaAtiva('faturamento');
+    }
+    transitionToShell(true);
+  };
+
+  const handleResolverPendencia = () => {
+    preComandaDispensada.current = true;
+    setAbaAtiva('caixa'); 
+    transitionToShell(true);
   };
 
   const salvarConfigEmpresa = async () => {
     if (nomeEmpresaEdicao.trim() === '') return mostrarAlerta("Aviso", "O nome do estabelecimento não pode estar vazio.");
     const { error: errorEmpresa } = await supabase.from('empresas').update({ nome: nomeEmpresaEdicao, logo_url: logoEmpresaEdicao }).eq('id', sessao.empresa_id);
     const { error: errorUsuario } = await supabase.from('usuarios').update({ nome_usuario: nomeUsuarioEdicao }).eq('id', sessao.id);
-    if (errorEmpresa || errorUsuario) {
-      return mostrarAlerta("Erro", "Erro ao salvar no banco de dados: " + (errorEmpresa?.message || errorUsuario?.message));
-    }
+    if (errorEmpresa || errorUsuario) return mostrarAlerta("Erro", "Erro ao salvar no banco de dados.");
     setNomeEmpresa(nomeEmpresaEdicao); 
     setLogoEmpresa(logoEmpresaEdicao || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'); 
     const novaSessao = { ...sessao, nome_usuario: nomeUsuarioEdicao };
     setSessao(novaSessao);
     localStorage.setItem('bessa_session', JSON.stringify(novaSessao));
     setMostrarConfigEmpresa(false);
-    mostrarAlerta("Sucesso", "Configurações atualizadas com sucesso!");
+    mostrarAlerta("Sucesso", "Configurações atualizadas.");
   };
 
   const alterarSenhaConta = async (senhaAtualInformada, novaSenhaDesejada) => {
     try {
       const { data: usuarioAuth, error: errorAuth } = await supabase.auth.updateUser({ password: novaSenhaDesejada });
       if (errorAuth) throw errorAuth;
-      mostrarAlerta("Segurança", "Sua senha foi atualizada com sucesso no banco de dados.");
+      mostrarAlerta("Segurança", "Senha atualizada com sucesso.");
+    } catch (err) { mostrarAlerta("Erro", "Não foi possível atualizar a senha. " + err.message); }
+  };
+
+  const deletarWorkspace = async () => {
+    try {
+      const { error } = await supabase.rpc('delete_workspace_secure', { target_empresa_id: sessao.empresa_id });
+      if (error) throw error;
+      
+      localStorage.removeItem('bessa_session');
+      window.location.href = '/';
     } catch (err) {
-      mostrarAlerta("Erro de Segurança", "Não foi possível atualizar a senha. " + err.message);
+      mostrarAlerta("Erro Crítico", "Falha ao apagar infraestrutura. Contate o suporte.");
     }
   };
 
@@ -266,14 +653,11 @@ export default function Home() {
     const qtdHoje = comandas.filter(c => c.data === getHoje()).length;
     const novaComanda = { nome: `Comanda ${qtdHoje + 1}`, tipo, data: getHoje(), hora_abertura: new Date().toISOString(), status: 'aberta', tags: [], empresa_id: sessao.empresa_id };
     const { data, error } = await supabase.from('comandas').insert([novaComanda]).select().single();
-    if (data && !error) {
-       setComandas([...comandas, { ...data, produtos: [], pagamentos: [] }]);
-       setIdSelecionado(data.id); 
-    }
+    if (data && !error) { setComandas([...comandas, { ...data, produtos: [], pagamentos: [] }]); setIdSelecionado(data.id); }
   };
 
   const alterarNomeComanda = (id, nomeAtual) => {
-    mostrarPrompt("Alterar Nome [F4]", "Digite o novo nome ou identificador da comanda:", nomeAtual, async (novoNome) => {
+    mostrarPrompt("Identificador", "Digite o novo nome:", nomeAtual, async (novoNome) => {
       if(novoNome) {
         await supabase.from('comandas').update({nome: novoNome}).eq('id', id);
         setComandas(comandas.map(c => c.id === id ? {...c, nome: novoNome} : c));
@@ -282,7 +666,7 @@ export default function Home() {
   };
 
   const adicionarClienteComanda = (id, nomeAtual) => {
-    mostrarPrompt("Atribuir Cliente [F5]", "Digite o nome do cliente:", "", async (cliente) => {
+    mostrarPrompt("Atribuir Cliente", "Nome do cliente:", "", async (cliente) => {
       if(cliente) {
         const novoNome = `${nomeAtual} - ${cliente}`;
         await supabase.from('comandas').update({nome: novoNome}).eq('id', id);
@@ -305,41 +689,22 @@ export default function Home() {
     if (qtdValida < 0) {
       const comanda = comandas.find(c => c.id === idSelecionado);
       if (!comanda) return;
-      
-      const produtosParaExcluir = (comanda.produtos || [])
-        .filter(p => p.nome === produto.nome && Number(p.preco) === Number(produto.preco) && !p.pago && p.id)
-        .slice(0, Math.abs(qtdValida)); 
-
+      const produtosParaExcluir = (comanda.produtos || []).filter(p => p.nome === produto.nome && Number(p.preco) === Number(produto.preco) && !p.pago && p.id).slice(0, Math.abs(qtdValida)); 
       if (produtosParaExcluir.length > 0) {
         const ids = produtosParaExcluir.map(p => p.id);
         const { error } = await supabase.from('comanda_produtos').delete().in('id', ids);
-        if (!error) {
-           setComandas(comandas.map(c => c.id === idSelecionado ? { ...c, produtos: (c.produtos || []).filter(p => !ids.includes(p.id)) } : c));
-        }
+        if (!error) setComandas(comandas.map(c => c.id === idSelecionado ? { ...c, produtos: (c.produtos || []).filter(p => !ids.includes(p.id)) } : c));
       }
       return;
     }
     
     const payloadArray = Array.from({ length: qtdValida }).map(() => ({ 
-      comanda_id: idSelecionado, 
-      nome: produto.nome, 
-      preco: produto.preco, 
-      custo: produto.custo || 0, 
-      pago: false, 
-      observacao: '', 
-      empresa_id: sessao.empresa_id 
+      comanda_id: idSelecionado, nome: produto.nome, preco: produto.preco, custo: produto.custo || 0, pago: false, observacao: '', empresa_id: sessao.empresa_id 
     }));
     
     const { data, error } = await supabase.from('comanda_produtos').insert(payloadArray).select();
-    
-    if (data && !error) {
-      setComandas(comandas.map(c => c.id === idSelecionado ? { ...c, produtos: [...(c.produtos || []), ...data] } : c));
-      setMostrarModalPeso(false); 
-      setAbaDetalheMobile('resumo');
-    } else if (error) {
-       console.error("Erro ao inserir: ", error);
-       mostrarAlerta("Erro", "Ocorreu um problema ao adicionar os produtos.");
-    }
+    if (data && !error) { setComandas(comandas.map(c => c.id === idSelecionado ? { ...c, produtos: [...(c.produtos || []), ...data] } : c)); setMostrarModalPeso(false); setAbaDetalheMobile('resumo'); } 
+    else if (error) mostrarAlerta("Erro", "Problema ao processar o produto.");
   };
 
   const toggleTag = async (tagNome) => {
@@ -362,10 +727,8 @@ export default function Home() {
     if (!idSelecionado) return;
     const comanda = comandas.find(c => c.id === idSelecionado);
     if (!comanda) return;
-
     const produtosDoGrupo = (comanda.produtos || []).filter(p => p.nome === nome && Number(p.preco) === Number(preco) && !p.pago && p.id);
     const ids = produtosDoGrupo.map(p => p.id);
-    
     if (ids.length > 0) {
       await supabase.from('comanda_produtos').delete().in('id', ids);
       setComandas(comandas.map(c => c.id === idSelecionado ? { ...c, produtos: (c.produtos || []).filter(p => !ids.includes(p.id)) } : c));
@@ -379,7 +742,7 @@ export default function Home() {
   };
 
   const editarProduto = async (idProduto, obsAtual) => {
-    mostrarPrompt("Editar Observação", "Digite a observação para este item:", obsAtual, async (novaObs) => {
+    mostrarPrompt("Nota", "Adicione uma nota para este item:", obsAtual, async (novaObs) => {
       await supabase.from('comanda_produtos').update({ observacao: novaObs }).eq('id', idProduto);
       setComandas(comandas.map(c => c.id === idSelecionado ? { ...c, produtos: (c.produtos || []).map(p => p.id === idProduto ? { ...p, observacao: novaObs } : p) } : c));
     });
@@ -398,36 +761,13 @@ export default function Home() {
     let idsParaPagar = [];
     
     if (modoDivisao) { 
-      novosProdutos = novosProdutos.map(p => {
-         if (itensSelecionados.includes(p.id)) { idsParaPagar.push(p.id); return { ...p, pago: true }; }
-         return p;
-      });
+      novosProdutos = novosProdutos.map(p => { if (itensSelecionados.includes(p.id)) { idsParaPagar.push(p.id); return { ...p, pago: true }; } return p; });
     } else { 
-      novosProdutos = novosProdutos.map(p => ({ ...p, pago: true })); 
-      idsParaPagar = novosProdutos.map(p => p.id); 
+      novosProdutos = novosProdutos.map(p => ({ ...p, pago: true })); idsParaPagar = novosProdutos.map(p => p.id); 
     }
     
     const todosPagos = novosProdutos.length > 0 && novosProdutos.every(p => p.pago);
-    
-    // Geração de Payloads de Pagamento garantindo a extração da string em vez de arrays/json.
-    let formasParaInserir = [];
-    if (Array.isArray(formaPagamento)) {
-        formasParaInserir = formaPagamento.map(p => ({
-            comanda_id: idSelecionado,
-            valor: isFidelidade ? 0 : p.valor,
-            forma: String(p.forma), // Garantindo sempre formato string
-            data: getHoje(),
-            empresa_id: sessao.empresa_id
-        }));
-    } else {
-        formasParaInserir = [{
-            comanda_id: idSelecionado,
-            valor: isFidelidade ? 0 : valorFinal,
-            forma: String(formaPagamento || 'Dinheiro'), // Garantindo sempre formato string
-            data: getHoje(),
-            empresa_id: sessao.empresa_id
-        }];
-    }
+    let formasParaInserir = Array.isArray(formaPagamento) ? formaPagamento.map(p => ({ comanda_id: idSelecionado, valor: isFidelidade ? 0 : p.valor, forma: String(p.forma), data: getHoje(), empresa_id: sessao.empresa_id })) : [{ comanda_id: idSelecionado, valor: isFidelidade ? 0 : valorFinal, forma: String(formaPagamento || 'Dinheiro'), data: getHoje(), empresa_id: sessao.empresa_id }];
     
     const { data: pgDataArray, error: errPg } = await supabase.from('pagamentos').insert(formasParaInserir).select();
     
@@ -443,7 +783,7 @@ export default function Home() {
             const novosPts = clienteFidelizado.pontos - metaFidelidade.pontos_necessarios;
             await supabase.from('clientes_fidelidade').update({ pontos: novosPts }).eq('id', clienteFidelizado.id);
             setClientesFidelidade(prev => prev.map(c => c.id === clienteFidelizado.id ? { ...c, pontos: novosPts } : c));
-            mostrarAlerta("Prêmio Resgatado", `O prêmio foi resgatado com sucesso e os pontos foram debitados do saldo de ${clienteFidelizado.nome}.`);
+            mostrarAlerta("Prêmio Resgatado", `O resgate foi processado e os pontos foram debitados.`);
           } else {
             const totalComanda = novosProdutos.reduce((acc, p) => acc + p.preco, 0) + taxaEntrega;
             if (totalComanda >= metaFidelidade.valor_minimo) {
@@ -458,15 +798,7 @@ export default function Home() {
       
       setComandas(comandas.map(c => {
         if (c.id === idSelecionado) {
-           return { 
-             ...c, 
-             produtos: novosProdutos, 
-             pagamentos: [...(c.pagamentos || []), ...(pgDataArray || [])], 
-             status: todosPagos ? 'fechada' : 'aberta', 
-             hora_fechamento: todosPagos ? horaFechamento : c.hora_fechamento, 
-             bairro_id: bairroId || c.bairro_id, 
-             taxa_entrega: taxaEntrega > 0 ? taxaEntrega : c.taxa_entrega 
-           };
+           return { ...c, produtos: novosProdutos, pagamentos: [...(c.pagamentos || []), ...(pgDataArray || [])], status: todosPagos ? 'fechada' : 'aberta', hora_fechamento: todosPagos ? horaFechamento : c.hora_fechamento, bairro_id: bairroId || c.bairro_id, taxa_entrega: taxaEntrega > 0 ? taxaEntrega : c.taxa_entrega };
         }
         return c;
       }));
@@ -475,8 +807,8 @@ export default function Home() {
   };
 
   const confirmarExclusaoEmMassa = async () => {
-    if (comandas.filter(c => selecionadasExclusao.includes(c.id)).some(c => (c.pagamentos || []).length > 0)) return mostrarAlerta("Atenção", "Desmarque as comandas que já possuem pagamentos.");
-    mostrarConfirmacao("Excluir Comandas", `Excluir ${selecionadasExclusao.length} comandas do banco?`, async () => {
+    if (comandas.filter(c => selecionadasExclusao.includes(c.id)).some(c => (c.pagamentos || []).length > 0)) return mostrarAlerta("Atenção", "Existem comandas com pagamentos na seleção.");
+    mostrarConfirmacao("Excluir", `Remover ${selecionadasExclusao.length} registro(s)?`, async () => {
       await supabase.from('comandas').delete().in('id', selecionadasExclusao);
       setComandas(comandas.filter(c => !selecionadasExclusao.includes(c.id))); setModoExclusao(false); setSelecionadasExclusao([]); 
     });
@@ -485,14 +817,14 @@ export default function Home() {
   const toggleSelecaoExclusao = (id) => setSelecionadasExclusao(selecionadasExclusao.includes(id) ? selecionadasExclusao.filter(item => item !== id) : [...selecionadasExclusao, id]);
   
   const reabrirComandaFechada = async (id) => {
-    mostrarConfirmacao("Reabrir Comanda", "Deseja reabrir esta comanda? Ela voltará para a aba Comandas em Aberto.", async () => {
+    mostrarConfirmacao("Restaurar", "Retornar esta comanda para em andamento?", async () => {
       await supabase.from('comandas').update({ status: 'aberta', hora_fechamento: null }).eq('id', id);
       setComandas(comandas.map(c => c.id === id ? { ...c, status: 'aberta', hora_fechamento: null } : c));
     });
   };
 
   const excluirComandaFechada = async (id) => {
-    mostrarConfirmacao("Excluir Comanda", "ATENÇÃO: Deseja excluir esta comanda definitivamente? O faturamento dela será perdido.", async () => {
+    mostrarConfirmacao("Excluir Permanente", "Esta ação não pode ser desfeita e afeta o faturamento. Continuar?", async () => {
       await supabase.from('comandas').delete().eq('id', id);
       setComandas(comandas.filter(c => c.id !== id));
     });
@@ -528,18 +860,10 @@ export default function Home() {
   const pagamentosFiltrados = comandasFiltradas.flatMap(c => c.pagamentos || []);
   const pagamentosAgrupados = pagamentosFiltrados.reduce((acc, p) => { 
       let forma = p.forma;
-      // Adicionando um fallback robusto para contornar dados antigos salvos errados
       if (Array.isArray(forma)) forma = forma[0]?.forma || 'Outro';
-      else if (typeof forma === 'string' && forma.startsWith('[')) {
-          try {
-              const parsed = JSON.parse(forma);
-              forma = parsed[0]?.forma || 'Outro';
-          } catch(e) { forma = 'Outro'; }
-      }
+      else if (typeof forma === 'string' && forma.startsWith('[')) { try { const parsed = JSON.parse(forma); forma = parsed[0]?.forma || 'Outro'; } catch(e) { forma = 'Outro'; } }
       if(!forma) forma = 'Outro';
-      
-      acc[forma] = (acc[forma] || 0) + p.valor; 
-      return acc; 
+      acc[forma] = (acc[forma] || 0) + p.valor; return acc; 
   }, {});
   
   const dadosPizza = Object.keys(pagamentosAgrupados).map(key => ({ name: key, value: pagamentosAgrupados[key] })).filter(d => d.value > 0);
@@ -552,165 +876,177 @@ export default function Home() {
       let nomeDisplay = isPeso ? nomeOriginal.replace(/\s*\(\d+(?:\.\d+)?\s*g\)/i, '').trim() : nomeOriginal;
       const nomeChave = nomeDisplay.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
 
-      if (!contagemProdutos[nomeChave]) { 
-        contagemProdutos[nomeChave] = { nomeDisplay: nomeDisplay.toUpperCase(), faturamento: 0, custoTotal: 0, volume: 0, isPeso: isPeso }; 
-      }
+      if (!contagemProdutos[nomeChave]) { contagemProdutos[nomeChave] = { nomeDisplay: nomeDisplay, faturamento: 0, custoTotal: 0, volume: 0, isPeso: isPeso }; }
       
       contagemProdutos[nomeChave].faturamento += (p.preco || 0);
-      contagemProdutos[nomeChave].custoTotal += (p.custo || 0); // O custo está persistido
-      if (isPeso) {
-        const matchGramas = nomeOriginal.match(/(\d+(?:\.\d+)?)\s*g/i);
-        contagemProdutos[nomeChave].volume += matchGramas ? parseFloat(matchGramas[1]) : 0;
-      } else { 
-        contagemProdutos[nomeChave].volume += 1; 
-      }
+      contagemProdutos[nomeChave].custoTotal += (p.custo || 0); 
+      if (isPeso) { const matchGramas = nomeOriginal.match(/(\d+(?:\.\d+)?)\s*g/i); contagemProdutos[nomeChave].volume += matchGramas ? parseFloat(matchGramas[1]) : 0; } 
+      else { contagemProdutos[nomeChave].volume += 1; }
     });
   });
   
-  const rankingProdutos = Object.values(contagemProdutos).map(item => ({ 
-      nome: item.nomeDisplay, 
-      valor: item.faturamento, 
-      lucro: item.faturamento - item.custoTotal, 
-      volume: item.volume, 
-      isPeso: item.isPeso 
-  })).sort((a, b) => b.valor - a.valor);
-  
-  if (!sessao) return <Login getHoje={getHoje} setSessao={setSessao} temaNoturno={temaNoturno} setTemaNoturno={setTemaNoturno} />; 
-  if (sessao.role === 'super_admin') return <SuperAdminPainel fazerLogout={fazerLogout} temaNoturno={temaNoturno} setTemaNoturno={setTemaNoturno} />;
-
-  // --- TELA DE CARREGAMENTO PREMIUM - SOFISTICADA E SÉRIA ---
-  if (isLoading && comandas.length === 0) {
-    return (
-      <div className={`min-h-screen flex flex-col items-center justify-center ${temaNoturno ? 'bg-[#0f172a]' : 'bg-[#f8fafc]'}`}>
-        <div className="flex flex-col items-center gap-8 animate-in fade-in duration-700 p-8">
-          
-          <div className="relative flex items-center justify-center w-24 h-24">
-            <svg className="absolute inset-0 w-full h-full animate-spin text-purple-600/20" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="48" fill="none" strokeWidth="4" stroke="currentColor" strokeDasharray="301.59" strokeDashoffset="0"></circle>
-            </svg>
-            <svg className="absolute inset-0 w-full h-full animate-spin text-purple-600" style={{ animationDuration: '1.5s' }} viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="48" fill="none" strokeWidth="4" stroke="currentColor" strokeDasharray="301.59" strokeDashoffset="226.19" strokeLinecap="round"></circle>
-            </svg>
-            <div className={`w-16 h-16 rounded-full overflow-hidden shadow-sm border ${temaNoturno ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <img src={logoEmpresa} alt="Logo" className="w-full h-full object-cover" />
-            </div>
-          </div>
-
-          <div className="flex flex-col items-center gap-2">
-            <h2 className={`text-xl font-bold tracking-tight ${temaNoturno ? 'text-gray-200' : 'text-gray-800'}`}>
-              Preparando ambiente
-            </h2>
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse bg-purple-600"></span>
-              <span className={`text-xs font-medium uppercase tracking-widest ${temaNoturno ? 'text-gray-500' : 'text-gray-500'}`}>
-                {fraseCarregamento}...
-              </span>
-            </div>
-          </div>
-          
-        </div>
-      </div>
-    );
-  }
+  const rankingProdutos = Object.values(contagemProdutos).map(item => ({ nome: item.nomeDisplay, valor: item.faturamento, lucro: item.faturamento - item.custoTotal, volume: item.volume, isPeso: item.isPeso })).sort((a, b) => b.valor - a.valor);
 
   return (
-    <main className={`min-h-screen flex flex-col transition-colors duration-500 ${temaNoturno ? 'bg-[#0f172a] text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
-      
-      <div className="w-full p-3 md:p-6 pb-0 md:pb-0 flex flex-col max-w-7xl mx-auto">
-        <Header 
-          comandaAtiva={comandaAtiva} setIdSelecionado={setIdSelecionado} setMenuMobileAberto={setMenuMobileAberto}
-          temaNoturno={temaNoturno} caixaAtual={caixaAtual} abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva}
-          logoEmpresa={logoEmpresa} setTemaNoturno={setTemaNoturno} mostrarMenuPerfil={mostrarMenuPerfil}
-          setMostrarMenuPerfil={setMostrarMenuPerfil} nomeEmpresa={nomeEmpresa} sessao={sessao}
-          setMostrarAdminDelivery={setMostrarAdminDelivery}
-          setMostrarConfigEmpresa={setMostrarConfigEmpresa} setMostrarAdminUsuarios={setMostrarAdminUsuarios}
-          setMostrarAdminProdutos={setMostrarAdminProdutos} setMostrarConfigTags={setMostrarConfigTags} fazerLogout={fazerLogout}
-          fetchData={fetchApenasAtualizacoes} clientesFidelidade={clientesFidelidade} vincularClienteFidelidade={vincularClienteFidelidade}
-        />
-
-        <div className="flex-1 w-full">
-          {comandaAtiva ? (
-            <PainelComanda 
-              temaNoturno={temaNoturno} comandaAtiva={comandaAtiva} abaDetalheMobile={abaDetalheMobile} setAbaDetalheMobile={setAbaDetalheMobile} filtroCategoriaCardapio={filtroCategoriaCardapio} setFiltroCategoriaCardapio={setFiltroCategoriaCardapio} menuCategorias={menuCategorias} adicionarProdutoNaComanda={adicionarProdutoNaComanda} excluirGrupoProdutos={excluirGrupoProdutos} setMostrarModalPeso={setMostrarModalPeso} tagsGlobais={tagsGlobais} toggleTag={toggleTag} editarProduto={editarProduto} excluirProduto={excluirProduto} setMostrarModalPagamento={setMostrarModalPagamento} encerrarMesa={encerrarMesa} 
-              setIdSelecionado={setIdSelecionado} 
-              alterarNomeComanda={alterarNomeComanda} 
-              adicionarClienteComanda={adicionarClienteComanda} 
-              alternarTipoComanda={alternarTipoComanda}
-              modalAberto={mostrarModalPeso || mostrarModalPagamento}
-            />
-          ) : abaAtiva === 'comandas' ? (
-            <TabComandas 
-              temaNoturno={temaNoturno} comandasAbertas={comandasAbertas} modoExclusao={modoExclusao} setModoExclusao={setModoExclusao} selecionadasExclusao={selecionadasExclusao} toggleSelecaoExclusao={toggleSelecaoExclusao} confirmarExclusaoEmMassa={confirmarExclusaoEmMassa} adicionarComanda={adicionarComanda} setIdSelecionado={setIdSelecionado} caixaAtual={caixaAtual} abrirCaixaManual={abrirCaixaManual}
-            />
-          ) : abaAtiva === 'fechadas' ? (
-            <TabFechadas 
-              temaNoturno={temaNoturno} comandasFechadas={comandas.filter(c => c.status === 'fechada')} reabrirComandaFechada={reabrirComandaFechada} excluirComandaFechada={excluirComandaFechada} getHoje={getHoje} 
-            />
-          ) : abaAtiva === 'faturamento' ? (
-            <TabFaturamento 
-              temaNoturno={temaNoturno} filtroTempo={filtroTempo} setFiltroTempo={setFiltroTempo} getHoje={getHoje} getMesAtual={getMesAtual} getAnoAtual={getAnoAtual} faturamentoTotal={faturamentoTotal} lucroEstimado={lucroEstimado} dadosPizza={dadosPizza} rankingProdutos={rankingProdutos} comandasFiltradas={comandasFiltradas} comandas={comandas} 
-            />
-          ) : abaAtiva === 'caixa' ? (
-            <TabFechamentoCaixa temaNoturno={temaNoturno} sessao={sessao} caixaAtual={caixaAtual} comandas={comandas} fetchData={fetchApenasAtualizacoes} mostrarAlerta={mostrarAlerta} mostrarConfirmacao={mostrarConfirmacao} />
-          ) : abaAtiva === 'fidelidade' ? (
-            <TabFidelidade 
-              temaNoturno={temaNoturno} sessao={sessao} mostrarAlerta={mostrarAlerta} mostrarConfirmacao={mostrarConfirmacao}
-              metaFidelidade={metaFidelidade} setMetaFidelidade={setMetaFidelidade}
-              clientesFidelidade={clientesFidelidade} setClientesFidelidade={setClientesFidelidade} comandas={comandas}
-            />
-          ) : null}
-        </div>
+    <>
+      <div className="arox-boot-setup">
+        <style dangerouslySetInnerHTML={{__html: `
+          .arox-boot-setup {
+            position: fixed; inset: 0; z-index: 9999999; pointer-events: none;
+            background-color: #ffffff;
+            animation: premiumFadeOut 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          }
+          @keyframes premiumFadeOut { 
+            0% { background-color: #ffffff; opacity: 1; }
+            40% { background-color: #030406; opacity: 1; }
+            100% { background-color: #030406; opacity: 0; visibility: hidden; }
+          }
+        `}} />
       </div>
 
-      <Sidebar 
-        menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} temaNoturno={temaNoturno}
-        logoEmpresa={logoEmpresa} sessao={sessao} nomeEmpresa={nomeEmpresa} abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva}
-        setMostrarConfigEmpresa={setMostrarConfigEmpresa} setMostrarAdminUsuarios={setMostrarAdminUsuarios}
-        setMostrarAdminProdutos={setMostrarAdminProdutos} setMostrarConfigTags={setMostrarConfigTags} fazerLogout={fazerLogout}
-      />
+      <div className={`fixed inset-0 z-0 transition-opacity duration-[1500ms] ease-out ${(appMode === 'shell' && !isTransitioningRef.current && !isPreComandaActiveGlobally) ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <AroxCinematicScene scenePhase={scenePhase} customConfig={sceneCustomConfig} temaAnterior={temaNoturno ? 'dark' : 'light'} />
+      </div>
 
-      {mostrarAdminUsuarios && sessao && <AdminUsuarios empresaId={sessao.empresa_id} usuarioAtualId={sessao.id} temaNoturno={temaNoturno} onFechar={() => setMostrarAdminUsuarios(false)} />}
-      {mostrarAdminProdutos && sessao && <AdminProdutos empresaId={sessao.empresa_id} temaNoturno={temaNoturno} onFechar={() => { setMostrarAdminProdutos(false); fetchApenasAtualizacoes(); }} />}
-      {mostrarAdminDelivery && sessao && <AdminDelivery empresaId={sessao.empresa_id} temaNoturno={temaNoturno} onFechar={() => setMostrarAdminDelivery(false)} />}
-      {mostrarModalPeso && <ModalPeso opcoesPeso={configPeso} temaNoturno={temaNoturno} onAdicionar={adicionarProdutoNaComanda} onCancelar={() => setMostrarModalPeso(false)} />}
-      
-      {mostrarModalPagamento && (
-        <ModalPagamento 
-           comanda={comandaAtiva} temaNoturno={temaNoturno} onConfirmar={processarPagamento} onCancelar={() => setMostrarModalPagamento(false)} 
-           clientesFidelidade={clientesFidelidade} metaFidelidade={metaFidelidade}
-        />
-      )}
+      <div className="fixed inset-0 z-10 pointer-events-none flex items-center justify-center">
+        {(appMode === 'loading' || scenePhase === 'handoff' || scenePhase === 'bridgeDark' || scenePhase === 'bridgeLight') && !isFirstLoad.current && (
+          <SystemLoader variant="full" phase={scenePhase} text={fraseCarregamento} exitStage={loaderExitStage} />
+        )}
 
-      {mostrarConfigEmpresa && (
-        <ModalConfigEmpresa 
-          temaNoturno={temaNoturno} nomeEmpresaEdicao={nomeEmpresaEdicao} setNomeEmpresaEdicao={setNomeEmpresaEdicao} 
-          logoEmpresaEdicao={logoEmpresaEdicao} setLogoEmpresaEdicao={setLogoEmpresaEdicao} nomeUsuarioEdicao={nomeUsuarioEdicao} 
-          setNomeUsuarioEdicao={setNomeUsuarioEdicao} planoUsuario={dadosPlano} salvarConfigEmpresa={salvarConfigEmpresa} 
-          setMostrarConfigEmpresa={setMostrarConfigEmpresa} alterarSenhaConta={alterarSenhaConta} 
-        />
-      )}
-      
-      {mostrarConfigTags && <ModalConfigTags temaNoturno={temaNoturno} tagsGlobais={tagsGlobais} setTagsGlobais={setTagsGlobais} sessao={sessao} setMostrarConfigTags={setMostrarConfigTags} />}
-
-      {modalGlobal.visivel && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in">
-          <div className={`rounded-3xl p-6 w-full max-sm shadow-2xl flex flex-col border text-center ${temaNoturno ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
-            <h2 className={`text-xl font-black mb-2 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>{modalGlobal.titulo}</h2>
-            <p className={`text-sm mb-6 ${temaNoturno ? 'text-gray-400' : 'text-gray-600'}`}>{modalGlobal.mensagem}</p>
-            {modalGlobal.tipo === 'prompt' && (
-              <input type="text" autoFocus className={`w-full p-3 rounded-xl border mb-6 outline-none font-bold text-center ${temaNoturno ? 'bg-gray-800 border-gray-700 text-white focus:border-purple-500' : 'bg-gray-50 border-gray-300 focus:border-purple-500'}`} value={modalGlobal.valorInput} onChange={e => setModalGlobal({...modalGlobal, valorInput: e.target.value})} onKeyDown={e => { if (e.key === 'Enter') { if (modalGlobal.acaoConfirmar) modalGlobal.acaoConfirmar(modalGlobal.valorInput); fecharModalGlobal(); } }} />
-            )}
-            <div className="flex gap-3">
-              {(modalGlobal.tipo === 'confirmacao' || modalGlobal.tipo === 'prompt') && (
-                <button onClick={fecharModalGlobal} className={`flex-1 p-3 rounded-xl font-bold transition ${temaNoturno ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>Cancelar</button>
-              )}
-              <button onClick={() => { if (modalGlobal.acaoConfirmar) { if (modalGlobal.tipo === 'prompt') modalGlobal.acaoConfirmar(modalGlobal.valorInput); else modalGlobal.acaoConfirmar(); } fecharModalGlobal(); }} className={`flex-1 p-3 rounded-xl font-bold text-white transition shadow-lg ${modalGlobal.titulo.toLowerCase().includes('excluir') || modalGlobal.titulo.toLowerCase().includes('atenção') ? 'bg-red-600 hover:bg-red-700' : 'bg-purple-600 hover:bg-purple-700'}`}>
-                {modalGlobal.tipo === 'alerta' ? 'OK' : 'Confirmar'}
-              </button>
-            </div>
+        {appMode === 'takeover' && (
+          <div className="pointer-events-auto w-full h-full">
+            <PreComanda 
+              onFinalizarAbertura={onFinalizarAbertura} 
+              isAntecipado={isAntecipado} 
+              temaAnterior={temaNoturno ? 'dark' : 'light'} 
+              onAcessarSistema={onAcessarSistema}
+              temPendencia={temPendencia}
+              onResolverPendencia={handleResolverPendencia}
+              usuarioNome={sessao?.nome_usuario}
+              onEnvUpdate={setSceneCustomConfig}
+              caixaAberto={caixaAtual?.status === 'aberto'}
+              isSistemaJaAcessado={preComandaDispensada.current}
+            />
           </div>
+        )}
+      </div>
+
+      {(!sessao && appMode === 'login') && (
+        <div className={`fixed inset-0 z-20 pointer-events-auto overflow-y-auto transition-all duration-[800ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${isLoginFading ? 'opacity-0 scale-110 blur-xl pointer-events-none' : 'opacity-100 scale-100 blur-0'}`}>
+          <Login 
+            getHoje={getHoje} 
+            setSessao={(s) => {
+              setIsLoginFading(true);
+              setScenePhase('reveal');
+              
+              setTimeout(() => {
+                setSessao(s);
+                setAppMode('loading');
+                setScenePhase('sync'); 
+                setIsDataLoaded(false); 
+                setMinLoadTimePassed(false);
+                setLoaderExitStage('none'); 
+                shellTransitionFired.current = false;
+                setIsLoginFading(false);
+              }, 800);
+            }} 
+            temaNoturno={temaNoturno} 
+            setTemaNoturno={setTemaNoturno} 
+            setScenePhase={setScenePhase} 
+          />
         </div>
       )}
-    </main>
+
+      {appMode === 'shell' && sessao && (
+        <>
+          <style dangerouslySetInnerHTML={{__html: `
+            @keyframes fadeOutBridge { 0% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+            .shell-enter-overlay { animation: fadeOutBridge 1.0s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+            @keyframes shellEnterMain { 0% { opacity: 0; transform: scale(0.98); } 100% { opacity: 1; transform: scale(1); } }
+            @keyframes shellEnterSide { 0% { opacity: 0; transform: translateX(-20px); } 100% { opacity: 1; transform: translateX(0); } }
+            @keyframes shellEnterTop { 0% { opacity: 0; transform: translateY(-15px); } 100% { opacity: 1; transform: translateY(0); } }
+            .shell-root-enter { animation: shellEnterMain 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+            .shell-root-enter aside { animation: shellEnterSide 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s both; }
+            .shell-root-enter header { animation: shellEnterTop 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s both; }
+            .shell-root-enter .shell-content-panel { animation: shellEnterTop 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s both; }
+          `}} />
+
+          {isShellEntering && (
+            <div className={`fixed inset-0 z-[9999999] pointer-events-none shell-enter-overlay ${temaNoturno ? 'bg-[#09090b]' : 'bg-[#fafafa]'}`}></div>
+          )}
+
+          <main className={`relative z-20 flex h-screen w-full overflow-hidden transition-colors selection:bg-zinc-200 selection:text-zinc-900 
+            ${isShellEntering ? 'shell-root-enter' : ''} 
+            ${temaNoturno ? 'bg-[#09090b] text-zinc-100 selection:bg-white/20 selection:text-white' : 'bg-[#fafafa] text-zinc-900'}
+          `}>
+            
+            {/* PASSANDO statusPresenca PARA A SIDEBAR AQUI */}
+            <Sidebar
+              menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} temaNoturno={temaNoturno}
+              setTemaNoturno={setTemaNoturno} logoEmpresa={logoEmpresa} sessao={sessao} nomeEmpresa={nomeEmpresa}
+              abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva} setMostrarConfigEmpresa={setMostrarConfigEmpresa}
+              setMostrarAdminProdutos={setMostrarAdminProdutos} setMostrarConfigTags={setMostrarConfigTags}
+              setMostrarAdminDelivery={setMostrarAdminDelivery} fazerLogout={fazerLogout}
+              caixaAtual={caixaAtual} statusPresenca={statusPresenca}
+            />
+
+            <div className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-transparent">
+              <Header 
+                comandaAtiva={comandaAtiva} setIdSelecionado={setIdSelecionado} setMenuMobileAberto={setMenuMobileAberto}
+                temaNoturno={temaNoturno} caixaAtual={caixaAtual} abaAtiva={abaAtiva} setAbaAtiva={setAbaAtiva}
+                logoEmpresa={logoEmpresa} setTemaNoturno={setTemaNoturno} mostrarMenuPerfil={mostrarMenuPerfil}
+                setMostrarMenuPerfil={setMostrarMenuPerfil} nomeEmpresa={nomeEmpresa} sessao={sessao}
+                setMostrarAdminDelivery={setMostrarAdminDelivery} setMostrarConfigEmpresa={setMostrarConfigEmpresa} 
+                setMostrarAdminUsuarios={setMostrarAdminUsuarios} setMostrarAdminProdutos={setMostrarAdminProdutos} 
+                setMostrarConfigTags={setMostrarConfigTags} fazerLogout={fazerLogout}
+                fetchData={fetchApenasAtualizacoes} clientesFidelidade={clientesFidelidade} vincularClienteFidelidade={vincularClienteFidelidade}
+              />
+
+              <div className="shell-content-panel flex-1 overflow-y-auto scrollbar-hide p-4 md:p-8 pt-2 md:pt-6 z-10 flex flex-col relative">
+                <div className="w-full max-w-[1400px] mx-auto flex-1 flex flex-col">
+                  {comandaAtiva ? (
+                    <PainelComanda temaNoturno={temaNoturno} comandaAtiva={comandaAtiva} abaDetalheMobile={abaDetalheMobile} setAbaDetalheMobile={setAbaDetalheMobile} filtroCategoriaCardapio={filtroCategoriaCardapio} setFiltroCategoriaCardapio={setFiltroCategoriaCardapio} menuCategorias={menuCategorias} adicionarProdutoNaComanda={adicionarProdutoNaComanda} excluirGrupoProdutos={excluirGrupoProdutos} setMostrarModalPeso={setMostrarModalPeso} tagsGlobais={tagsGlobais} toggleTag={toggleTag} editarProduto={editarProduto} excluirProduto={excluirProduto} setMostrarModalPagamento={setMostrarModalPagamento} encerrarMesa={encerrarMesa} setIdSelecionado={setIdSelecionado} alterarNomeComanda={alterarNomeComanda} adicionarClienteComanda={adicionarClienteComanda} alternarTipoComanda={alternarTipoComanda} modalAberto={mostrarModalPeso || mostrarModalPagamento} />
+                  ) : abaAtiva === 'comandas' ? (
+                    <TabComandas temaNoturno={temaNoturno} comandasAbertas={comandasAbertas} modoExclusao={modoExclusao} setModoExclusao={setModoExclusao} selecionadasExclusao={selecionadasExclusao} toggleSelecaoExclusao={toggleSelecaoExclusao} confirmarExclusaoEmMassa={confirmarExclusaoEmMassa} adicionarComanda={adicionarComanda} setIdSelecionado={setIdSelecionado} caixaAtual={caixaAtual} abrirCaixaManual={abrirCaixaManual} abaAtiva={abaAtiva} />
+                  ) : abaAtiva === 'fechadas' ? (
+                    <TabFechadas temaNoturno={temaNoturno} comandasFechadas={comandas.filter(c => c.status === 'fechada')} reabrirComandaFechada={reabrirComandaFechada} excluirComandaFechada={excluirComandaFechada} getHoje={getHoje} />
+                  ) : abaAtiva === 'faturamento' ? (
+                    <TabFaturamento temaNoturno={temaNoturno} filtroTempo={filtroTempo} setFiltroTempo={setFiltroTempo} getHoje={getHoje} getMesAtual={getMesAtual} getAnoAtual={getAnoAtual} faturamentoTotal={faturamentoTotal} lucroEstimado={lucroEstimado} dadosPizza={dadosPizza} rankingProdutos={rankingProdutos} comandasFiltradas={comandasFiltradas} comandas={comandas} />
+                  ) : abaAtiva === 'caixa' ? (
+                    <TabFechamentoCaixa temaNoturno={temaNoturno} sessao={sessao} caixaAtual={caixaAtual} comandas={comandas} fetchData={fetchApenasAtualizacoes} mostrarAlerta={mostrarAlerta} mostrarConfirmacao={mostrarConfirmacao} />
+                  ) : abaAtiva === 'fidelidade' ? (
+                    <TabFidelidade temaNoturno={temaNoturno} sessao={sessao} mostrarAlerta={mostrarAlerta} mostrarConfirmacao={mostrarConfirmacao} metaFidelidade={metaFidelidade} setMetaFidelidade={setMetaFidelidade} clientesFidelidade={clientesFidelidade} setClientesFidelidade={setClientesFidelidade} comandas={comandas} />
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
+            {mostrarAdminUsuarios && sessao && <AdminUsuarios empresaId={sessao.empresa_id} usuarioAtualId={sessao.id} temaNoturno={temaNoturno} onFechar={() => setMostrarAdminUsuarios(false)} />}
+            {mostrarAdminProdutos && sessao && <AdminProdutos empresaId={sessao.empresa_id} temaNoturno={temaNoturno} onFechar={() => { setMostrarAdminProdutos(false); fetchApenasAtualizacoes(); }} />}
+            {mostrarAdminDelivery && sessao && <AdminDelivery empresaId={sessao.empresa_id} temaNoturno={temaNoturno} onFechar={() => setMostrarAdminDelivery(false)} />}
+            {mostrarModalPeso && <ModalPeso opcoesPeso={configPeso} temaNoturno={temaNoturno} onAdicionar={adicionarProdutoNaComanda} onCancelar={() => setMostrarModalPeso(false)} />}
+            {mostrarModalPagamento && <ModalPagamento comanda={comandaAtiva} temaNoturno={temaNoturno} onConfirmar={processarPagamento} onCancelar={() => setMostrarModalPagamento(false)} clientesFidelidade={clientesFidelidade} metaFidelidade={metaFidelidade} />}
+            {mostrarConfigEmpresa && ( <ModalConfigEmpresa temaNoturno={temaNoturno} sessao={sessao} tagsGlobais={tagsGlobais} setTagsGlobais={setTagsGlobais} nomeEmpresaEdicao={nomeEmpresaEdicao} setNomeEmpresaEdicao={setNomeEmpresaEdicao} logoEmpresaEdicao={logoEmpresaEdicao} setLogoEmpresaEdicao={setLogoEmpresaEdicao} nomeUsuarioEdicao={nomeUsuarioEdicao} setNomeUsuarioEdicao={setNomeUsuarioEdicao} planoUsuario={dadosPlano} salvarConfigEmpresa={salvarConfigEmpresa} setMostrarConfigEmpresa={setMostrarConfigEmpresa} alterarSenhaConta={alterarSenhaConta} deletarWorkspace={deletarWorkspace} /> )}
+            {mostrarConfigTags && <ModalConfigTags temaNoturno={temaNoturno} tagsGlobais={tagsGlobais} setTagsGlobais={setTagsGlobais} sessao={sessao} setMostrarConfigTags={setMostrarConfigTags} />}
+
+            {modalGlobal.visivel && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100] animate-in fade-in">
+                <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl flex flex-col border text-center ${temaNoturno ? 'bg-[#09090b] border-white/10' : 'bg-white border-zinc-200'}`}>
+                  <h2 className={`text-lg font-semibold tracking-tight mb-2 ${temaNoturno ? 'text-white' : 'text-zinc-900'}`}>{modalGlobal.titulo}</h2>
+                  <p className={`text-sm mb-6 font-medium ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>{modalGlobal.mensagem}</p>
+                  {modalGlobal.tipo === 'prompt' && <input type="text" autoFocus className={`w-full p-3 rounded-lg border mb-6 outline-none font-medium text-sm transition-colors shadow-sm ${temaNoturno ? 'bg-white/5 border-white/10 text-white focus:border-white/20' : 'bg-white border-zinc-200 focus:border-zinc-400'}`} value={modalGlobal.valorInput} onChange={e => setModalGlobal({...modalGlobal, valorInput: e.target.value})} onKeyDown={e => { if (e.key === 'Enter') { if (modalGlobal.acaoConfirmar) modalGlobal.acaoConfirmar(modalGlobal.valorInput); fecharModalGlobal(); } }} />}
+                  <div className="flex gap-3">
+                    {(modalGlobal.tipo === 'confirmacao' || modalGlobal.tipo === 'prompt') && <button onClick={fecharModalGlobal} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${temaNoturno ? 'bg-white/5 text-zinc-300 hover:bg-white/10' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}>Cancelar</button>}
+                    <button onClick={() => { if (modalGlobal.acaoConfirmar) { if (modalGlobal.tipo === 'prompt') modalGlobal.acaoConfirmar(modalGlobal.valorInput); else modalGlobal.acaoConfirmar(); } fecharModalGlobal(); }} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold text-white transition-all shadow-md active:scale-[0.98] ${modalGlobal.titulo.toLowerCase().includes('excluir') || modalGlobal.titulo.toLowerCase().includes('atenção') ? 'bg-rose-600 hover:bg-rose-700' : 'bg-zinc-900 hover:bg-zinc-800'}`}>
+                      {modalGlobal.tipo === 'alerta' ? 'Entendido' : 'Confirmar'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </main>
+        </>
+      )}
+    </>
   );
 }

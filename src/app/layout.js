@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: 'Comandas Bom A Bessa',
-  description: 'Sistema de gestão de comandas',
+  title: 'Acesso – AROX',
+  description: 'Clareza, controle e performance.',
   other: {
     'Cache-Control': 'no-cache, no-store, must-revalidate',
     'Pragma': 'no-cache',

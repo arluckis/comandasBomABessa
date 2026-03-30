@@ -1,219 +1,306 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import AdminProdutos from './AdminProdutos';
+import AdminDelivery from './AdminDelivery';
+import ModalConfigTags from './ModalConfigTags';
 
-export default function ModalConfigEmpresa({
-  temaNoturno,
-  nomeEmpresaEdicao,
-  setNomeEmpresaEdicao,
-  logoEmpresaEdicao,
-  setLogoEmpresaEdicao,
-  nomeUsuarioEdicao,
-  setNomeUsuarioEdicao,
-  planoUsuario,
-  salvarConfigEmpresa,
-  setMostrarConfigEmpresa,
-  alterarSenhaConta
-}) {
-  // Controle de Abas no Mobile
-  const [abaMobile, setAbaMobile] = useState('identidade'); // 'identidade' | 'seguranca'
+const CIDADES_POPULARES = [
+  "Rio Branco, AC, BR", "Maceió, AL, BR", "Macapá, AP, BR", "Manaus, AM, BR",
+  "Salvador, BA, BR", "Feira de Santana, BA, BR", "Fortaleza, CE, BR",
+  "Brasília, DF, BR", "Vitória, ES, BR", "Vila Velha, ES, BR",
+  "Goiânia, GO, BR", "São Luís, MA, BR", "Cuiabá, MT, BR",
+  "Campo Grande, MS, BR", "Belo Horizonte, MG, BR", "Uberlândia, MG, BR",
+  "Belém, PA, BR", "João Pessoa, PB, BR", "Campina Grande, PB, BR",
+  "Curitiba, PR, BR", "Londrina, PR, BR", "Maringá, PR, BR",
+  "Recife, PE, BR", "Jaboatão dos Guararapes, PE, BR", "Teresina, PI, BR",
+  "Rio de Janeiro, RJ, BR", "Niterói, RJ, BR", "São Gonçalo, RJ, BR",
+  "Natal, RN, BR", "Parnamirim, RN, BR", "Mossoró, RN, BR", "Caicó, RN, BR",
+  "Porto Alegre, RS, BR", "Caxias do Sul, RS, BR", "Porto Velho, RO, BR",
+  "Boa Vista, RR, BR", "Florianópolis, SC, BR", "Joinville, SC, BR",
+  "São Paulo, SP, BR", "Campinas, SP, BR", "Guarulhos, SP, BR",
+  "Aracaju, SE, BR", "Palmas, TO, BR"
+];
 
-  // Estados da Senha
+export default function ModalConfigEmpresa(props) {
+  // Garantimos que recebemos todas as props do nível superior
+  const {
+    temaNoturno, sessao, setMostrarConfigEmpresa, tagsGlobais, setTagsGlobais,
+    nomeEmpresaEdicao, setNomeEmpresaEdicao, logoEmpresaEdicao, setLogoEmpresaEdicao,
+    nomeUsuarioEdicao, setNomeUsuarioEdicao, planoUsuario, salvarConfigEmpresa, alterarSenhaConta, deletarWorkspace
+  } = props;
+
+  const [abaPrincipal, setAbaPrincipal] = useState('workspace'); 
+  
   const [senhaAtual, setSenhaAtual] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [mostrarSenhas, setMostrarSenhas] = useState(false);
+  const [confirmacaoDelete, setConfirmacaoDelete] = useState('');
+  const [localizacao, setLocalizacao] = useState('');
+  const [sugestoesLocalizacao, setSugestoesLocalizacao] = useState([]);
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
+  const [horarioAbertura, setHorarioAbertura] = useState('');
+  const [horarioFechamento, setHorarioFechamento] = useState('');
+  const [isCarregandoOperacao, setIsCarregandoOperacao] = useState(true);
 
-  // Validações
+  const ID_EMPRESA_REAL = sessao?.empresa_id;
+
+  useEffect(() => {
+    const buscarOperacao = async () => {
+      try {
+        if (!ID_EMPRESA_REAL) return;
+        const { data, error } = await supabase.from('empresas').select('localizacao, horario_abertura, horario_fechamento').eq('id', ID_EMPRESA_REAL).single();
+        if (data && !error) {
+          setLocalizacao(data.localizacao || '');
+          setHorarioAbertura(data.horario_abertura ? data.horario_abertura.substring(0, 5) : '08:00');
+          setHorarioFechamento(data.horario_fechamento ? data.horario_fechamento.substring(0, 5) : '23:00');
+        }
+      } catch (err) {
+      } finally {
+        setIsCarregandoOperacao(false);
+      }
+    };
+    if (abaPrincipal === 'workspace') buscarOperacao();
+  }, [abaPrincipal, ID_EMPRESA_REAL]);
+
+  const handleLocalizacaoChange = (e) => {
+    const val = e.target.value;
+    setLocalizacao(val);
+    if (val.trim().length > 1) {
+      const query = val.toLowerCase().trim();
+      const startsWith = CIDADES_POPULARES.filter(c => c.toLowerCase().startsWith(query));
+      const includes = CIDADES_POPULARES.filter(c => c.toLowerCase().includes(query) && !c.toLowerCase().startsWith(query));
+      setSugestoesLocalizacao([...startsWith, ...includes].slice(0, 5));
+      setMostrarSugestoes(true);
+    } else {
+      setMostrarSugestoes(false);
+    }
+  };
+
+  const normalizarLocalizacao = (str) => {
+    if (!str) return '';
+    let limpa = str.trim().replace(/\s+/g, ' ');
+    if (limpa.toUpperCase().endsWith(', BR')) return limpa; 
+    const match = limpa.match(/^(.+?)[-,\s]+([a-zA-Z]{2})$/);
+    if (match) {
+      const cidade = match[1].trim().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+      const uf = match[2].toUpperCase();
+      return `${cidade}, ${uf}, BR`;
+    }
+    return limpa;
+  };
+
+  const handleSalvarGeral = async () => {
+    try {
+      if (ID_EMPRESA_REAL) {
+        const localizacaoFinal = normalizarLocalizacao(localizacao);
+        setLocalizacao(localizacaoFinal); 
+        await supabase.from('empresas').update({
+          localizacao: localizacaoFinal, horario_abertura: horarioAbertura, horario_fechamento: horarioFechamento
+        }).eq('id', ID_EMPRESA_REAL);
+      }
+    } catch (err) { }
+    if(salvarConfigEmpresa) salvarConfigEmpresa(); 
+  };
+
   const regrasSenha = [
-    { id: 'tamanho', texto: 'Mínimo de 8 caracteres', valido: novaSenha.length >= 8 },
-    { id: 'maiuscula', texto: 'Letras maiúscula e minúscula', valido: /[a-z]/.test(novaSenha) && /[A-Z]/.test(novaSenha) },
+    { id: 'tamanho', texto: 'Mín. 8 caracteres', valido: novaSenha.length >= 8 },
+    { id: 'maiuscula', texto: 'Maiúscula e Minúscula', valido: /[a-z]/.test(novaSenha) && /[A-Z]/.test(novaSenha) },
     { id: 'numero', texto: 'Pelo menos 1 número', valido: /[0-9]/.test(novaSenha) },
-    { id: 'especial', texto: 'Caractere especial (@, #, etc)', valido: /[^A-Za-z0-9]/.test(novaSenha) },
+    { id: 'especial', texto: 'Caractere especial', valido: /[^A-Za-z0-9]/.test(novaSenha) },
   ];
-
   const forcaSenha = regrasSenha.filter(r => r.valido).length;
-  const coresProgress = ['bg-red-500', 'bg-red-500', 'bg-orange-500', 'bg-amber-400', 'bg-green-500'];
-  const corAtual = coresProgress[forcaSenha];
   const senhaValida = forcaSenha === 4 && novaSenha === confirmarSenha && novaSenha.length > 0;
 
-  // Plano
   const nomePlano = planoUsuario?.nome?.toLowerCase() || 'free';
-  const isPremium = nomePlano.includes('premium') || nomePlano.includes('pro') || nomePlano.includes('anual') || nomePlano.includes('mensal') || nomePlano.includes('semestral');
-  const nomePlanoDisplay = planoUsuario?.nome ? (planoUsuario.nome.charAt(0).toUpperCase() + planoUsuario.nome.slice(1)) : 'Beta Tester Especial';
+  const isPremium = nomePlano.includes('premium') || nomePlano.includes('pro') || nomePlano.includes('anual') || nomePlano.includes('mensal');
+  const nomePlanoDisplay = planoUsuario?.nome ? (planoUsuario.nome.charAt(0).toUpperCase() + planoUsuario.nome.slice(1)) : 'Starter Plan';
+  const confirmarDeleteBloqueado = confirmacaoDelete !== 'DELETAR-AROX';
 
-  const formatarData = (dataString) => {
-    if (!dataString) return 'Vitalício / Indeterminado';
-    return new Date(dataString).toLocaleDateString('pt-BR');
-  };
-
-  const handleSalvarSenha = () => {
-    if (!senhaValida) return;
-    if (alterarSenhaConta) alterarSenhaConta(senhaAtual, novaSenha);
-    setSenhaAtual(''); setNovaSenha(''); setConfirmarSenha('');
-  };
+  const labelArox = `text-[10px] font-bold uppercase tracking-widest block mb-1.5 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`;
+  const inputArox = `w-full px-3.5 py-2.5 rounded-lg border outline-none text-[13px] font-semibold transition-all shadow-sm focus:ring-1 focus:ring-offset-0 ${temaNoturno ? 'bg-white/[0.02] border-white/10 focus:border-white/20 focus:ring-white/20 text-white placeholder-zinc-600' : 'bg-black/[0.02] border-zinc-200 focus:border-zinc-300 focus:ring-zinc-200 text-zinc-900 placeholder-zinc-400'}`;
 
   return (
-    // items-start no mobile evita que o topo seja cortado caso a tela seja pequena
-    <div className="fixed inset-0 bg-black/80 flex items-start sm:items-center justify-center p-4 sm:p-6 z-[70] backdrop-blur-md overflow-y-auto">
+    <div className={`fixed inset-0 z-[120] flex flex-col animate-in fade-in duration-300 ${temaNoturno ? 'bg-[#0A0A0A] text-zinc-100' : 'bg-[#FAFAFA] text-zinc-900'}`}>
       
-      {/* Container Principal */}
-      <div className={`relative w-full max-w-5xl rounded-3xl shadow-2xl animate-in zoom-in-95 border flex flex-col overflow-hidden my-auto shrink-0 transition-colors duration-500 ${temaNoturno ? 'bg-gradient-to-br from-[#15151e] to-[#0a0a0f] border-gray-800' : 'bg-white border-gray-200'}`}>
-        
-        {/* Glow Effects Premium */}
-        {temaNoturno ? (
-          <>
-            <div className="absolute -top-32 -right-32 w-96 h-96 bg-amber-500/10 rounded-full blur-[120px] pointer-events-none"></div>
-            <div className="absolute -bottom-32 -left-32 w-96 h-96 bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
-          </>
-        ) : (
-          <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-purple-50/40 via-transparent to-amber-50/30 pointer-events-none"></div>
-        )}
-
-        {/* Header do Modal */}
-        <div className={`flex justify-between items-center p-5 lg:p-7 border-b relative z-10 ${temaNoturno ? 'border-gray-800/80 bg-[#15151e]/50' : 'border-gray-100 bg-white/50'} backdrop-blur-md`}>
-          <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-2xl shadow-inner ${temaNoturno ? 'bg-gradient-to-br from-amber-500/20 to-amber-700/10 text-amber-400 border border-amber-500/20' : 'bg-gradient-to-br from-amber-100 to-amber-50 text-amber-600 border border-amber-200'}`}>
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+      {/* HEADER NAVEGAÇÃO SUPERIOR */}
+      <header className={`h-[68px] border-b shrink-0 flex items-center justify-between px-4 sm:px-8 overflow-x-auto scrollbar-hide ${temaNoturno ? 'bg-[#0A0A0A]/80 border-white/[0.06]' : 'bg-white/80 border-zinc-200'} backdrop-blur-xl`}>
+        <div className="flex items-center gap-6 sm:gap-10">
+          <div className="flex items-center gap-3 shrink-0 mr-4">
+            <div className={`p-2 rounded-lg border shadow-sm ${temaNoturno ? 'bg-white/5 border-white/10 text-zinc-300' : 'bg-zinc-50 border-zinc-200 text-zinc-700'}`}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             </div>
-            <div>
-              <h2 className={`text-xl lg:text-2xl font-black tracking-tight ${temaNoturno ? 'text-gray-100' : 'text-gray-900'}`}>Ajustes da Conta</h2>
-              <p className={`text-xs mt-0.5 font-medium ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Gerencie sua identidade, plano e segurança.</p>
-            </div>
+            <h2 className="text-[16px] font-semibold tracking-tight leading-none hidden sm:block">Ajustes do Sistema</h2>
           </div>
-          <button onClick={() => setMostrarConfigEmpresa(false)} className={`p-2.5 rounded-full font-bold transition active:scale-95 ${temaNoturno ? 'bg-gray-800/80 text-gray-400 hover:text-white hover:bg-gray-700' : 'bg-gray-100 text-gray-400 hover:text-gray-900 hover:bg-gray-200'}`}>
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-          </button>
-        </div>
 
-        {/* Abas Mobile */}
-        <div className={`lg:hidden flex border-b relative z-10 ${temaNoturno ? 'border-gray-800' : 'border-gray-200'}`}>
-          <button onClick={() => setAbaMobile('identidade')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-colors relative ${abaMobile === 'identidade' ? (temaNoturno ? 'text-purple-400' : 'text-purple-600') : (temaNoturno ? 'text-gray-500' : 'text-gray-400')}`}>
-            Identidade
-            {abaMobile === 'identidade' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-purple-500 rounded-t-full"></span>}
-          </button>
-          <button onClick={() => setAbaMobile('seguranca')} className={`flex-1 py-4 text-xs font-black uppercase tracking-widest transition-colors relative ${abaMobile === 'seguranca' ? (temaNoturno ? 'text-amber-400' : 'text-amber-500') : (temaNoturno ? 'text-gray-500' : 'text-gray-400')}`}>
-            Plano e Segurança
-            {abaMobile === 'seguranca' && <span className="absolute bottom-0 left-0 w-full h-0.5 bg-amber-500 rounded-t-full"></span>}
-          </button>
-        </div>
-
-        {/* Grid de 2 Colunas */}
-        <div className="flex flex-col lg:flex-row relative z-10 flex-1 min-h-0">
-          
-          {/* COLUNA 1: IDENTIDADE DA MARCA */}
-          <div className={`p-6 lg:p-8 flex-col gap-6 lg:w-1/2 lg:border-r ${abaMobile === 'identidade' ? 'flex' : 'hidden lg:flex'} ${temaNoturno ? 'border-gray-800' : 'border-gray-100 bg-gradient-to-b from-transparent to-purple-50/30'}`}>
-            <h3 className={`text-xs font-black uppercase tracking-[0.2em] mb-2 flex items-center gap-2 ${temaNoturno ? 'text-purple-400' : 'text-purple-600'}`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg> 
-              Identidade Visual
-            </h3>
-
-            <div className="space-y-5">
-              <div className="group">
-                <label className={`text-[10px] font-black uppercase tracking-widest mb-1.5 block transition-colors ${temaNoturno ? 'text-gray-400 group-focus-within:text-purple-400' : 'text-gray-500 group-focus-within:text-purple-600'}`}>Estabelecimento</label>
-                <input type="text" value={nomeEmpresaEdicao} onChange={e => setNomeEmpresaEdicao(e.target.value)} className={`w-full px-4 py-3.5 rounded-xl border outline-none text-sm font-bold transition-all focus:ring-2 focus:ring-purple-500/20 ${temaNoturno ? 'bg-gray-900/60 border-gray-700/80 focus:border-purple-500 text-white' : 'bg-white border-gray-200 focus:border-purple-500 text-gray-900 shadow-sm'}`} />
-              </div>
-
-              <div className="group">
-                <label className={`text-[10px] font-black uppercase tracking-widest mb-1.5 block transition-colors ${temaNoturno ? 'text-gray-400 group-focus-within:text-purple-400' : 'text-gray-500 group-focus-within:text-purple-600'}`}>Gestor Responsável</label>
-                <input type="text" value={nomeUsuarioEdicao} onChange={e => setNomeUsuarioEdicao(e.target.value)} className={`w-full px-4 py-3.5 rounded-xl border outline-none text-sm font-bold transition-all focus:ring-2 focus:ring-purple-500/20 ${temaNoturno ? 'bg-gray-900/60 border-gray-700/80 focus:border-purple-500 text-white' : 'bg-white border-gray-200 focus:border-purple-500 text-gray-900 shadow-sm'}`} />
-              </div>
-
-              <div className="group">
-                <label className={`text-[10px] font-black uppercase tracking-widest mb-1.5 block transition-colors ${temaNoturno ? 'text-gray-400 group-focus-within:text-purple-400' : 'text-gray-500 group-focus-within:text-purple-600'}`}>Logotipo (URL da Imagem)</label>
-                <div className="flex gap-4 items-center">
-                  <div className={`w-16 h-16 rounded-2xl border shrink-0 overflow-hidden flex items-center justify-center p-0.5 shadow-md ${temaNoturno ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
-                    <img src={logoEmpresaEdicao || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} alt="Preview" className="w-full h-full object-cover rounded-xl" onError={(e) => e.target.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} />
-                  </div>
-                  <input type="text" placeholder="Ex: https://i.imgur.com/logo.png" value={logoEmpresaEdicao} onChange={e => setLogoEmpresaEdicao(e.target.value)} className={`w-full px-4 py-3.5 rounded-xl border outline-none text-sm font-bold transition-all focus:ring-2 focus:ring-purple-500/20 ${temaNoturno ? 'bg-gray-900/60 border-gray-700/80 focus:border-purple-500 text-white' : 'bg-white border-gray-200 focus:border-purple-500 text-gray-900 shadow-sm'}`} />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-auto pt-6">
-              <button onClick={salvarConfigEmpresa} className={`w-full font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2 group ${temaNoturno ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-900/20' : 'bg-gray-900 hover:bg-black text-white shadow-gray-900/20'}`}>
-                <span>Salvar Identidade</span>
-                <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+          <nav className="flex items-center gap-1 sm:gap-2">
+            {[
+              { id: 'workspace', label: 'Workspace' },
+              { id: 'catalogo', label: 'Catálogo' },
+              { id: 'delivery', label: 'Delivery' },
+              { id: 'tags', label: 'Tags' }
+            ].map(tab => (
+              <button 
+                key={tab.id} onClick={() => setAbaPrincipal(tab.id)}
+                className={`px-4 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors shrink-0 ${abaPrincipal === tab.id ? (temaNoturno ? 'bg-white/10 text-white' : 'bg-black/5 text-zinc-900') : (temaNoturno ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-500 hover:text-zinc-700')}`}
+              >
+                {tab.label}
               </button>
-            </div>
-          </div>
+            ))}
+          </nav>
+        </div>
+        
+        <button onClick={() => setMostrarConfigEmpresa(false)} className={`p-2 rounded-md transition-all active:scale-95 outline-none shrink-0 ml-4 ${temaNoturno ? 'bg-transparent text-zinc-400 hover:bg-white/[0.08] hover:text-white' : 'bg-transparent text-zinc-500 hover:bg-black/[0.04] hover:text-zinc-900'}`}>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </header>
 
-          {/* COLUNA 2: PLANO E SEGURANÇA */}
-          <div className={`p-6 lg:p-8 flex-col gap-6 lg:w-1/2 ${abaMobile === 'seguranca' ? 'flex' : 'hidden lg:flex'} ${temaNoturno ? 'bg-black/20' : 'bg-gray-50/50'}`}>
-            
-            {/* Bloco do Plano */}
-            <h3 className={`text-xs font-black uppercase tracking-[0.2em] mb-0 flex items-center gap-2 ${temaNoturno ? 'text-amber-400' : 'text-amber-600'}`}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path></svg> 
-              Assinatura Ativa
-            </h3>
-
-            <div className={`p-5 rounded-2xl border flex items-center justify-between shadow-sm ${isPremium ? (temaNoturno ? 'bg-gradient-to-br from-amber-900/30 to-yellow-900/10 border-amber-500/30' : 'bg-gradient-to-br from-amber-50 to-yellow-50/50 border-amber-200') : (temaNoturno ? 'bg-gray-800/60 border-gray-700/50' : 'bg-white border-gray-200')}`}>
-              <div className="flex flex-col">
-                <span className={`text-[10px] font-black uppercase tracking-widest ${isPremium ? 'text-amber-600 dark:text-amber-500' : (temaNoturno ? 'text-gray-400' : 'text-gray-500')}`}>Plano Vigente</span>
-                <span className={`text-lg font-black tracking-tight ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>{nomePlanoDisplay}</span>
-                {isPremium && <span className={`text-[10px] font-bold mt-1 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Válido até: {formatarData(planoUsuario?.validade)}</span>}
-              </div>
-              {!isPremium ? (
-                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 shrink-0">
-                   <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                   <span className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-widest">Sistema Ativo</span>
-                 </div>
-              ) : (
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-inner shrink-0 bg-gradient-to-br from-amber-400 to-yellow-600 text-white`}>
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                </div>
-              )}
-            </div>
-
-            {/* Bloco de Segurança com Barra de Progresso */}
-            <div className="mt-4">
-              <h3 className={`text-xs font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2 ${temaNoturno ? 'text-gray-400' : 'text-gray-600'}`}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg> 
-                Segurança de Acesso
-              </h3>
+      {/* ÁREA DE CONTEÚDO PRINCIPAL */}
+      <main className="flex-1 overflow-hidden flex flex-col w-full h-full relative">
+        
+        {/* ABA: WORKSPACE */}
+        {abaPrincipal === 'workspace' && (
+          <div className="flex-1 overflow-y-auto flex flex-col scrollbar-hide">
+            <div className="flex-1 flex flex-col sm:flex-row max-w-7xl mx-auto w-full">
               
-              <div className="space-y-4">
-                <input type={mostrarSenhas ? "text" : "password"} placeholder="Senha Atual" value={senhaAtual} onChange={e => setSenhaAtual(e.target.value)} className={`w-full px-4 py-3.5 rounded-xl border outline-none text-sm font-bold transition-all focus:ring-2 focus:ring-amber-500/20 ${temaNoturno ? 'bg-gray-900/60 border-gray-700/80 focus:border-amber-500 text-white placeholder-gray-600' : 'bg-white border-gray-200 focus:border-amber-500 text-gray-900 placeholder-gray-400 shadow-sm'}`} />
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <input type={mostrarSenhas ? "text" : "password"} placeholder="Nova Senha" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} className={`w-full px-4 py-3.5 rounded-xl border outline-none text-sm font-bold transition-all focus:ring-2 focus:ring-amber-500/20 ${temaNoturno ? 'bg-gray-900/60 border-gray-700/80 focus:border-amber-500 text-white placeholder-gray-600' : 'bg-white border-gray-200 focus:border-amber-500 text-gray-900 placeholder-gray-400 shadow-sm'}`} />
-                  <input type={mostrarSenhas ? "text" : "password"} placeholder="Confirmar Nova" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} className={`w-full px-4 py-3.5 rounded-xl border outline-none text-sm font-bold transition-all focus:ring-2 focus:ring-amber-500/20 ${novaSenha && confirmarSenha && novaSenha !== confirmarSenha ? 'border-red-500 focus:border-red-500' : (temaNoturno ? 'bg-gray-900/60 border-gray-700/80 focus:border-amber-500' : 'bg-white border-gray-200 focus:border-amber-500')} ${temaNoturno ? 'text-white placeholder-gray-600' : 'text-gray-900 placeholder-gray-400 shadow-sm'}`} />
+              <div className={`p-6 sm:p-8 flex-col gap-6 w-full sm:w-1/3 sm:border-r ${temaNoturno ? 'border-white/[0.06]' : 'border-zinc-200'}`}>
+                <div className="space-y-1 mb-6">
+                  <h3 className="text-[14px] font-semibold tracking-tight">Identidade Visual</h3>
+                  <p className={`text-[12px] ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>Informações da sua marca</p>
                 </div>
-                
-                {/* Barra de Progresso Suave */}
-                <div className="flex flex-col gap-1.5 pt-1">
-                  <div className="flex justify-between items-center mb-1">
-                     <span className={`text-[10px] font-black uppercase tracking-widest ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>Força da Senha</span>
-                     <button onClick={() => setMostrarSenhas(!mostrarSenhas)} className={`text-[9px] font-black uppercase tracking-widest transition-colors ${temaNoturno ? 'text-amber-400 hover:text-amber-300' : 'text-amber-600 hover:text-amber-700'}`}>
-                       {mostrarSenhas ? 'Ocultar' : 'Mostrar'}
-                     </button>
+                <div className="space-y-5">
+                  <div className="group">
+                    <label className={labelArox}>Nome do Estabelecimento</label>
+                    <input type="text" value={nomeEmpresaEdicao} onChange={e => setNomeEmpresaEdicao(e.target.value)} className={inputArox} />
+                  </div>
+                  <div className="group">
+                    <label className={labelArox}>Gestor Responsável</label>
+                    <input type="text" value={nomeUsuarioEdicao} onChange={e => setNomeUsuarioEdicao(e.target.value)} className={inputArox} />
+                  </div>
+                  <div className="group">
+                    <label className={labelArox}>Logotipo (URL)</label>
+                    <div className="flex gap-3 items-center">
+                      <div className={`w-11 h-11 rounded-lg border shrink-0 overflow-hidden flex items-center justify-center p-0.5 shadow-sm ${temaNoturno ? 'border-white/10 bg-[#161a20]' : 'border-zinc-200 bg-white'}`}>
+                        <img src={logoEmpresaEdicao || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} alt="Preview" className="w-full h-full object-cover rounded-md" onError={(e) => e.target.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} />
+                      </div>
+                      <input type="text" placeholder="https://..." value={logoEmpresaEdicao} onChange={e => setLogoEmpresaEdicao(e.target.value)} className={inputArox} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`p-6 sm:p-8 flex-col gap-6 w-full sm:w-1/3 sm:border-r ${temaNoturno ? 'border-white/[0.06]' : 'border-zinc-200'}`}>
+                <div className="space-y-1 mb-6">
+                  <h3 className="text-[14px] font-semibold tracking-tight">Parâmetros Operacionais</h3>
+                  <p className={`text-[12px] ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>Inteligência de clima e alertas</p>
+                </div>
+                {isCarregandoOperacao ? (
+                  <div className={`animate-pulse h-10 w-full rounded-md ${temaNoturno ? 'bg-white/5' : 'bg-black/5'}`}></div>
+                ) : (
+                  <div className="space-y-5">
+                    <div className="group relative">
+                      <label className={labelArox}>Localização (Clima)</label>
+                      <input 
+                        type="text" placeholder="Ex: Parnamirim, RN, BR" value={localizacao} onChange={handleLocalizacaoChange}
+                        onFocus={() => { if(localizacao.trim().length > 1) setMostrarSugestoes(true); }} onBlur={() => setTimeout(() => setMostrarSugestoes(false), 200)}
+                        className={inputArox} 
+                      />
+                      {mostrarSugestoes && sugestoesLocalizacao.length > 0 && (
+                        <ul className={`absolute left-0 right-0 z-50 mt-1.5 py-1.5 rounded-xl border shadow-xl overflow-hidden max-h-48 overflow-y-auto scrollbar-hide ${temaNoturno ? 'bg-[#1A1A1A] border-white/10' : 'bg-white border-zinc-200'}`}>
+                          {sugestoesLocalizacao.map((sugestao, idx) => (
+                            <li key={idx} onClick={() => selecionarSugestao(sugestao)} className={`px-3.5 py-2 text-[13px] font-medium cursor-pointer transition-colors flex items-center gap-2 ${temaNoturno ? 'text-zinc-300 hover:bg-white/5 hover:text-white' : 'text-zinc-700 hover:bg-black/5 hover:text-zinc-900'}`}>
+                              <svg className={`w-3.5 h-3.5 opacity-50 ${temaNoturno ? 'text-white' : 'text-black'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
+                              {sugestao}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className={`text-[10px] mt-1.5 leading-relaxed ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>Usado nas métricas de previsão na Dashboard.</p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="group">
+                        <label className={labelArox}>Abertura</label>
+                        <input type="time" value={horarioAbertura} onChange={e => setHorarioAbertura(e.target.value)} className={inputArox} />
+                      </div>
+                      <div className="group">
+                        <label className={labelArox}>Fechamento</label>
+                        <input type="time" value={horarioFechamento} onChange={e => setHorarioFechamento(e.target.value)} className={inputArox} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className={`p-6 sm:p-8 flex-col gap-6 w-full sm:w-1/3 ${temaNoturno ? 'bg-[#111111]/30' : 'bg-zinc-50/50'}`}>
+                <div className={`p-4 rounded-xl border flex flex-col gap-3 mb-6 shadow-sm ${temaNoturno ? 'bg-[#1A1A1A] border-white/10' : 'bg-white border-zinc-200'}`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex flex-col">
+                      <span className={labelArox}>Assinatura Ativa</span>
+                      <span className="text-[15px] font-semibold tracking-tight">{nomePlanoDisplay}</span>
+                    </div>
+                    <div className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider ${isPremium ? (temaNoturno ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200') : (temaNoturno ? 'bg-white/5 text-zinc-400 border-white/10' : 'bg-zinc-100 text-zinc-600 border-zinc-200')}`}>
+                      {isPremium ? 'Premium' : 'Básico'}
+                    </div>
+                  </div>
+                  <div className={`pt-3 border-t flex flex-col gap-0.5 ${temaNoturno ? 'border-white/5' : 'border-zinc-200'}`}>
+                    <span className={labelArox}>Membro Desde</span>
+                    <span className={`text-[12px] font-mono font-medium ${temaNoturno ? 'text-zinc-300' : 'text-zinc-700'}`}>{planoUsuario?.criado_em ? new Intl.DateTimeFormat('pt-BR').format(new Date(planoUsuario.criado_em)) : 'Não registrada'}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h3 className="text-[14px] font-semibold tracking-tight mb-2">Credenciais</h3>
+                  <input type={mostrarSenhas ? "text" : "password"} placeholder="Senha Atual" value={senhaAtual} onChange={e => setSenhaAtual(e.target.value)} className={inputArox} />
+                  <div className="grid grid-cols-1 gap-3">
+                    <input type={mostrarSenhas ? "text" : "password"} placeholder="Nova Senha" value={novaSenha} onChange={e => setNovaSenha(e.target.value)} className={inputArox} />
+                    <input type={mostrarSenhas ? "text" : "password"} placeholder="Confirmar Nova" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} className={inputArox} />
                   </div>
                   
-                  <div className={`h-1.5 w-full rounded-full overflow-hidden ${temaNoturno ? 'bg-gray-800' : 'bg-gray-200'}`}>
-                     <div className={`h-full transition-all duration-500 ease-out ${corAtual}`} style={{ width: `${(forcaSenha / 4) * 100}%` }}></div>
-                  </div>
+                  <button disabled={!senhaValida || !senhaAtual} onClick={() => alterarSenhaConta(senhaAtual, novaSenha)} className={`w-full py-2.5 rounded-lg text-[13px] font-bold mt-2 transition-all shadow-sm outline-none flex items-center justify-center gap-2 ${senhaValida && senhaAtual ? (temaNoturno ? 'bg-white text-zinc-900 hover:bg-zinc-200 active:scale-[0.98]' : 'bg-zinc-900 text-white hover:bg-zinc-800 active:scale-[0.98]') : (temaNoturno ? 'bg-white/5 text-zinc-500 cursor-not-allowed' : 'bg-black/5 text-zinc-400 cursor-not-allowed')}`}>
+                    Atualizar Senha
+                  </button>
+                </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-1.5 mt-2">
-                    {regrasSenha.map(regra => (
-                      <div key={regra.id} className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full flex items-center justify-center shrink-0 transition-colors duration-300 ${regra.valido ? 'bg-green-500 text-white' : (temaNoturno ? 'bg-gray-700 text-gray-500' : 'bg-gray-200 text-gray-400')}`}>
-                          {regra.valido && <svg className="w-2 h-2" fill="none" stroke="currentColor" strokeWidth="4" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>}
-                        </div>
-                        <span className={`text-[9px] font-bold uppercase tracking-wider transition-colors duration-300 ${regra.valido ? (temaNoturno ? 'text-green-400' : 'text-green-600') : (temaNoturno ? 'text-gray-500' : 'text-gray-400')}`}>{regra.texto}</span>
-                      </div>
-                    ))}
+                <div className={`mt-6 pt-6 border-t ${temaNoturno ? 'border-rose-900/30' : 'border-rose-200'}`}>
+                  <h3 className="text-[14px] font-semibold tracking-tight text-rose-500 mb-1">Zona de Perigo</h3>
+                  <p className={`text-[11px] leading-relaxed mb-4 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>A deleção apaga permanentemente todos os dados. <span className="font-bold underline">Não pode ser desfeita</span>.</p>
+                  
+                  <div className="flex flex-col gap-2">
+                    <input type="text" placeholder="Digite DELETAR-AROX" value={confirmacaoDelete} onChange={e => setConfirmacaoDelete(e.target.value)} className={`w-full px-3.5 py-2.5 rounded-lg border outline-none text-[12px] font-mono font-semibold transition-all focus:ring-1 focus:ring-offset-0 ${temaNoturno ? 'bg-rose-500/5 border-rose-500/20 focus:border-rose-500 text-rose-300 placeholder-rose-900' : 'bg-rose-50 border-rose-200 focus:border-rose-400 text-rose-900 placeholder-rose-300'}`} />
+                    <button disabled={confirmarDeleteBloqueado} onClick={deletarWorkspace} className={`w-full py-2.5 rounded-lg text-[13px] font-bold transition-all shadow-sm outline-none flex items-center justify-center gap-2 ${confirmarDeleteBloqueado ? (temaNoturno ? 'bg-white/5 text-zinc-600 cursor-not-allowed' : 'bg-black/5 text-zinc-400 cursor-not-allowed') : 'bg-rose-600 hover:bg-rose-700 text-white active:scale-[0.98]'}`}>
+                      Deletar Permanentemente
+                    </button>
                   </div>
                 </div>
               </div>
-              
-              <button disabled={!senhaValida || !senhaAtual} onClick={handleSalvarSenha} className={`w-full font-black py-4 rounded-xl mt-6 transition-all shadow-sm flex items-center justify-center gap-2 ${senhaValida && senhaAtual ? (temaNoturno ? 'bg-green-600/20 text-green-400 border border-green-600/50 hover:bg-green-600/30' : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 cursor-pointer') : (temaNoturno ? 'bg-gray-800/80 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed')}`}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"></path></svg>
-                <span>Atualizar Senha de Acesso</span>
-              </button>
             </div>
 
+            <div className={`p-5 sm:p-6 border-t shrink-0 flex justify-end ${temaNoturno ? 'border-white/[0.06] bg-[#0A0A0A]' : 'border-zinc-200 bg-white'}`}>
+              <button onClick={handleSalvarGeral} className={`w-full sm:w-auto px-8 py-2.5 rounded-lg text-[13px] font-bold transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-2 outline-none ${temaNoturno ? 'bg-white text-zinc-900 hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}>
+                Salvar Workspace
+              </button>
+            </div>
           </div>
-        </div>
-      </div>
+        )}
+
+        {/* ABA: CATÁLOGO */}
+        {abaPrincipal === 'catalogo' && (
+           <AdminProdutos empresaId={ID_EMPRESA_REAL} temaNoturno={temaNoturno} {...props} />
+        )}
+
+        {/* ABA: DELIVERY */}
+        {abaPrincipal === 'delivery' && (
+           <AdminDelivery empresaId={ID_EMPRESA_REAL} temaNoturno={temaNoturno} {...props} />
+        )}
+
+        {/* ABA: TAGS */}
+        {abaPrincipal === 'tags' && (
+           <ModalConfigTags sessao={sessao} tagsGlobais={tagsGlobais} setTagsGlobais={setTagsGlobais} temaNoturno={temaNoturno} {...props} />
+        )}
+
+      </main>
     </div>
   );
 }

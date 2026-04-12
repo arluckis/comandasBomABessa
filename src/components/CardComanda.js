@@ -1,99 +1,140 @@
+// src/components/CardComanda.js
+'use client';
+
 export default function CardComanda({ comanda, onClick, temaNoturno }) {
-  // VARIÁVEL DE SEGURANÇA ANTICRASH
-  const produtosSeguros = comanda?.produtos || [];
-
-  const valorTotal = produtosSeguros.reduce((acc, p) => acc + p.preco, 0);
-  const valorPago = produtosSeguros.filter(p => p.pago).reduce((acc, p) => acc + p.preco, 0);
-  const restante = valorTotal - valorPago;
-
-  const formatarAbertura = (isoDate) => {
-    if (!isoDate) return { texto: '', isOutroDia: false, dataCurta: '' };
-    const d = new Date(isoDate);
-    const dia = String(d.getDate()).padStart(2, '0');
-    const mes = String(d.getMonth() + 1).padStart(2, '0');
-    const hora = String(d.getHours()).padStart(2, '0');
-    const min = String(d.getMinutes()).padStart(2, '0');
-    
-    const hoje = new Date();
-    const isOutroDia = d.getDate() !== hoje.getDate() || d.getMonth() !== hoje.getMonth() || d.getFullYear() !== hoje.getFullYear();
-    
-    if (!isOutroDia) {
-      return { texto: `Hoje às ${hora}:${min}`, isOutroDia: false, dataCurta: `${dia}/${mes}` };
-    }
-    return { texto: `${dia}/${mes} às ${hora}:${min}`, isOutroDia: true, dataCurta: `${dia}/${mes}` };
-  };
-
-  const abertura = formatarAbertura(comanda.hora_abertura);
   const isDelivery = comanda.tipo === 'Delivery';
-
-  // Cores de fundo: Fica Cinza se for de outro dia. Caso contrário, roxo/laranja normal.
-  const bgClass = abertura.isOutroDia
-    ? (temaNoturno ? 'bg-gray-800 border-gray-600 hover:border-gray-500' : 'bg-gray-200/80 border-gray-300 hover:border-gray-400')
-    : temaNoturno 
-      ? (isDelivery ? 'bg-orange-900/20 border-orange-800/50 hover:border-orange-500' : 'bg-purple-900/20 border-purple-800/50 hover:border-purple-500') 
-      : (isDelivery ? 'bg-orange-50/70 border-orange-200 hover:border-orange-400' : 'bg-purple-50/70 border-purple-200 hover:border-purple-400');
+  
+  // Cálculo do total
+  const totalOriginal = (comanda.produtos || []).reduce((acc, p) => acc + (Number(p.preco) || 0), 0) + (Number(comanda.taxa_entrega) || 0);
+  const totalPago = (comanda.pagamentos || []).reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
+  const totalPendente = totalOriginal - totalPago;
+  
+  // Status de pagamento e produtos
+  const isPagaParcial = totalPago > 0 && totalPendente > 0.01;
+  const isPagaTotal = totalOriginal > 0 && totalPendente <= 0.01;
+  const qtdProdutos = (comanda.produtos || []).length;
+  
+  // Tempo aberto com cálculo de Semanas e Dias
+  const getTempoAberto = () => {
+    if (!comanda.hora_abertura) return '';
+    try {
+      const ms = new Date() - new Date(comanda.hora_abertura);
+      if (isNaN(ms) || ms < 0) return '';
+      
+      const minutosTotais = Math.floor(ms / 60000);
+      const minutos = minutosTotais % 60;
+      
+      const horasTotais = Math.floor(minutosTotais / 60);
+      const horas = horasTotais % 24;
+      
+      const diasTotais = Math.floor(horasTotais / 24);
+      const dias = diasTotais % 7;
+        
+      if (diasTotais > 0) {
+        return horas > 0 ? `${diasTotais}d ${horas}h` : `${diasTotais}d`;
+      }
+      if (horasTotais > 0) {
+        return minutos > 0 ? `${horasTotais}h ${minutos}m` : `${horasTotais}h`;
+      }
+      return `${minutosTotais}m`;
+    } catch(e) { return ''; }
+  };
+  const tempoTexto = getTempoAberto();
 
   return (
-    <button 
-      onClick={onClick} 
-      className={`w-44 min-h-[12rem] h-fit rounded-3xl p-4 flex flex-col hover:shadow-xl transition-all duration-300 cursor-pointer text-left relative active:scale-95 border shadow-sm overflow-hidden ${bgClass}`}
+    <div 
+      onClick={onClick}
+      className={`relative w-full sm:w-[280px] cursor-pointer rounded-2xl border p-5 transition-all duration-300 ease-out flex flex-col justify-between h-[152px] group overflow-hidden ${
+        temaNoturno 
+          ? 'bg-[#0A0A0A] border-white/[0.08] hover:border-white/[0.15] hover:shadow-lg' 
+          : 'bg-white border-black/[0.08] hover:border-black/[0.15] hover:shadow-md'
+      }`}
     >
-      {/* Banner vermelho destacando o dia que foi aberta caso seja antiga */}
-      {abertura.isOutroDia && (
-        <div className="absolute top-0 left-0 right-0 bg-red-600 text-white text-[9px] font-black text-center uppercase py-1.5 tracking-widest shadow-md">
-          Aberto dia {abertura.dataCurta}
-        </div>
+      {/* IDENTIDADE LOGÍSTICA SUTIL */}
+      {isDelivery && (
+        <div className={`absolute inset-0 pointer-events-none transition-opacity duration-300 ${temaNoturno ? 'bg-gradient-to-br from-amber-500/[0.03] to-transparent' : 'bg-gradient-to-br from-amber-500/[0.04] to-transparent'}`}></div>
       )}
 
-      {/* Margem superior dinâmica para empurrar o conteúdo caso o banner esteja ativado */}
-      <div className={`flex flex-col mb-2 w-full gap-1 ${abertura.isOutroDia ? 'mt-4' : ''}`}>
-        <div className="flex justify-between items-start w-full gap-2">
-          <h3 className={`font-black text-sm uppercase leading-snug line-clamp-2 break-words pr-1 ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>
+      {/* HEADER DO CARD */}
+      <div className="flex justify-between items-start gap-3 w-full relative z-10">
+        <div className="flex flex-col min-w-0 gap-1.5 w-full pr-2">
+          
+          <h3 className={`font-bold text-[15px] truncate tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
             {comanda.nome}
           </h3>
-          <span className={`text-[9px] font-bold uppercase px-2 py-1 rounded-md shrink-0 border mt-0.5 ${
-            abertura.isOutroDia
-              ? (temaNoturno ? 'bg-gray-700 text-gray-300 border-gray-500' : 'bg-white text-gray-600 border-gray-400')
-              : isDelivery 
-                ? (temaNoturno ? 'bg-orange-900/50 text-orange-300 border-orange-700' : 'bg-orange-100 text-orange-700 border-orange-300') 
-                : (temaNoturno ? 'bg-purple-900/50 text-purple-300 border-purple-700' : 'bg-purple-100 text-purple-700 border-purple-300')
-          }`}>
-            {comanda.tipo.substring(0, 3)}
-          </span>
-        </div>
-        
-        {comanda.hora_abertura && (
-          <span className={`text-[10px] font-medium flex items-center gap-1 mt-1 w-fit ${
-            abertura.isOutroDia 
-              ? (temaNoturno ? 'bg-red-900/40 text-red-300 px-1.5 py-0.5 rounded-md border border-red-800/50' : 'bg-red-50 text-red-700 px-1.5 py-0.5 rounded-md border border-red-200')
-              : (temaNoturno ? 'text-gray-400' : 'text-gray-600')
-          }`}>
-            <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            {abertura.texto}
-          </span>
-        )}
-      </div>
-
-      {comanda.tags && comanda.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2 w-full pb-1">
-          {comanda.tags.map(tag => (
-            <span key={tag} className={`text-[9px] px-2 py-0.5 rounded-md font-bold whitespace-nowrap border shrink-0 ${
-              temaNoturno ? 'bg-gray-800/50 text-gray-300 border-gray-600' : 'bg-white/60 text-gray-600 border-gray-300'
+          
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase border ${
+              isDelivery 
+                ? (temaNoturno ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-amber-50 border-amber-200 text-amber-700')
+                : (temaNoturno ? 'bg-white/5 border-white/5 text-zinc-400' : 'bg-black/5 border-black/5 text-zinc-600')
             }`}>
-              {tag}
+              {isDelivery ? 'Delivery' : 'Local'}
             </span>
-          ))}
+            
+            {tempoTexto && (
+               <span className={`text-[10px] font-bold tracking-wider ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                 {tempoTexto}
+               </span>
+            )}
+          </div>
         </div>
-      )}
 
-      <div className={`mt-auto pt-3 border-t w-full shrink-0 ${temaNoturno ? 'border-gray-700/50' : 'border-gray-300/50'}`}>
-        <div className={`flex justify-between items-center text-[10px] font-bold mb-1 ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>
-          <span>Itens: {produtosSeguros.length}</span>
+        {/* STATUS VISUAL PREMIUM */}
+        <div className="shrink-0 flex items-center justify-end">
+          {isPagaTotal && (
+             <div className={`px-2 py-1 rounded text-[9px] font-black tracking-widest uppercase border ${temaNoturno ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>
+               Pago
+             </div>
+          )}
+          {isPagaParcial && !isPagaTotal && (
+             <div className={`px-2 py-1 rounded text-[9px] font-black tracking-widest uppercase border ${temaNoturno ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
+               Parcial
+             </div>
+          )}
         </div>
-        <p className={`font-black text-xl tracking-tight whitespace-nowrap overflow-hidden text-ellipsis ${temaNoturno ? 'text-green-400' : 'text-green-600'}`}>
-          <span className="text-[10px] opacity-70">R$</span> {restante.toFixed(2)}
-        </p>
       </div>
-    </button>
+
+      {/* FOOTER DO CARD (O valor riscado não aumenta a altura do card) */}
+      <div className="flex justify-between items-end mt-auto relative z-10">
+        
+        <div className="flex flex-col mb-1">
+           <span className={`text-[11px] font-bold uppercase tracking-wider ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>
+             {qtdProdutos === 0 ? 'Vazio' : `${qtdProdutos} ite${qtdProdutos === 1 ? 'm' : 'ns'}`}
+           </span>
+        </div>
+
+        <div className="text-right flex flex-col items-end leading-none relative">
+           {isPagaParcial && !isPagaTotal ? (
+             <>
+               {/* Preço original riscado posicionado de forma ABSOLUTA para não empurrar o layout pra baixo */}
+               <span className={`absolute bottom-full right-0 mb-1 text-[11px] font-bold line-through opacity-40 ${temaNoturno ? 'text-zinc-300' : 'text-zinc-700'}`}>
+                 R$ {totalOriginal.toFixed(2)}
+               </span>
+               <div className="flex items-baseline gap-1.5">
+                 <span className={`text-[12px] font-bold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
+                 <span className={`font-black text-2xl tabular-nums tracking-tighter ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
+                   {totalPendente.toFixed(2)}
+                 </span>
+               </div>
+             </>
+           ) : isPagaTotal ? (
+             <div className="flex items-baseline gap-1.5">
+               <span className={`text-[12px] font-bold ${temaNoturno ? 'text-emerald-500/60' : 'text-emerald-600/60'}`}>R$</span>
+               <span className={`font-black text-2xl tabular-nums tracking-tighter ${temaNoturno ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                 {totalOriginal.toFixed(2)}
+               </span>
+             </div>
+           ) : (
+             <div className="flex items-baseline gap-1.5">
+               <span className={`text-[12px] font-bold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
+               <span className={`font-black text-2xl tabular-nums tracking-tighter ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
+                 {totalOriginal.toFixed(2)}
+               </span>
+             </div>
+           )}
+        </div>
+      </div>
+    </div>
   );
 }

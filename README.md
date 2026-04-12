@@ -1,4 +1,4 @@
-# Guia de Contexto Técnico - Comandas Bom a Bessa
+# Guia de Contexto Técnico - AROX
 
 ## Arquitetura do Sistema
 * **Framework:** Next.js (App Router)

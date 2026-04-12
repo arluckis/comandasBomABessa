@@ -1,166 +1,152 @@
-// src/components/Sidebar.js
 'use client';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export default function Sidebar({
-  menuMobileAberto, setMenuMobileAberto, temaNoturno, logoEmpresa,
+  menuMobileAberto, setMenuMobileAberto, temaNoturno, setTemaNoturno, logoEmpresa,
   sessao, nomeEmpresa, abaAtiva, setAbaAtiva, setMostrarConfigEmpresa,
-  setMostrarAdminProdutos, setMostrarConfigTags, setMostrarAdminDelivery,
-  fazerLogout
+  fazerLogout, caixaAtual, statusPresenca
 }) {
-  const [planoEmpresa, setPlanoEmpresa] = useState('Carregando...');
+  const [planoEmpresa, setPlanoEmpresa] = useState('Starter');
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [tabTravada, setTabTravada] = useState(false); 
 
-  // Busca o plano real da empresa no banco de dados
+  const isPlanetVisible = abaAtiva === 'comandas' && (!caixaAtual || caixaAtual.status !== 'aberto');
+  const isDark = isPlanetVisible ? true : temaNoturno;
+
   useEffect(() => {
     const buscarPlano = async () => {
       if (sessao?.empresa_id) {
-        const { data, error } = await supabase
-          .from('empresas')
-          .select('plano')
-          .eq('id', sessao.empresa_id)
-          .single();
-          
-        if (!error && data?.plano) {
-          setPlanoEmpresa(data.plano);
-        } else {
-          setPlanoEmpresa('Premium'); // Fallback caso esteja vazio
-        }
+        const { data, error } = await supabase.from('empresas').select('plano').eq('id', sessao.empresa_id).single();
+        if (!error && data?.plano) setPlanoEmpresa(data.plano);
       }
     };
-    
     buscarPlano();
   }, [sessao?.empresa_id]);
 
-  // Ícones Premium Reutilizáveis
-  const iconeComandas = <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>;
-  const iconeEncerradas = <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>;
-  const iconeFaturamento = <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>;
-  const iconeCaixa = <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>;
-  const iconeClientes = <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>;
-  const iconeLoja = <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>;
-  const iconeCardapio = <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>;
-  const iconeTags = <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>;
-  const iconeDelivery = <svg className="w-5 h-5 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>;
+  useEffect(() => {
+    const handleResize = () => { if (window.innerWidth >= 1280) setMenuMobileAberto(false); };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [setMenuMobileAberto]);
 
-  // Função auxiliar para renderizar botões com estilo de abas ativas/inativas sem gradiente
-  const MenuItem = ({ id, titulo, icone, onClick, isAtivo }) => (
+  const fecharPainelEMudarAba = (novaAba) => {
+    setAbaAtiva(novaAba);
+    setMenuMobileAberto(false);
+    document.getElementById('btn-voltar-header')?.click();
+  };
+
+  const handleHoverAba = (id) => { if (!tabTravada) setAbaAtiva(id); };
+  const handleClickAba = (id) => { setTabTravada(true); fecharPainelEMudarAba(id); };
+
+  const iconeComandas = <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>;
+  const iconeEncerradas = <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>;
+  const iconeFaturamento = <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>;
+  const iconeCaixa = <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08-.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>;
+  const iconeClientes = <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>;
+  const iconeConfig = <svg className="w-full h-full" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+  const iconeLogout = <svg className="w-full h-full" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>;
+
+  const MenuItem = ({ id, titulo, icone, onClick, onHover, isAtivo, hoverable }) => (
     <button 
-      onClick={onClick} 
-      className={`w-full p-3.5 rounded-xl text-left font-bold text-sm transition-all duration-300 flex items-center gap-3 relative overflow-hidden group ${
-        isAtivo 
-          ? (temaNoturno 
-              ? 'bg-gray-800 text-purple-400 border-l-4 border-purple-500 shadow-sm' 
-              : 'bg-purple-50 text-purple-700 border-l-4 border-purple-600 shadow-sm') 
-          : (temaNoturno 
-              ? 'text-gray-400 hover:bg-gray-800/80 hover:text-gray-200 border-l-4 border-transparent' 
-              : 'text-gray-500 hover:bg-gray-50 hover:text-purple-600 border-l-4 border-transparent')
+      onClick={(e) => {
+        if (hoverable) {
+          const target = e.currentTarget;
+          target.classList.add('scale-[0.98]');
+          setTimeout(() => target && target.classList.remove('scale-[0.98]'), 150);
+        }
+        onClick(e);
+      }} 
+      onMouseEnter={() => { if (hoverable && onHover) onHover(); }}
+      className={`relative w-full rounded-lg font-medium transition-all duration-200 flex items-center outline-none group overflow-hidden 
+        py-3.5 px-3 gap-3 text-[13px]
+        ${isAtivo 
+          ? (isDark ? 'text-zinc-100 bg-white/[0.06]' : 'text-zinc-900 bg-zinc-100/80') 
+          : (isDark ? 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50/80')
       }`}
     >
-      <span className={`transition-transform duration-300 ${isAtivo ? 'scale-110' : 'group-hover:scale-110'}`}>
-        {icone}
-      </span>
-      {titulo}
+      <span className={`shrink-0 transition-all duration-200 w-[18px] h-[18px] flex items-center justify-center ${isAtivo ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'}`}>{icone}</span>
+      <span className={`truncate whitespace-nowrap min-w-0 tracking-tight block xl:opacity-0 xl:w-0 group-hover/sidebar:xl:w-auto group-hover/sidebar:xl:opacity-100 xl:transition-opacity xl:duration-200`}>{titulo}</span>
+      {isAtivo && <span className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[16px] rounded-r-full ${isDark ? 'bg-zinc-300' : 'bg-zinc-800'}`}></span>}
     </button>
   );
 
   return (
     <>
-      {/* OVERLAY DE FUNDO COM TRANSIÇÃO (Backdrop) */}
-      <div 
-        className={`fixed inset-0 z-[100] xl:hidden bg-black/60 backdrop-blur-sm transition-opacity duration-500 ease-in-out ${menuMobileAberto ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} 
-        onClick={() => setMenuMobileAberto(false)}
-      ></div>
+      <div className={`fixed inset-0 z-[90] xl:hidden bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${menuMobileAberto ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setMenuMobileAberto(false)} />
       
-      {/* PAINEL LATERAL COM DESLIZE (Slide) */}
-      <div className={`fixed top-0 left-0 h-full w-[85%] max-w-[320px] z-[101] xl:hidden transform transition-transform duration-500 ease-[cubic-bezier(0.2,1,0.3,1)] shadow-2xl flex flex-col overflow-hidden ${menuMobileAberto ? 'translate-x-0' : '-translate-x-full'} ${temaNoturno ? 'bg-[#0f0f13] border-r border-gray-800/60' : 'bg-white border-r border-gray-100'}`}>
-         
-         {/* Efeitos Glow Premium Fundo */}
-         {temaNoturno ? (
-           <>
-             <div className="absolute top-0 left-0 w-64 h-64 bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"></div>
-             <div className="absolute bottom-0 right-0 w-64 h-64 bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none"></div>
-           </>
-         ) : (
-           <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-br from-purple-50/50 to-transparent pointer-events-none"></div>
-         )}
+      <div className={`hidden xl:block shrink-0 transition-[width] duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[width] ${isExpanded ? 'w-[260px]' : 'w-[72px]'}`} />
 
-         {/* HEADER DA SIDEBAR & BOTÃO FECHAR */}
-         <div className="p-4 flex items-center relative z-10">
-            <button 
-              onClick={() => setMenuMobileAberto(false)} 
-              className={`relative w-10 h-10 flex items-center justify-center rounded-full border transition-colors active:scale-95 ${temaNoturno ? 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 hover:bg-gray-100 text-gray-500'}`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
+      <aside 
+        onMouseEnter={() => setIsExpanded(true)}
+        onMouseLeave={() => { setIsExpanded(false); setTabTravada(false); }}
+        className={`group/sidebar fixed top-0 left-0 h-full flex flex-col z-[100] transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] overflow-hidden will-change-transform
+        ${menuMobileAberto ? 'translate-x-0 shadow-2xl' : '-translate-x-full xl:translate-x-0'}
+        w-[80vw] max-w-[280px] xl:w-[72px] hover:xl:w-[260px] xl:border-r hover:xl:shadow-2xl 
+        backdrop-blur-[40px] pt-0 xl:pt-6 ${isDark ? 'bg-[#09090B]/90 border-white/[0.04]' : 'bg-white/95 border-zinc-200/60'}
+      `}>
+         
+         <div className="xl:hidden h-[72px] px-5 flex items-center shrink-0 border-b mb-4 transition-colors duration-500 border-black/5 dark:border-white/5">
+             <span className={`font-black tracking-tighter text-[16px] leading-none ${isDark ? 'text-zinc-100' : 'text-zinc-900'}`}>AROX</span>
          </div>
 
-         {/* PERFIL E LOGO */}
-         <div className={`px-6 pb-6 pt-2 border-b relative z-10 flex flex-col ${temaNoturno ? 'border-gray-800/60' : 'border-gray-100'}`}>
-            <div className="flex gap-4 items-center">
-              <div className={`w-16 h-16 rounded-full shadow-inner overflow-hidden border-2 shrink-0 ${temaNoturno ? 'border-gray-700 bg-gray-800' : 'border-purple-100 bg-purple-50'}`}>
-                 <img src={logoEmpresa} alt="Logo" className="w-full h-full object-cover" onError={(e) => e.target.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} />
-              </div>
-              <div className="flex flex-col flex-1 min-w-0">
-                <h3 className={`font-black text-xl leading-tight truncate ${temaNoturno ? 'text-white' : 'text-gray-900'}`}>{sessao.nome_usuario}</h3>
-                <p className={`text-xs font-bold uppercase tracking-widest mt-0.5 truncate ${temaNoturno ? 'text-gray-400' : 'text-gray-500'}`}>{nomeEmpresa}</p>
-                
-                {/* Badge Premium Plano */}
-                <div className="mt-2 flex">
-                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border shadow-sm ${temaNoturno ? 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20' : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200'}`}>
-                    <svg className={`w-3 h-3 ${temaNoturno ? 'text-amber-400' : 'text-amber-600'}`} viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                    <span className={`text-[9px] font-black uppercase tracking-widest ${temaNoturno ? 'text-amber-400' : 'text-amber-600'}`}>{planoEmpresa}</span>
-                  </div>
-                </div>
-              </div>
+         <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 xl:px-3 [&::-webkit-scrollbar]:hidden flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
+              <p className={`px-3 text-[10px] font-semibold uppercase tracking-widest mb-1.5 whitespace-nowrap ${isDark ? 'text-zinc-500' : 'text-zinc-400'} xl:opacity-0 xl:h-0 group-hover/sidebar:xl:h-auto group-hover/sidebar:xl:opacity-100 transition-all duration-200`}>Operação</p>
+              <div className="hidden xl:block h-px w-4 mx-auto bg-current opacity-10 mb-2 mt-1 group-hover/sidebar:xl:hidden transition-opacity"></div>
+              <MenuItem id="comandas" titulo="Terminal" icone={iconeComandas} hoverable={true} isAtivo={abaAtiva === 'comandas'} onClick={() => handleClickAba('comandas')} onHover={() => handleHoverAba('comandas')} />
+              <MenuItem id="fechadas" titulo="Histórico" icone={iconeEncerradas} hoverable={true} isAtivo={abaAtiva === 'fechadas'} onClick={() => handleClickAba('fechadas')} onHover={() => handleHoverAba('fechadas')} />
+              {(sessao?.role === 'dono' || sessao?.perm_faturamento) && <MenuItem id="faturamento" titulo="Métricas" hoverable={true} icone={iconeFaturamento} isAtivo={abaAtiva === 'faturamento'} onClick={() => handleClickAba('faturamento')} onHover={() => handleHoverAba('faturamento')} />}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <p className={`px-3 text-[10px] font-semibold uppercase tracking-widest mb-1.5 whitespace-nowrap ${isDark ? 'text-zinc-500' : 'text-zinc-400'} xl:opacity-0 xl:h-0 group-hover/sidebar:xl:h-auto group-hover/sidebar:xl:opacity-100 transition-all duration-200`}>Gestão</p>
+              <div className="hidden xl:block h-px w-4 mx-auto bg-current opacity-10 mb-2 mt-1 group-hover/sidebar:xl:hidden transition-opacity"></div>
+              <MenuItem id="caixa" titulo="Caixa Central" icone={iconeCaixa} hoverable={true} isAtivo={abaAtiva === 'caixa'} onClick={() => handleClickAba('caixa')} onHover={() => handleHoverAba('caixa')} />
+              {(sessao?.role === 'dono' || sessao?.perm_fidelidade || sessao?.perm_estudo) && <MenuItem id="fidelidade" titulo="Clientes" hoverable={true} icone={iconeClientes} isAtivo={abaAtiva === 'fidelidade'} onClick={() => handleClickAba('fidelidade')} onHover={() => handleHoverAba('fidelidade')} />}
             </div>
          </div>
 
-         {/* NAVEGAÇÃO ROLÁVEL */}
-         <div className="flex-1 overflow-y-auto py-6 custom-scrollbar relative z-10">
-            <p className={`px-6 text-[10px] font-black uppercase tracking-[0.2em] mb-3 ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Gestão Diária</p>
-            <nav className="flex flex-col gap-1 px-3">
-              <MenuItem id="comandas" titulo="Comandas em Aberto" icone={iconeComandas} isAtivo={abaAtiva === 'comandas'} onClick={() => { setAbaAtiva('comandas'); setMenuMobileAberto(false); }} />
-              <MenuItem id="fechadas" titulo="Comandas Encerradas" icone={iconeEncerradas} isAtivo={abaAtiva === 'fechadas'} onClick={() => { setAbaAtiva('fechadas'); setMenuMobileAberto(false); }} />
-              
-              {(sessao.role === 'dono' || sessao.perm_faturamento) && (
-                <MenuItem id="faturamento" titulo="Faturamento" icone={iconeFaturamento} isAtivo={abaAtiva === 'faturamento'} onClick={() => { setAbaAtiva('faturamento'); setMenuMobileAberto(false); }} />
-              )}
-              
-              <MenuItem id="caixa" titulo="Fechamento de Caixa" icone={iconeCaixa} isAtivo={abaAtiva === 'caixa'} onClick={() => { setAbaAtiva('caixa'); setMenuMobileAberto(false); }} />
-              
-              {(sessao.role === 'dono' || sessao.perm_fidelidade || sessao.perm_estudo) && (
-                <MenuItem id="fidelidade" titulo="Fidelidade e Clientes" icone={iconeClientes} isAtivo={abaAtiva === 'fidelidade'} onClick={() => { setAbaAtiva('fidelidade'); setMenuMobileAberto(false); }} />
-              )}
-            </nav>
-
-            {/* SEÇÃO ADMINISTRAÇÃO */}
-            <p className={`px-6 text-[10px] font-black uppercase tracking-[0.2em] mb-3 mt-8 ${temaNoturno ? 'text-gray-600' : 'text-gray-400'}`}>Administração</p>
-            <nav className="flex flex-col gap-1 px-3">
-              {sessao.role === 'dono' && (
-                <MenuItem titulo="Configurações da Loja" icone={iconeLoja} onClick={() => { setMostrarConfigEmpresa(true); setMenuMobileAberto(false); }} />
-              )}
-              {(sessao.role === 'dono' || sessao.perm_cardapio) && (
-                <MenuItem titulo="Gerenciar Cardápio" icone={iconeCardapio} onClick={() => { setMostrarAdminProdutos(true); setMenuMobileAberto(false); }} />
-              )}
-              {sessao.role === 'dono' && (
-                <MenuItem titulo="Configurar Tags" icone={iconeTags} onClick={() => { setMostrarConfigTags(true); setMenuMobileAberto(false); }} />
-              )}
-              {sessao.role === 'dono' && (
-                <MenuItem titulo="Delivery e Taxas" icone={iconeDelivery} onClick={() => { setMostrarAdminDelivery(true); setMenuMobileAberto(false); }} />
-              )}
-            </nav>
+         <div className="mt-auto shrink-0 overflow-hidden transition-colors duration-300 pb-4 xl:pb-4">
+            <div className="px-4 xl:px-3 pt-3 flex flex-col gap-2">
+               
+               <div className={`flex items-center px-3 py-3 rounded-lg mb-2 xl:justify-center group-hover/sidebar:xl:justify-start ${isDark ? 'bg-white/[0.03] border border-white/[0.04]' : 'bg-zinc-50 border border-zinc-100'}`}>
+                 <div className="relative shrink-0 flex items-center justify-center w-[20px] h-[20px] xl:w-[18px] xl:h-[18px]">
+                   <img src={logoEmpresa || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'} alt="Logo" className="w-full h-full object-cover rounded-full" />
+                   
+                   <span className={`absolute -bottom-0.5 -right-0.5 block h-2 w-2 rounded-full transition-colors duration-300 ${statusPresenca === 'online' ? 'bg-emerald-500' : 'bg-amber-500'} ring-2 ${isDark ? 'ring-[#18181b]' : 'ring-white'}`}></span>
+                 </div>
+                 
+                 <div className="flex flex-col min-w-0 ml-3 xl:opacity-0 xl:w-0 group-hover/sidebar:xl:w-auto group-hover/sidebar:xl:opacity-100 transition-opacity duration-200">
+                    <span className={`text-[12px] font-medium truncate leading-none tracking-tight ${isDark ? 'text-zinc-200' : 'text-zinc-800'}`}>{nomeEmpresa || 'Estabelecimento'}</span>
+                    <span className={`text-[10px] flex items-center gap-1.5 font-medium truncate mt-1 tracking-wide ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                      {sessao?.nome_usuario || 'Usuário'}
+                      <span className={`px-1 rounded-sm text-[8px] uppercase tracking-widest font-semibold ${isDark ? 'bg-white/10 text-zinc-300' : 'bg-zinc-200/80 text-zinc-600'}`}>{(!planoEmpresa || ['free', 'grátis', 'starter'].includes(planoEmpresa.toLowerCase())) ? 'BETA' : 'PRO'}</span>
+                    </span>
+                 </div>
+               </div>
+               
+               {sessao?.role === 'dono' && (
+                 <MenuItem 
+                    titulo="Ajustes do Sistema" 
+                    hoverable={false} 
+                    icone={iconeConfig} 
+                    onClick={() => {
+                      setMostrarConfigEmpresa(true); 
+                      setMenuMobileAberto(false);
+                    }} 
+                 />
+               )}
+               
+               <MenuItem titulo={temaNoturno ? 'Modo Claro' : 'Modo Escuro'} hoverable={false} icone={temaNoturno ? <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg> : <svg className="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>} onClick={() => setTemaNoturno(!temaNoturno)} />
+               
+               <button onClick={fazerLogout} className={`relative w-full rounded-lg font-medium transition-colors duration-200 flex items-center outline-none group overflow-hidden mt-1 py-3.5 px-3 gap-3 text-[13px] ${isDark ? 'text-zinc-500 hover:text-red-400 hover:bg-white/[0.03]' : 'text-zinc-400 hover:text-red-600 hover:bg-zinc-50/80'}`}>
+                 <span className="shrink-0 transition-transform duration-200 w-[18px] h-[18px] opacity-70 group-hover:opacity-100 flex items-center justify-center">{iconeLogout}</span>
+                 <span className="truncate whitespace-nowrap min-w-0 tracking-tight block xl:opacity-0 xl:w-0 group-hover/sidebar:xl:w-auto group-hover/sidebar:xl:opacity-100 xl:transition-opacity xl:duration-200">Sair da Plataforma</span>
+               </button>
+            </div>
          </div>
-
-         {/* BOTÃO SAIR */}
-         <div className={`p-4 border-t relative z-10 ${temaNoturno ? 'border-gray-800/60 bg-black/20' : 'border-gray-100 bg-gray-50/50'}`}>
-           <button onClick={fazerLogout} className={`w-full font-black text-sm p-4 rounded-xl transition-all shadow-sm flex justify-center items-center gap-2 active:scale-95 group ${temaNoturno ? 'bg-red-900/10 text-red-400 border border-red-900/30 hover:bg-red-900/30' : 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100'}`}>
-             <svg className="w-5 h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg> 
-             Desconectar Sessão
-           </button>
-         </div>
-
-      </div>
+      </aside>
     </>
   );
 }

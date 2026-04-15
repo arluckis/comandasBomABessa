@@ -5,7 +5,7 @@ import SystemLoader from './SystemLoader';
 import ErrorBoundary from './ui/ErrorBoundary';
 
 // Importação Assíncrona dos Músicos + Skeleton Loaders
-import { SkeletonCategorias, SkeletonGradeProdutos, SkeletonCarrinho } from './ui/Skeletons';
+import { SkeletonPainelComanda } from './ui/Skeletons';
 
 const BarraBusca = dynamic(() => import('./PainelComanda/BarraBusca'), { ssr: false });
 const TabsMobile = dynamic(() => import('./PainelComanda/TabsMobile'), { ssr: false });

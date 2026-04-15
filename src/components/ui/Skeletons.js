@@ -1,115 +1,103 @@
 'use client';
-import React, { useState } from 'react';
+import React from 'react';
 
-// Hook Inteligente para detetar o tema no exato milissegundo do carregamento
-const useTemaSincronizado = () => {
-  const [isDark] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const salvo = localStorage.getItem('arox_tema_noturno');
-      return salvo !== 'false'; // Se for null ou 'true', assume escuro (seu padrão)
-    }
-    return true;
-  });
-  return isDark;
-};
-
-// A MÁGICA DE ALTO PADRÃO: CSS injetado de forma isolada
-const PremiumShimmerStyles = () => (
+// --- 1. O MOTOR DE SHIMMER (Injetado apenas uma vez) ---
+const ShimmerEngine = () => (
   <style dangerouslySetInnerHTML={{__html: `
-    @keyframes premium-shimmer {
+    @keyframes arox-shimmer {
       0% { transform: translateX(-100%); }
-      100% { transform: translateX(200%); }
+      100% { transform: translateX(100%); }
     }
-    .shimmer-wrapper {
-      position: relative;
-      overflow: hidden;
-    }
-    .shimmer-wrapper::after {
-      content: '';
-      position: absolute;
-      top: 0; right: 0; bottom: 0; left: 0;
-      transform: translateX(-100%);
-      animation: premium-shimmer 2s infinite cubic-bezier(0.4, 0.0, 0.2, 1);
-    }
-    .shimmer-light::after {
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent);
-    }
-    .shimmer-dark::after {
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+    .animate-shimmer {
+      animation: arox-shimmer 2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
     }
   `}} />
 );
 
-// Componente Base com lógica de Tema Inteligente
-const SkeletonBlock = ({ isDark, className, delay = 0 }) => {
-  const bgClass = isDark ? 'bg-[#18181b] border border-white/[0.04]' : 'bg-[#f4f4f5] border border-black/[0.02]';
-  const shimmerClass = isDark ? 'shimmer-dark' : 'shimmer-light';
-  
+// --- 2. BLOCO ATÔMICO (A base de tudo) ---
+export const SkeletonBlock = ({ temaNoturno = true, className = '', delay = 0, style = {} }) => {
+  // Cores ultra-sutis (Ghost UI)
+  const baseColor = temaNoturno 
+    ? 'bg-white/[0.02] border-white/[0.02]' 
+    : 'bg-black/[0.03] border-black/[0.02]';
+    
+  const shimmerGradient = temaNoturno 
+    ? 'from-transparent via-white/[0.04] to-transparent' 
+    : 'from-transparent via-black/[0.04] to-transparent';
+
   return (
     <div 
-      className={`shimmer-wrapper ${shimmerClass} ${bgClass} rounded-xl ${className}`}
-      style={{ animationDelay: `${delay}ms` }}
-    />
+      className={`relative overflow-hidden border ${baseColor} ${className}`} 
+      style={{ ...style, animationDelay: `${delay}ms` }}
+    >
+      <div className={`absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r ${shimmerGradient}`} />
+    </div>
   );
 };
 
-// 1. Esqueleto para a Barra de Categorias
-export function SkeletonCategorias() {
-  const isDark = useTemaSincronizado();
-  const borderSkeleton = isDark ? 'border-white/[0.06]' : 'border-black/[0.06]';
 
-  return (
-    <div className={`w-full shrink-0 border-b px-4 py-3 flex gap-3 overflow-hidden ${borderSkeleton}`}>
-      <PremiumShimmerStyles />
-      {[1, 2, 3, 4, 5, 6].map((i, index) => (
-        <SkeletonBlock key={i} isDark={isDark} className="h-8 w-24 shrink-0 rounded-md" delay={index * 100} />
-      ))}
+// --- 3. ESQUELETO DAS ABAS (Usado no page.js) ---
+export const SkeletonTabContent = ({ temaNoturno = true }) => (
+  <div className="w-full h-full flex flex-col gap-6 p-4 md:p-8 pt-2 md:pt-6 animate-in fade-in duration-500">
+    <ShimmerEngine />
+    
+    {/* Título da Aba fantasma */}
+    <SkeletonBlock temaNoturno={temaNoturno} className="w-48 h-8 rounded-lg mb-2" />
+    
+    {/* Grid principal de conteúdo */}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full flex-1">
+      <SkeletonBlock temaNoturno={temaNoturno} className="lg:col-span-2 rounded-[32px] h-full min-h-[400px]" delay={100} />
+      <SkeletonBlock temaNoturno={temaNoturno} className="rounded-[32px] h-full min-h-[400px]" delay={200} />
     </div>
-  );
-}
+  </div>
+);
 
-// 2. Esqueleto para a Grade de Produtos (Lado Esquerdo)
-export function SkeletonGradeProdutos({ abaDetalheMobile }) {
-  const isDark = useTemaSincronizado();
-  const borderSkeleton = isDark ? 'border-white/[0.06]' : 'border-black/[0.06]';
 
+// --- 4. ESQUELETO DO PAINEL DE COMANDAS ---
+export const SkeletonPainelComanda = ({ temaNoturno = true, abaDetalheMobile = 'menu' }) => {
   return (
-    <div className={`w-full md:w-[65%] lg:w-[70%] flex flex-col h-full min-h-0 border-r p-4 md:p-6 ${abaDetalheMobile === 'menu' ? 'flex' : 'hidden md:flex'} ${borderSkeleton}`}>
-      <PremiumShimmerStyles />
-      
-      <SkeletonBlock isDark={isDark} className="w-full h-[76px] mb-6" />
-      <SkeletonBlock isDark={isDark} className="h-4 w-32 mb-4 rounded-md" delay={150} />
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i, index) => (
-          <SkeletonBlock key={i} isDark={isDark} className="h-[68px]" delay={200 + (index * 50)} />
+    <div className="w-full h-full flex flex-col animate-in fade-in duration-500 rounded-[32px] overflow-hidden border border-transparent">
+      <ShimmerEngine />
+
+      {/* Header (Categorias) */}
+      <div className={`w-full shrink-0 px-4 py-3 flex gap-3 overflow-hidden border-b ${temaNoturno ? 'border-white/[0.04]' : 'border-black/[0.04]'}`}>
+        {[1, 2, 3, 4, 5, 6].map((i, idx) => (
+          <SkeletonBlock key={i} temaNoturno={temaNoturno} className="h-8 w-24 shrink-0 rounded-lg" delay={idx * 50} />
         ))}
       </div>
-    </div>
-  );
-}
 
-// 3. Esqueleto para o Carrinho (Lado Direito)
-export function SkeletonCarrinho({ abaDetalheMobile }) {
-  const isDark = useTemaSincronizado();
-
-  return (
-    <div className={`w-full md:w-[35%] lg:w-[30%] flex flex-col h-full min-h-0 p-4 md:p-5 ${abaDetalheMobile === 'resumo' ? 'flex' : 'hidden md:flex'} ${isDark ? 'bg-[#0A0A0A]' : 'bg-[#FAFAFA]'}`}>
-      <PremiumShimmerStyles />
-      
-      <div className="flex-1 space-y-6 mt-4">
-        {[1, 2, 3].map((i, index) => (
-          <div key={i} className="flex justify-between items-start">
-             <div className="flex flex-col gap-2 w-full pr-4">
-               <SkeletonBlock isDark={isDark} className="h-4 w-3/4 rounded" delay={index * 100} />
-               <SkeletonBlock isDark={isDark} className="h-8 w-24 rounded-md" delay={(index * 100) + 50} />
-             </div>
-             <SkeletonBlock isDark={isDark} className="h-4 w-12 rounded shrink-0" delay={index * 100} />
+      <div className="flex flex-1 min-h-0">
+        {/* Esquerdo: Grade de Produtos */}
+        <div className={`w-full md:w-[65%] lg:w-[70%] flex flex-col h-full p-4 md:p-6 md:border-r ${abaDetalheMobile === 'menu' ? 'flex' : 'hidden md:flex'} ${temaNoturno ? 'border-white/[0.04]' : 'border-black/[0.04]'}`}>
+          <SkeletonBlock temaNoturno={temaNoturno} className="w-full h-[76px] mb-6 rounded-[20px]" />
+          <SkeletonBlock temaNoturno={temaNoturno} className="h-4 w-32 mb-5 rounded-md" delay={100} />
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i, idx) => (
+              <SkeletonBlock key={i} temaNoturno={temaNoturno} className="h-[72px] rounded-[16px]" delay={150 + (idx * 30)} />
+            ))}
           </div>
-        ))}
+        </div>
+
+        {/* Direito: Carrinho */}
+        <div className={`w-full md:w-[35%] lg:w-[30%] flex flex-col h-full p-4 md:p-6 ${abaDetalheMobile === 'resumo' ? 'flex' : 'hidden md:flex'}`}>
+          <SkeletonBlock temaNoturno={temaNoturno} className="h-5 w-40 mb-8 rounded-md" delay={200} />
+          
+          <div className="flex-1 space-y-6">
+            {[1, 2, 3].map((i, idx) => (
+              <div key={i} className="flex justify-between items-start">
+                 <div className="flex flex-col gap-2 w-full pr-6">
+                   <SkeletonBlock temaNoturno={temaNoturno} className="h-3 w-full rounded" delay={250 + (idx * 50)} />
+                   <SkeletonBlock temaNoturno={temaNoturno} className="h-6 w-20 rounded-md" delay={300 + (idx * 50)} />
+                 </div>
+                 <SkeletonBlock temaNoturno={temaNoturno} className="h-4 w-10 rounded shrink-0" delay={250 + (idx * 50)} />
+              </div>
+            ))}
+          </div>
+          
+          <SkeletonBlock temaNoturno={temaNoturno} className="w-full h-[140px] rounded-[24px] mt-auto" delay={400} />
+        </div>
       </div>
-      
-      <SkeletonBlock isDark={isDark} className="w-full h-[120px] rounded-[16px] mt-auto shadow-2xl" delay={400} />
     </div>
   );
-}
+};

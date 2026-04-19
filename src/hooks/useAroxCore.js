@@ -203,7 +203,6 @@ export function useAroxCore({ sessao, setSessao, router, fazerLogout, setIsDataL
     if (errorEmpresa || errorUsuario) return mostrarAlerta("Erro", "Erro ao salvar.");
     setNomeEmpresa(nomeEmpresaEdicao); setLogoEmpresa(logoEmpresaEdicao || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png'); 
     const novaSessao = { ...sessao, nome_usuario: nomeUsuarioEdicao }; setSessao(novaSessao); localStorage.setItem('bessa_session', JSON.stringify(novaSessao));
-    setMostrarConfigEmpresa(false); mostrarAlerta("Sucesso", "Configurações atualizadas.");
   };
 
   const alterarSenhaConta = async (senhaAtualInformada, novaSenhaDesejada) => {

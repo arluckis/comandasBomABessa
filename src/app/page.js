@@ -65,6 +65,9 @@ export default function Home() {
   const [isShellEntering, setIsShellEntering] = useState(false);
   const [isLoginFading, setIsLoginFading] = useState(false); 
   
+  // === NOVO ESTADO AQUI: CONTROLE DA SIDEBAR E HEADER ===
+  const [sidebarExpandida, setSidebarExpandida] = useState(false);
+  
   const preComandaDispensada = useRef(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [minLoadTimePassed, setMinLoadTimePassed] = useState(false);
@@ -81,6 +84,8 @@ export default function Home() {
     preComandaDispensada.current = false; isTransitioningRef.current = false; setIsSceneActive(true); 
     setAppMode('loading'); setScenePhase('ignition'); setIsDataLoaded(false); setMinLoadTimePassed(false);
     shellTransitionFired.current = false; setLoaderExitStage('none'); isFirstLoad.current = true; 
+    // Limpar o estado de expansão ao deslogar
+    setSidebarExpandida(false);
     if (silent) window.location.reload();
   };
 
@@ -254,6 +259,7 @@ export default function Home() {
               setTemaNoturno={setTemaNoturno} logoEmpresa={core.logoEmpresa} sessao={sessao} nomeEmpresa={core.nomeEmpresa}
               abaAtiva={core.abaAtiva} setAbaAtiva={core.setAbaAtiva} setMostrarConfigEmpresa={core.setMostrarConfigEmpresa}
               fazerLogout={fazerLogout} caixaAtual={core.caixaAtual} statusPresenca={core.statusPresenca}
+              onExpandToggle={(expandido) => setSidebarExpandida(expandido)}
             />
 
             <div className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-transparent">
@@ -265,10 +271,11 @@ export default function Home() {
                 setMostrarAdminDelivery={core.setMostrarAdminDelivery} setMostrarConfigEmpresa={core.setMostrarConfigEmpresa} 
                 setMostrarAdminProdutos={core.setMostrarAdminProdutos} fazerLogout={fazerLogout}
                 fetchData={core.fetchApenasAtualizacoes} clientesFidelidade={core.clientesFidelidade} vincularClienteFidelidade={core.vincularClienteFidelidade}
+                sidebarExpandida={sidebarExpandida}
               />
 
               <div className="shell-content-panel flex-1 overflow-y-auto scrollbar-hide p-4 md:p-8 pt-2 md:pt-6 z-10 flex flex-col relative">
-                <div className="w-full max-w-[1400px] mx-auto flex-1 flex flex-col">
+                <div className="w-full max-w-[1400px] mx-auto flex-1 flex flex-col min-h-0">
                   <ErrorBoundary codigoErro="ERR-CORE-SYS-101" modulo="Painel de Navegação Central" temaNoturno={temaNoturno} fallbackClassName="w-full h-full flex-1 min-h-[50vh]">
                     {core.comandaAtiva ? (
                       <PainelComanda temaNoturno={temaNoturno} comandaAtiva={core.comandaAtiva} abaDetalheMobile={core.abaDetalheMobile} setAbaDetalheMobile={core.setAbaDetalheMobile} filtroCategoriaCardapio={core.filtroCategoriaCardapio} setFiltroCategoriaCardapio={core.setFiltroCategoriaCardapio} menuCategorias={core.menuCategorias} adicionarProdutoNaComanda={core.adicionarProdutoNaComanda} excluirGrupoProdutos={core.excluirGrupoProdutos} setMostrarModalPeso={core.setMostrarModalPeso} toggleTag={core.toggleTag} editarProduto={core.editarProduto} excluirProduto={core.excluirProduto} setMostrarModalPagamento={core.setMostrarModalPagamento} encerrarMesa={core.encerrarMesa} setIdSelecionado={core.setIdSelecionado} alterarNomeComanda={core.alterarNomeComanda} adicionarClienteComanda={core.adicionarClienteComanda} alternarTipoComanda={core.alternarTipoComanda} modalAberto={core.mostrarModalPeso || core.mostrarModalPagamento} />
@@ -281,14 +288,28 @@ export default function Home() {
                     ) : core.abaAtiva === 'caixa' ? (
                       <TabFechamentoCaixa temaNoturno={temaNoturno} sessao={sessao} caixaAtual={core.caixaAtual} comandas={core.comandas} fetchData={core.fetchApenasAtualizacoes} />
                     ) : core.abaAtiva === 'fidelidade' ? (
-                      <TabFidelidade temaNoturno={temaNoturno} sessao={sessao} metaFidelidade={core.metaFidelidade} setMetaFidelidade={core.setMetaFidelidade} clientesFidelidade={core.clientesFidelidade} setClientesFidelidade={core.setClientesFidelidade} comandas={core.comandas} />
+                      <TabFidelidade 
+                        temaNoturno={temaNoturno} 
+                        sessao={sessao} 
+                        metaFidelidade={core.metaFidelidade} 
+                        setMetaFidelidade={core.setMetaFidelidade} 
+                        clientesFidelidade={core.clientesFidelidade} 
+                        setClientesFidelidade={core.setClientesFidelidade} 
+                        comandas={core.comandas} 
+                        // ESSA PROP AQUI É CRUCIAL PARA A TELA NOVA FUNCIONAR E NÃO QUEBRAR SILENCIOSAMENTE:
+                        mostrarAlerta={(titulo, mensagem, tipo) => {
+                           if(core.setModalGlobal) {
+                              core.setModalGlobal({ visivel: true, titulo, mensagem, tipo: tipo || 'alerta', acaoConfirmar: null });
+                           }
+                        }}
+                      />
                     ) : null}
                   </ErrorBoundary>
                 </div>
               </div>
             </div>
 
-            {/* MODAIS (Agora Carregados Dinamicamente sob demanda) */}
+            {/* MODAIS */}
             {core.mostrarAdminProdutos && sessao && <AdminProdutos empresaId={sessao.empresa_id} temaNoturno={temaNoturno} onFechar={() => { core.setMostrarAdminProdutos(false); core.fetchApenasAtualizacoes(); }} />}
             {core.mostrarAdminDelivery && sessao && <AdminDelivery empresaId={sessao.empresa_id} temaNoturno={temaNoturno} onFechar={() => core.setMostrarAdminDelivery(false)} />}
             {core.mostrarModalPeso && <ModalPeso opcoesPeso={core.configPeso} temaNoturno={temaNoturno} onAdicionar={core.adicionarProdutoNaComanda} onCancelar={() => core.setMostrarModalPeso(false)} />}

@@ -5,13 +5,21 @@ import { supabase } from '@/lib/supabase';
 export default function Sidebar({
   menuMobileAberto, setMenuMobileAberto, temaNoturno, setTemaNoturno, logoEmpresa,
   sessao, nomeEmpresa, abaAtiva, setAbaAtiva, setMostrarConfigEmpresa,
-  fazerLogout, caixaAtual, statusPresenca
+  fazerLogout, caixaAtual, statusPresenca,
+  onExpandToggle // Função recebida para avisar o Layout que o estado mudou
 }) {
   const [planoEmpresa, setPlanoEmpresa] = useState('Starter');
   const [isExpanded, setIsExpanded] = useState(false);
   const [tabTravada, setTabTravada] = useState(false); 
 
   const isDark = temaNoturno;
+
+  // Notificar o pai sempre que expandir ou contrair
+  useEffect(() => {
+    if (onExpandToggle) {
+      onExpandToggle(isExpanded);
+    }
+  }, [isExpanded, onExpandToggle]);
 
   useEffect(() => {
     const buscarPlano = async () => {
@@ -51,7 +59,7 @@ export default function Sidebar({
     const showText = isExpanded || menuMobileAberto;
 
     // Lógica visual de luxo por estado (Linear/Stripe inspired)
-    const baseClasses = "relative w-full rounded-lg transition-all duration-[220ms] ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center outline-none overflow-hidden py-3 px-3 gap-3";
+    const baseClasses = "relative w-full rounded-lg transition-all duration-[220ms] ease-[cubic-bezier(0.16,1,0.3,1)] flex items-center outline-none overflow-hidden py-3 px-3 gap-3 mb-1.5";
     
     let stateClasses = "";
     if (isAtivo) {
@@ -121,7 +129,7 @@ export default function Sidebar({
          
          {/* Cabeçalho */}
          <div className="h-[72px] px-5 flex items-center justify-between shrink-0 mb-2 mt-2 xl:mt-4">
-             <span className={`font-bold tracking-tight text-[18px] leading-none transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${isDark ? 'text-zinc-100' : 'text-zinc-900'} ${isExpanded || menuMobileAberto ? 'opacity-100 w-auto' : 'xl:opacity-0 xl:w-0 overflow-hidden'}`}>
+             <span className={`font-bold tracking-[-0.04em] text-[18px] leading-none transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] select-none pr-3 bg-clip-text text-transparent ${isDark ? 'bg-gradient-to-b from-white to-zinc-400' : 'bg-gradient-to-b from-zinc-900 to-zinc-500'} ${isExpanded || menuMobileAberto ? 'opacity-100 w-auto' : 'xl:opacity-0 xl:w-0 overflow-hidden'}`}>
                 AROX
              </span>
              
@@ -141,7 +149,7 @@ export default function Sidebar({
          <div className={`flex-1 px-4 xl:px-4 [&::-webkit-scrollbar]:hidden flex flex-col gap-8 pt-2 ${isExpanded || menuMobileAberto ? 'overflow-y-auto overflow-x-hidden' : 'overflow-visible'}`}>
             
             {/* Bloco Operação */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-0.5">
               <p className={`px-3 text-[10px] font-semibold uppercase tracking-[0.15em] whitespace-nowrap transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${isDark ? 'text-zinc-500' : 'text-zinc-400'} ${isExpanded || menuMobileAberto ? 'mb-2 h-auto opacity-100' : 'mb-0 h-0 opacity-0 overflow-hidden'}`}>
                 Operação
               </p>
@@ -151,7 +159,7 @@ export default function Sidebar({
             </div>
 
             {/* Bloco Gestão */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-0.5">
               <p className={`px-3 text-[10px] font-semibold uppercase tracking-[0.15em] whitespace-nowrap transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] ${isDark ? 'text-zinc-500' : 'text-zinc-400'} ${isExpanded || menuMobileAberto ? 'mb-2 h-auto opacity-100' : 'mb-0 h-0 opacity-0 overflow-hidden'}`}>
                 Gestão
               </p>
@@ -162,7 +170,7 @@ export default function Sidebar({
 
          {/* Rodapé VIP e Configurações */}
          <div className="mt-auto shrink-0 pb-4 xl:pb-6 pt-4">
-            <div className="px-4 xl:px-4 flex flex-col gap-1.5">
+            <div className="px-4 xl:px-4 flex flex-col gap-0.5">
                
                {/* Card de Perfil Premium */}
                <div className={`flex items-center rounded-xl mb-3 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer

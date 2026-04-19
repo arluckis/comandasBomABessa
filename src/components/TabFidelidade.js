@@ -27,8 +27,20 @@ export default function TabFidelidade({ temaNoturno, sessao, mostrarAlerta, clie
 
   const tabs = [{ id: 'clientes', label: 'Clientes' }, { id: 'ranking', label: 'Pódio' }, { id: 'config', label: 'Regras da Premiação' }];
 
+  // SE O CLIENTE ESTIVER SELECIONADO: Renderiza SOMENTE o perfil, ocupando o container da aba.
+  if (ctx.clientePerfil) {
+    return (
+      <div className={`relative w-full h-full flex flex-col font-sans overflow-hidden ${bgPrincipal} ${textPrincipal}`}>
+         <ErrorBoundary codigoErro="ERR-FID-PERF-505" modulo="Perfil Cliente" temaNoturno={temaNoturno} fallbackClassName="w-full h-full">
+          <PerfilCliente temaNoturno={temaNoturno} clientePerfil={ctx.clientePerfil} setClientePerfil={ctx.setClientePerfil} comandas={comandas} meta={ctx.meta} obterDiagnostico={ctx.obterDiagnostico} formatarData={ctx.formatarData} diasSemana={diasSemana} />
+        </ErrorBoundary>
+      </div>
+    );
+  }
+
+  // FLUXO NORMAL (Se não houver cliente selecionado)
   return (
-    <div className={`w-full h-full flex flex-col font-sans overflow-hidden ${bgPrincipal} ${textPrincipal}`}>
+    <div className={`relative w-full h-full flex flex-col font-sans overflow-hidden ${bgPrincipal} ${textPrincipal}`}>
       <style dangerouslySetInnerHTML={{__html: `.arox-cinematic { animation: arox-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(10px); } .arox-scale-in { animation: arox-zoom 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; } @keyframes arox-fade-up { 100% { opacity: 1; transform: translateY(0); } } @keyframes arox-zoom { 0% { transform: scale(0.97); opacity: 0; } 100% { transform: scale(1); opacity: 1; } } .scrollbar-hide::-webkit-scrollbar { display: none; } .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }`}} />
 
       <div className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pb-2 shrink-0 border-b mb-6 px-4 md:px-6 transition-colors duration-300 ${bordaDestaque}`}>
@@ -196,7 +208,7 @@ export default function TabFidelidade({ temaNoturno, sessao, mostrarAlerta, clie
       </div>
 
       {ctx.mostrarModalTexto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className={`absolute inset-0 transition-opacity duration-300 backdrop-blur-md ${modalBackdrop}`} onClick={() => ctx.setMostrarModalTexto(false)} />
           <div className={`relative w-full max-w-xl p-8 rounded-[32px] flex flex-col gap-5 arox-scale-in border ${surfaceModal}`}>
             <h2 className="text-2xl font-bold tracking-tight">Importação Rápida</h2>
@@ -208,7 +220,7 @@ export default function TabFidelidade({ temaNoturno, sessao, mostrarAlerta, clie
       )}
 
       {ctx.mostrarModalNovo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className={`absolute inset-0 transition-opacity duration-300 backdrop-blur-md ${modalBackdrop}`} onClick={() => ctx.setMostrarModalNovo(false)} />
           <div className={`relative w-full max-w-md p-8 rounded-[32px] flex flex-col gap-6 arox-scale-in border ${surfaceModal}`}>
             <h2 className="text-2xl font-bold tracking-tight">{ctx.clienteEditando ? 'Editar Cliente' : 'Integrar Novo Cliente'}</h2>
@@ -225,14 +237,8 @@ export default function TabFidelidade({ temaNoturno, sessao, mostrarAlerta, clie
         </div>
       )}
 
-      {ctx.clientePerfil && (
-        <ErrorBoundary codigoErro="ERR-FID-PERF-505" modulo="Perfil Cliente" temaNoturno={temaNoturno} fallbackClassName="fixed inset-0 z-50">
-          <PerfilCliente temaNoturno={temaNoturno} clientePerfil={ctx.clientePerfil} setClientePerfil={ctx.setClientePerfil} comandas={comandas} meta={ctx.meta} obterDiagnostico={ctx.obterDiagnostico} formatarData={ctx.formatarData} diasSemana={diasSemana} />
-        </ErrorBoundary>
-      )}
-
       {ctx.clienteResgate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className={`absolute inset-0 transition-opacity duration-300 backdrop-blur-md ${modalBackdrop}`} onClick={() => ctx.setClienteResgate(null)} />
           <div className={`relative w-full max-w-sm p-8 md:p-10 rounded-[32px] shadow-2xl border arox-scale-in flex flex-col items-center text-center ${surfaceModal} ${temaNoturno ? 'border-emerald-500/20' : 'border-emerald-500/40'}`}>
             <div className="relative w-16 h-16 rounded-full flex items-center justify-center mb-6 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"><svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg></div>

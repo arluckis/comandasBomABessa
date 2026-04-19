@@ -6,7 +6,7 @@ import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 export default function Header({
   comandaAtiva, setIdSelecionado, setMenuMobileAberto, temaNoturno,
   abaAtiva, fetchData, sessao, caixaAtual, setAbaAtiva,
-  sidebarExpandida = false // Nova prop cirúrgica adicionada aqui
+  sidebarExpandida = false // Propriedade recebida do Layout/Page
 }) {
   const [editandoNome, setEditandoNome] = useState(false);
   const [tempNome, setTempNome] = useState('');
@@ -27,7 +27,6 @@ export default function Header({
   const inputMesaRef = useRef(null);
 
   // === CORREÇÃO VISUAL DE TEMA E PLANETA ===
-  const isPlanetVisible = abaAtiva === 'comandas' && (!caixaAtual || caixaAtual.status !== 'aberto');
   const isDark = temaNoturno; 
 
   // === LÓGICA DE STATUS OPERACIONAL BASE ===
@@ -357,13 +356,14 @@ export default function Header({
       </AnimatePresence>
 
       <header 
-        className={`flex items-center justify-between px-3 sm:px-6 h-[72px] shrink-0 transition-all duration-[800ms] ease-out backdrop-blur-[24px] ${currentStyle.headerBg}`}
+        className={`flex items-center justify-between px-3 sm:px-5 h-[72px] shrink-0 transition-all duration-[800ms] ease-out backdrop-blur-[24px] ${currentStyle.headerBg}`}
       >
         
         {/* Esquerda: Identidade & Navegação */}
         <div className="flex items-center gap-3 sm:gap-4 shrink-0 relative z-20 w-auto sm:w-[280px]">
           
           <AnimatePresence initial={false}>
+            {/* LOGO AROX AQUI - SÓ APARECE SE SIDEBAR ESTIVER RECOLHIDA */}
             {!sidebarExpandida && (
               <motion.div
                 initial={{ opacity: 0, width: 0, filter: 'blur(4px)', x: -10 }}
@@ -372,7 +372,7 @@ export default function Header({
                 transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                 className="flex items-center cursor-default shrink-0 overflow-hidden"
               >
-                <span className={`font-black tracking-[-0.04em] text-[18px] leading-none select-none flex items-center pr-3 bg-clip-text text-transparent ${isDark ? 'bg-gradient-to-b from-white to-zinc-400' : 'bg-gradient-to-b from-zinc-900 to-zinc-500'}`}>
+                <span className={`font-bold tracking-[-0.04em] text-[18px] leading-none select-none flex items-center pr-3 bg-clip-text text-transparent ${isDark ? 'bg-gradient-to-b from-white to-zinc-400' : 'bg-gradient-to-b from-zinc-900 to-zinc-500'}`}>
                   AROX
                 </span>
               </motion.div>

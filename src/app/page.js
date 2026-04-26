@@ -18,6 +18,7 @@ import PreComanda from '@/components/PreComanda';
 import SystemLoader from '@/components/SystemLoader';
 import AroxCinematicScene from '@/components/scenes/AroxCinematicScene';
 
+const TabDashboard = dynamic(() => import('@/components/TabDashboard'), { ssr: false });
 const TabComandas = dynamic(() => import('@/components/TabComandas'), { ssr: false, loading: () => <SkeletonTabComandas /> });
 const TabFechadas = dynamic(() => import('@/components/TabFechadas'), { ssr: false, loading: () => <SkeletonTabFechadas /> });
 const TabFaturamento = dynamic(() => import('@/components/TabFaturamento'), { ssr: false, loading: () => <SkeletonTabFaturamento /> });
@@ -65,7 +66,6 @@ export default function Home() {
   const [isShellEntering, setIsShellEntering] = useState(false);
   const [isLoginFading, setIsLoginFading] = useState(false); 
   
-  // === NOVO ESTADO AQUI: CONTROLE DA SIDEBAR E HEADER ===
   const [sidebarExpandida, setSidebarExpandida] = useState(false);
   
   const preComandaDispensada = useRef(false);
@@ -76,7 +76,6 @@ export default function Home() {
   const [loaderExitStage, setLoaderExitStage] = useState('none');
   const isFirstLoad = useRef(true);
 
-  // Criamos o estado local para blindar erros do prompt e confirmacao
   const [modalPromptInput, setModalPromptInput] = useState('');
 
   const fazerLogout = (silent = false) => {
@@ -84,7 +83,6 @@ export default function Home() {
     preComandaDispensada.current = false; isTransitioningRef.current = false; setIsSceneActive(true); 
     setAppMode('loading'); setScenePhase('ignition'); setIsDataLoaded(false); setMinLoadTimePassed(false);
     shellTransitionFired.current = false; setLoaderExitStage('none'); isFirstLoad.current = true; 
-    // Limpar o estado de expansão ao deslogar
     setSidebarExpandida(false);
     if (silent) window.location.reload();
   };
@@ -101,7 +99,6 @@ export default function Home() {
 
   const core = useAroxCore({ sessao, setSessao, router, fazerLogout, setIsDataLoaded, setTemPendencia, setIsAntecipado });
 
-  // A função fallback para mostrar os alertas com segurança se o core não tiver exportado a var
   const fecharModalGlobalSeguro = () => {
      if (core.fecharModalGlobal) core.fecharModalGlobal();
      setModalPromptInput('');
@@ -185,10 +182,15 @@ export default function Home() {
   useEffect(() => {
     if (appMode === 'takeover' || !sessao) return; 
     localStorage.setItem('arox_tema_noturno', JSON.stringify(temaNoturno));
-    document.body.style.backgroundColor = temaNoturno ? '#09090b' : '#fafafa'; 
+    
+    const rootStyles = getComputedStyle(document.documentElement);
+    const bgDark = rootStyles.getPropertyValue('--sys-bg-dark').trim() || '#1a1a1a';
+    const bgLight = rootStyles.getPropertyValue('--sys-bg-light').trim() || '#fafafa';
+    
+    document.body.style.backgroundColor = temaNoturno ? bgDark : bgLight; 
     let metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (!metaThemeColor) { metaThemeColor = document.createElement('meta'); metaThemeColor.name = 'theme-color'; document.head.appendChild(metaThemeColor); }
-    metaThemeColor.setAttribute('content', temaNoturno ? '#09090b' : '#ffffff');
+    metaThemeColor.setAttribute('content', temaNoturno ? bgDark : '#ffffff');
   }, [temaNoturno, appMode, sessao]);
 
   const transitionToShell = (fromPreComanda = false) => {
@@ -210,7 +212,7 @@ export default function Home() {
   };
 
   const onFinalizarAbertura = (valor) => { transitionToShell(true); core.abrirCaixaManual({ data_abertura: core.getHoje(), saldo_inicial: valor }); };
-  const onAcessarSistema = (forcarFaturamento = true) => { preComandaDispensada.current = true; if (forcarFaturamento) { core.setAbaAtiva('faturamento'); } transitionToShell(true); };
+  const onAcessarSistema = (forcarFaturamento = true) => { preComandaDispensada.current = true; if (forcarFaturamento) { core.setAbaAtiva('dashboard'); } transitionToShell(true); };
   const handleResolverPendencia = () => { preComandaDispensada.current = true; core.setAbaAtiva('caixa'); transitionToShell(true); };
 
   return (
@@ -250,9 +252,9 @@ export default function Home() {
             .shell-root-enter .shell-content-panel { animation: shellEnterTop 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s both; }
           `}} />
 
-          {isShellEntering && <div className={`fixed inset-0 z-[9999999] pointer-events-none shell-enter-overlay ${temaNoturno ? 'bg-[#09090b]' : 'bg-[#fafafa]'}`}></div>}
+          {isShellEntering && <div className={`fixed inset-0 z-[9999999] pointer-events-none shell-enter-overlay ${temaNoturno ? 'bg-sys-dark' : 'bg-sys-light'}`}></div>}
 
-          <main className={`relative z-20 flex h-screen w-full overflow-hidden transition-colors selection:bg-zinc-200 selection:text-zinc-900 ${isShellEntering ? 'shell-root-enter' : ''} ${temaNoturno ? 'bg-[#09090b] text-zinc-100 selection:bg-white/20 selection:text-white' : 'bg-[#fafafa] text-zinc-900'}`}>
+          <main className={`relative z-20 flex h-screen w-full overflow-hidden transition-colors selection:bg-zinc-200 selection:text-zinc-900 ${isShellEntering ? 'shell-root-enter' : ''} ${temaNoturno ? 'bg-sys-dark text-zinc-100 selection:bg-white/20 selection:text-white' : 'bg-sys-light text-zinc-900'}`}>
             
             <Sidebar
               menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} temaNoturno={temaNoturno}
@@ -263,22 +265,31 @@ export default function Home() {
             />
 
             <div className="flex-1 flex flex-col min-w-0 h-full relative overflow-hidden bg-transparent">
-              <Header 
-                comandaAtiva={core.comandaAtiva} setIdSelecionado={core.setIdSelecionado} setMenuMobileAberto={setMenuMobileAberto}
-                temaNoturno={temaNoturno} caixaAtual={core.caixaAtual} abaAtiva={core.abaAtiva} setAbaAtiva={core.setAbaAtiva}
-                logoEmpresa={core.logoEmpresa} setTemaNoturno={setTemaNoturno} mostrarMenuPerfil={core.mostrarMenuPerfil}
-                setMostrarMenuPerfil={core.setMostrarMenuPerfil} nomeEmpresa={core.nomeEmpresa} sessao={sessao}
-                setMostrarAdminDelivery={core.setMostrarAdminDelivery} setMostrarConfigEmpresa={core.setMostrarConfigEmpresa} 
-                setMostrarAdminProdutos={core.setMostrarAdminProdutos} fazerLogout={fazerLogout}
-                fetchData={core.fetchApenasAtualizacoes} clientesFidelidade={core.clientesFidelidade} vincularClienteFidelidade={core.vincularClienteFidelidade}
-                sidebarExpandida={sidebarExpandida}
-              />
+              {/* O CONTAINER DE SCROLL AGORA ENVOLVE O HEADER PARA SOBREPOSIÇÃO FÍSICA */}
+              <div className="shell-content-panel flex-1 overflow-y-auto scrollbar-hide z-10 flex flex-col relative w-full">
+                
+                {/* Header DENTRO da área de rolagem. 
+                    Ele gruda no teto, e o conteúdo abaixo rola por trás dele. */}
+                <div className="sticky top-0 z-50 w-full pointer-events-auto">
+                  <Header 
+                    comandaAtiva={core.comandaAtiva} setIdSelecionado={core.setIdSelecionado} setMenuMobileAberto={setMenuMobileAberto}
+                    temaNoturno={temaNoturno} caixaAtual={core.caixaAtual} abaAtiva={core.abaAtiva} setAbaAtiva={core.setAbaAtiva}
+                    logoEmpresa={core.logoEmpresa} setTemaNoturno={setTemaNoturno} mostrarMenuPerfil={core.mostrarMenuPerfil}
+                    setMostrarMenuPerfil={core.setMostrarMenuPerfil} nomeEmpresa={core.nomeEmpresa} sessao={sessao}
+                    setMostrarAdminDelivery={core.setMostrarAdminDelivery} setMostrarConfigEmpresa={core.setMostrarConfigEmpresa} 
+                    setMostrarAdminProdutos={core.setMostrarAdminProdutos} fazerLogout={fazerLogout}
+                    fetchData={core.fetchApenasAtualizacoes} clientesFidelidade={core.clientesFidelidade} vincularClienteFidelidade={core.vincularClienteFidelidade}
+                    sidebarExpandida={sidebarExpandida}
+                  />
+                </div>
 
-              <div className="shell-content-panel flex-1 overflow-y-auto scrollbar-hide p-4 md:p-8 pt-2 md:pt-6 z-10 flex flex-col relative">
-                <div className="w-full max-w-[1400px] mx-auto flex-1 flex flex-col min-h-0">
+                {/* Conteúdo isolado com padding transferido do container pai */}
+                <div className="w-full max-w-[1400px] mx-auto flex-1 flex flex-col min-h-0 p-4 md:p-8 pt-0 md:pt-2">
                   <ErrorBoundary codigoErro="ERR-CORE-SYS-101" modulo="Painel de Navegação Central" temaNoturno={temaNoturno} fallbackClassName="w-full h-full flex-1 min-h-[50vh]">
                     {core.comandaAtiva ? (
                       <PainelComanda temaNoturno={temaNoturno} comandaAtiva={core.comandaAtiva} abaDetalheMobile={core.abaDetalheMobile} setAbaDetalheMobile={core.setAbaDetalheMobile} filtroCategoriaCardapio={core.filtroCategoriaCardapio} setFiltroCategoriaCardapio={core.setFiltroCategoriaCardapio} menuCategorias={core.menuCategorias} adicionarProdutoNaComanda={core.adicionarProdutoNaComanda} excluirGrupoProdutos={core.excluirGrupoProdutos} setMostrarModalPeso={core.setMostrarModalPeso} toggleTag={core.toggleTag} editarProduto={core.editarProduto} excluirProduto={core.excluirProduto} setMostrarModalPagamento={core.setMostrarModalPagamento} encerrarMesa={core.encerrarMesa} setIdSelecionado={core.setIdSelecionado} alterarNomeComanda={core.alterarNomeComanda} adicionarClienteComanda={core.adicionarClienteComanda} alternarTipoComanda={core.alternarTipoComanda} modalAberto={core.mostrarModalPeso || core.mostrarModalPagamento} />
+                    ) : core.abaAtiva === 'dashboard' ? (
+                      <TabDashboard temaNoturno={temaNoturno} core={core} sessao={sessao} />
                     ) : core.abaAtiva === 'comandas' ? (
                       <TabComandas temaNoturno={temaNoturno} comandasAbertas={core.comandasAbertas} modoExclusao={core.modoExclusao} setModoExclusao={core.setModoExclusao} selecionadasExclusao={core.selecionadasExclusao} toggleSelecaoExclusao={core.toggleSelecaoExclusao} confirmarExclusaoEmMassa={core.confirmarExclusaoEmMassa} adicionarComanda={core.adicionarComanda} setIdSelecionado={core.setIdSelecionado} caixaAtual={core.caixaAtual} abrirCaixaManual={core.abrirCaixaManual} abaAtiva={core.abaAtiva} />
                     ) : core.abaAtiva === 'fechadas' ? (
@@ -296,7 +307,6 @@ export default function Home() {
                         clientesFidelidade={core.clientesFidelidade} 
                         setClientesFidelidade={core.setClientesFidelidade} 
                         comandas={core.comandas} 
-                        // ESSA PROP AQUI É CRUCIAL PARA A TELA NOVA FUNCIONAR E NÃO QUEBRAR SILENCIOSAMENTE:
                         mostrarAlerta={(titulo, mensagem, tipo) => {
                            if(core.setModalGlobal) {
                               core.setModalGlobal({ visivel: true, titulo, mensagem, tipo: tipo || 'alerta', acaoConfirmar: null });
@@ -318,7 +328,7 @@ export default function Home() {
 
             {core.modalGlobal?.visivel && (
               <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-in fade-in">
-                <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl flex flex-col border text-center ${temaNoturno ? 'bg-[#09090b] border-white/10' : 'bg-white border-zinc-200'}`}>
+                <div className={`rounded-2xl p-6 w-full max-w-sm shadow-2xl flex flex-col border text-center ${temaNoturno ? 'bg-sys-dark border-white/10' : 'bg-white border-zinc-200'}`}>
                   <h2 className={`text-lg font-semibold tracking-tight mb-2 ${temaNoturno ? 'text-white' : 'text-zinc-900'}`}>{core.modalGlobal.titulo}</h2>
                   <p className={`text-sm mb-6 font-medium ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>{core.modalGlobal.mensagem}</p>
                   

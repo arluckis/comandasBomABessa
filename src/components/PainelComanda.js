@@ -61,13 +61,13 @@ export default function PainelComanda({
   });
 
   if (!comandaAtiva) return (
-    <div className={`flex flex-col flex-1 items-center justify-center w-full h-[calc(100vh-64px)] ${temaNoturno ? 'bg-[#0A0A0A]' : 'bg-[#FAFAFA]'}`}>
+    <div className={`flex flex-col flex-1 items-center justify-center w-full h-[calc(100vh-64px)] ${temaNoturno ? 'bg-sys-dark' : 'bg-sys-light'}`}>
       <SystemLoader variant="section" text="Aguardando inicialização..." />
     </div>
   );
 
   return (
-    <div className={`flex flex-col w-full flex-1 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out ${temaNoturno ? 'bg-[#0A0A0A]' : 'bg-[#FAFAFA]'}`}>
+    <div className={`flex flex-col w-full flex-1 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out ${temaNoturno ? 'bg-sys-dark' : 'bg-sys-light'}`}>
       
       {/* 1. Busca - Mantém a altura e borda inferior */}
       <ErrorBoundary 

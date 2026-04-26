@@ -27,7 +27,7 @@ export function useAroxCore({ sessao, setSessao, router, fazerLogout, setIsDataL
   const [mostrarConfigEmpresa, setMostrarConfigEmpresa] = useState(false);
   
   const [idSelecionado, setIdSelecionado] = useState(null);
-  const [abaAtiva, setAbaAtiva] = useState('comandas');
+  const [abaAtiva, setAbaAtiva] = useState('dashboard'); // <-- MUDANÇA AQUI: Inicia no dashboard
   const [avisoFechamento, setAvisoFechamento] = useState(false);
   const [abaDetalheMobile, setAbaDetalheMobile] = useState('menu');
   const [filtroCategoriaCardapio, setFiltroCategoriaCardapio] = useState('Todas');
@@ -101,7 +101,6 @@ export function useAroxCore({ sessao, setSessao, router, fazerLogout, setIsDataL
       
       const hoje = getHoje(); let hasPendencia = false;
       
-      // Correção: Pendência só ocorre se houver comandas abertas de ciclos passados (que não pertencem ao caixa aberto atual)
       if (comandasMapeadas && comandasMapeadas.filter(c => c.status === 'aberta' && c.data && c.data < hoje && (!caixaData || c.caixa_id !== caixaData.id)).length > 0) {
         hasPendencia = true;
       }

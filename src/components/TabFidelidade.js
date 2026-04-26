@@ -1,8 +1,178 @@
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { supabase } from '@/lib/supabase';
+
+export function useFidelidade({ temaNoturno, sessao, mostrarAlerta, clientesFidelidade, setClientesFidelidade, comandas }) {
+  const [abaInterna, setAbaInterna] = useState('clientes'); 
+  const [busca, setBusca] = useState('');
+  const [filtroCategoria, setFiltroCategoria] = useState('todos');
+  const [ordenacao, setOrdenacao] = useState('pontos');
+  const [meta, setMeta] = useState({ pontos_necessarios: 10, premio: '1 Açaí de 500ml', valor_minimo: 0 });
+  const [mostrarModalNovo, setMostrarModalNovo] = useState(false);
+  const [clienteEditando, setClienteEditando] = useState(null); 
+  const [clientePerfil, setClientePerfil] = useState(null); 
+  const [clienteResgate, setClienteResgate] = useState(null); 
+  const [mostrarModalTexto, setMostrarModalTexto] = useState(false);
+  const [textoColado, setTextoColado] = useState('');
+  const [novoCliente, setNovoCliente] = useState({ nome: '', telefone: '', aniversario: '', pontos: 0 });
+  const [copiado, setCopiado] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const [diaClienteHover, setDiaClienteHover] = useState(null);
+  const [diaGlobalSelect, setDiaGlobalSelect] = useState(new Date().getDay()); 
+
+  useEffect(() => {
+    const fetchMeta = async () => {
+      const { data } = await supabase.from('config_fidelidade').select('*').eq('empresa_id', sessao.empresa_id).single();
+      if (data) setMeta({ pontos_necessarios: data.pontos_necessarios, premio: data.premio, valor_minimo: data.valor_minimo || 0 });
+    };
+    if (sessao?.empresa_id) fetchMeta();
+  }, [sessao]);
+
+  const atualizarMeta = async () => {
+    const { error } = await supabase.from('config_fidelidade').upsert({ empresa_id: sessao.empresa_id, pontos_necessarios: meta.pontos_necessarios, premio: meta.premio, valor_minimo: parseFloat(meta.valor_minimo) || 0 }, { onConflict: 'empresa_id' });
+    if (!error) mostrarAlerta("Sucesso", "Regras atualizadas e ativas no sistema.");
+  };
+
+  const clientesFiltrados = useMemo(() => {
+    let filtrados = clientesFidelidade.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase()) || (c.telefone && c.telefone.includes(busca)));
+    if (filtroCategoria === 'resgate') filtrados = filtrados.filter(c => c.pontos >= meta.pontos_necessarios);
+    else if (filtroCategoria === 'quase') filtrados = filtrados.filter(c => c.pontos >= meta.pontos_necessarios * 0.7 && c.pontos < meta.pontos_necessarios);
+    else if (filtroCategoria === 'inativos') filtrados = filtrados.filter(c => c.pontos === 0);
+    return filtrados.sort((a, b) => {
+      if (ordenacao === 'pontos') return b.pontos - a.pontos;
+      if (ordenacao === 'recentes') return new Date(b.created_at || 0) > new Date(a.created_at || 0) ? -1 : 1;
+      return a.nome.localeCompare(b.nome);
+    });
+  }, [clientesFidelidade, busca, filtroCategoria, ordenacao, meta.pontos_necessarios]);
+
+  const ranking = [...clientesFidelidade].sort((a, b) => (b.pontos_totais || b.pontos) - (a.pontos_totais || a.pontos)).slice(0, 10);
+
+  const salvarNovoCliente = async () => {
+    if (!novoCliente.nome) return mostrarAlerta("Aviso", "O nome do cliente é obrigatório.");
+    if (clienteEditando) {
+       const { error } = await supabase.from('clientes_fidelidade').update({nome: novoCliente.nome, telefone: novoCliente.telefone, aniversario: novoCliente.aniversario || null, pontos: novoCliente.pontos}).eq('id', clienteEditando.id);
+       if (!error) { setClientesFidelidade(clientesFidelidade.map(c => c.id === clienteEditando.id ? { ...c, ...novoCliente } : c)); mostrarAlerta("Sucesso", "Dados atualizados."); }
+    } else {
+       const payload = { ...novoCliente, aniversario: novoCliente.aniversario || null, empresa_id: sessao.empresa_id, pontos_totais: novoCliente.pontos };
+       const { data, error } = await supabase.from('clientes_fidelidade').insert([payload]).select().single();
+       if (data && !error) { setClientesFidelidade([...clientesFidelidade, data]); mostrarAlerta("Sucesso", "Cliente integrado."); }
+    }
+    setMostrarModalNovo(false); setClienteEditando(null); setNovoCliente({ nome: '', telefone: '', aniversario: '', pontos: 0 });
+  };
+
+  const abrirEdicao = (cliente) => { setClienteEditando(cliente); setNovoCliente({ nome: cliente.nome, telefone: cliente.telefone || '', aniversario: cliente.aniversario || '', pontos: cliente.pontos }); setMostrarModalNovo(true); };
+
+  const confirmarResgatePremio = async () => {
+    if (!clienteResgate) return;
+    const novosPontos = clienteResgate.pontos - meta.pontos_necessarios;
+    const { error } = await supabase.from('clientes_fidelidade').update({ pontos: novosPontos }).eq('id', clienteResgate.id);
+    if (!error) {
+      setClientesFidelidade(clientesFidelidade.map(c => c.id === clienteResgate.id ? { ...c, pontos: novosPontos } : c));
+      setClienteResgate(null); mostrarAlerta("Resgate Aprovado", "Ciclo renovado e prêmio entregue.");
+    }
+  };
+
+  const processarTextoImportacao = async (textoImportacao) => {
+    if (!textoImportacao.trim()) return;
+    try {
+      const linhas = textoImportacao.trim().split('\n'); if (linhas.length === 0) return;
+      const primeiraLinha = linhas[0].toLowerCase();
+      const separador = primeiraLinha.includes(';') ? ';' : (primeiraLinha.includes('\t') ? '\t' : (primeiraLinha.includes('|') ? '|' : ','));
+      const headers = primeiraLinha.split(separador).map(h => h.trim().replace(/["']/g, ''));
+      let idxNome = headers.indexOf('nome'); let idxTel = headers.indexOf('telefone'); let idxNasc = headers.findIndex(h => h.includes('aniversario') || h.includes('data')); let idxPontos = headers.indexOf('pontos');
+      if (idxNome === -1) { idxNome = 0; idxTel = 1; idxNasc = 2; idxPontos = 3; }
+      
+      const novos = (idxNome !== -1 ? linhas.slice(1) : linhas).map((l) => {
+        let cleanLine = l.replace(/^\|/, '').replace(/\|$/, '').trim(); 
+        if (!cleanLine || cleanLine.startsWith('---') || cleanLine.includes('---')) return null;
+        const cols = cleanLine.split(separador);
+        let nomeStr = (cols[idxNome] || '').trim().replace(/\*\*/g, '').replace(/["']/g, ''); 
+        if (!nomeStr || nomeStr.toLowerCase().includes('nome') || nomeStr.toLowerCase().includes('cliente')) return null;
+        let dataNasc = (cols[idxNasc] || '').trim().replace(/["']/g, '');
+        if (dataNasc && dataNasc.toLowerCase().includes('anivers')) return null; 
+        const pt = parseInt((cols[idxPontos] || '').replace(/[^\d]/g, '')) || 0;
+        if (dataNasc) {
+           if (dataNasc.includes('/')) { const p = dataNasc.split('/'); if (p.length === 3) dataNasc = `${p[2]}-${p[1]}-${p[0]}`; else dataNasc = null; }
+           else if (/[a-zA-Z]/.test(dataNasc) || !/^\d{4}-\d{2}-\d{2}$/.test(dataNasc)) dataNasc = null;
+        }
+        return { nome: nomeStr, telefone: (cols[idxTel] || '').trim().replace(/["']/g, '') || null, aniversario: dataNasc || null, pontos: pt, pontos_totais: pt, empresa_id: sessao.empresa_id };
+      }).filter(Boolean);
+
+      if (novos.length > 0) {
+        const { data, error } = await supabase.from('clientes_fidelidade').insert(novos).select();
+        if (data && !error) { setClientesFidelidade([...clientesFidelidade, ...data]); setMostrarModalTexto(false); setTextoColado(''); mostrarAlerta("Sucesso", `${data.length} clientes importados!`); } 
+        else mostrarAlerta("Erro", "Falha de comunicação com o banco.");
+      } else mostrarAlerta("Aviso", "Verifique o formato, nenhum cliente válido."); 
+    } catch(e) { mostrarAlerta("Erro", "Ocorreu um erro ao decodificar sua tabela."); }
+  };
+
+  const acionarImportacao = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = async (evento) => { await processarTextoImportacao(evento.target.result); if (fileInputRef.current) fileInputRef.current.value = ''; };
+      reader.readAsText(file);
+    }
+  };
+
+  const copiarRegrasWhatsApp = async () => {
+    const texto = `*COMO VAI FUNCIONAR:*\n• A cada compra maior que R$ ${meta.valor_minimo}, você ganha 1 ponto.\n• Quando acumular ${meta.pontos_necessarios} pontos, você estará pronto para o resgate.\n• O sistema indicará que você ganhou: ${meta.premio}.`;
+    try {
+      if (navigator?.clipboard?.writeText) await navigator.clipboard.writeText(texto);
+      else {
+        const t = document.createElement("textarea"); t.value = texto; t.style.position = "fixed"; t.style.left = "-999999px";
+        document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove();
+      }
+      setCopiado(true); setTimeout(() => setCopiado(false), 2000);
+    } catch (err) { mostrarAlerta("Aviso", "Selecione o texto manualmente."); }
+  };
+
+  const formatarData = (dataStr) => !dataStr ? '—' : new Date(dataStr).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+
+  const analiseGlobal = useMemo(() => {
+    let faturamentoTotal = 0; let faturamentoFiel = 0; let cmdsFieis = 0;
+    let diasFaturados = [0, 0, 0, 0, 0, 0, 0]; let diasVolume = [0, 0, 0, 0, 0, 0, 0]; let produtosPorDiaGlobal = Array.from({length: 7}, () => ({}));
+    (comandas || []).forEach(c => {
+      if(c.status === 'aberta') return; 
+      const isFiel = c.tags && c.tags.includes('Fidelidade');
+      const ticket = (c.produtos || []).reduce((acc, p) => acc + (p.preco || 0), 0);
+      const dia = (c.created_at || c.data_hora || c.data) ? new Date(c.created_at || c.data_hora || c.data).getDay() : -1;
+      faturamentoTotal += ticket;
+      if (isFiel) { faturamentoFiel += ticket; cmdsFieis++; }
+      if(dia >= 0 && dia <= 6) {
+        diasFaturados[dia] += ticket; diasVolume[dia] += 1;
+        (c.produtos || []).forEach(p => { const n = p.nome.replace(/\s*\(\d+(?:\.\d+)?\s*g\)/i, '').trim().toUpperCase(); produtosPorDiaGlobal[dia][n] = (produtosPorDiaGlobal[dia][n] || 0) + 1; });
+      }
+    });
+    return { diasFaturados, diasVolume, produtosPorDiaGlobal, taxaFidelidade: faturamentoTotal > 0 ? ((faturamentoFiel / faturamentoTotal) * 100).toFixed(1) : 0, ticketGeral: comandas.length ? (faturamentoTotal / comandas.length) : 0, ticketFiel: cmdsFieis ? (faturamentoFiel / cmdsFieis) : 0 };
+  }, [comandas]);
+
+  const maxVolumeGlobal = Math.max(...analiseGlobal.diasVolume, 1);
+  const top5DiaSelecionado = useMemo(() => Object.entries(analiseGlobal.produtosPorDiaGlobal[diaGlobalSelect] || {}).sort((a, b) => b[1] - a[1]).slice(0, 5), [analiseGlobal, diaGlobalSelect]);
+
+  const obterDiagnostico = (c) => {
+    const percent = (c.pontos / meta.pontos_necessarios) * 100;
+    if (c.pontos >= meta.pontos_necessarios) return { label: 'Pronto para Resgate', color: 'text-emerald-500', bg: 'bg-emerald-500/10' };
+    if (percent >= 75) return { label: 'Muito Ativo', color: 'text-amber-500', bg: 'bg-amber-500/10' };
+    if (c.pontos_totais > meta.pontos_necessarios * 3) return { label: 'Cliente Fiel', color: 'text-blue-500', bg: 'bg-blue-500/10' };
+    if (c.pontos === 0) return { label: 'Inativo', color: 'text-zinc-500', bg: 'bg-zinc-500/10' };
+    return { label: 'Acumulando', color: temaNoturno ? 'text-zinc-300' : 'text-zinc-600', bg: temaNoturno ? 'bg-white/5' : 'bg-black/5' };
+  };
+
+  return {
+    abaInterna, setAbaInterna, busca, setBusca, filtroCategoria, setFiltroCategoria, ordenacao, setOrdenacao,
+    meta, setMeta, mostrarModalNovo, setMostrarModalNovo, clienteEditando, setClienteEditando, clientePerfil, setClientePerfil,
+    clienteResgate, setClienteResgate, mostrarModalTexto, setMostrarModalTexto, textoColado, setTextoColado,
+    novoCliente, setNovoCliente, copiado, fileInputRef, diaClienteHover, setDiaClienteHover, diaGlobalSelect, setDiaGlobalSelect,
+    clientesFiltrados, ranking, analiseGlobal, maxVolumeGlobal, top5DiaSelecionado,
+    atualizarMeta, salvarNovoCliente, abrirEdicao, confirmarResgatePremio, acionarImportacao, processarTextoImportacao, copiarRegrasWhatsApp, formatarData, obterDiagnostico
+  };
+}
+
 'use client';
 import React from 'react';
 import dynamic from 'next/dynamic';
 
-import { useFidelidade } from '@/hooks/useFidelidade';
 import ErrorBoundary from './ui/ErrorBoundary';
 import { SkeletonRanking } from './TabFidelidade/SkeletonsFid';
 
@@ -14,8 +184,8 @@ export default function TabFidelidade({ temaNoturno, sessao, mostrarAlerta, clie
   
   const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-  const bgPrincipal = temaNoturno ? 'bg-[#050505]' : 'bg-[#FAFAFA]';
-  const surfaceBase = temaNoturno ? 'bg-[#0A0A0A]/80 backdrop-blur-xl' : 'bg-white/80 backdrop-blur-xl';
+  const bgPrincipal = 'bg-transparent';
+  const surfaceBase = temaNoturno ? 'bg-white/[0.02] backdrop-blur-xl' : 'bg-white/80 backdrop-blur-xl';
   const surfaceHover = temaNoturno ? 'hover:bg-white/[0.04]' : 'hover:bg-black/[0.04]';
   const textPrincipal = temaNoturno ? 'text-zinc-100' : 'text-zinc-900';
   const textSecundario = temaNoturno ? 'text-zinc-500' : 'text-zinc-500'; 
@@ -23,11 +193,10 @@ export default function TabFidelidade({ temaNoturno, sessao, mostrarAlerta, clie
   const bordaDestaque = temaNoturno ? 'border-white/[0.08]' : 'border-black/[0.08]';
   const btnArox = temaNoturno ? 'bg-zinc-100 text-zinc-950 hover:bg-white shadow-[0_0_15px_rgba(255,255,255,0.05)]' : 'bg-zinc-900 text-white hover:bg-black shadow-[0_2px_10px_rgba(0,0,0,0.1)]';
   const modalBackdrop = temaNoturno ? 'bg-black/60' : 'bg-white/40';
-  const surfaceModal = temaNoturno ? 'bg-[#0A0A0C] border-white/[0.08]' : 'bg-white/90 backdrop-blur-2xl border-black/[0.05] shadow-2xl';
+  const surfaceModal = temaNoturno ? 'bg-sys-dark border-white/[0.08]' : 'bg-white/90 backdrop-blur-2xl border-black/[0.05] shadow-2xl';
 
   const tabs = [{ id: 'clientes', label: 'Clientes' }, { id: 'ranking', label: 'Pódio' }, { id: 'config', label: 'Regras da Premiação' }];
 
-  // SE O CLIENTE ESTIVER SELECIONADO: Renderiza SOMENTE o perfil, ocupando o container da aba.
   if (ctx.clientePerfil) {
     return (
       <div className={`relative w-full h-full flex flex-col font-sans overflow-hidden ${bgPrincipal} ${textPrincipal}`}>
@@ -38,7 +207,6 @@ export default function TabFidelidade({ temaNoturno, sessao, mostrarAlerta, clie
     );
   }
 
-  // FLUXO NORMAL (Se não houver cliente selecionado)
   return (
     <div className={`relative w-full h-full flex flex-col font-sans overflow-hidden ${bgPrincipal} ${textPrincipal}`}>
       <style dangerouslySetInnerHTML={{__html: `.arox-cinematic { animation: arox-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(10px); } .arox-scale-in { animation: arox-zoom 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; } @keyframes arox-fade-up { 100% { opacity: 1; transform: translateY(0); } } @keyframes arox-zoom { 0% { transform: scale(0.97); opacity: 0; } 100% { transform: scale(1); opacity: 1; } } .scrollbar-hide::-webkit-scrollbar { display: none; } .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }`}} />
@@ -88,8 +256,8 @@ export default function TabFidelidade({ temaNoturno, sessao, mostrarAlerta, clie
                   ctx.clientesFiltrados.map((c, idx) => {
                     const atingiu = c.pontos >= ctx.meta.pontos_necessarios; const percent = Math.min((c.pontos / ctx.meta.pontos_necessarios) * 100, 100); const inativo = c.pontos === 0; const quaseLa = percent >= 75 && !atingiu; const superVIP = c.pontos_totais > ctx.meta.pontos_necessarios * 3;
                     let cardStyle = `${surfaceBase} ${bordaBase}`;
-                    if (atingiu) cardStyle = temaNoturno ? 'bg-[#06120D] border-emerald-500/20' : 'bg-emerald-50/50 border-emerald-500/30';
-                    else if (quaseLa) cardStyle = temaNoturno ? 'bg-[#120D06] border-amber-500/20' : 'bg-amber-50/50 border-amber-500/30';
+                    if (atingiu) cardStyle = temaNoturno ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50/50 border-emerald-500/30';
+                    else if (quaseLa) cardStyle = temaNoturno ? 'bg-amber-500/10 border-amber-500/20' : 'bg-amber-50/50 border-amber-500/30';
                     else if (inativo) cardStyle = `${surfaceBase} ${bordaBase} opacity-70 hover:opacity-100 transition-all duration-500`;
 
                     return (
@@ -132,7 +300,7 @@ export default function TabFidelidade({ temaNoturno, sessao, mostrarAlerta, clie
               ) : (
                 <div className="flex flex-col gap-6 md:gap-10 w-full">
                   <div className="flex flex-col items-center justify-center relative arox-cinematic w-full" style={{animationDelay: '50ms'}}>
-                    <div onClick={() => ctx.setClientePerfil(ctx.ranking[0])} className={`relative z-10 flex flex-col items-center p-6 md:p-8 rounded-[32px] border transition-all duration-500 cursor-pointer hover:scale-[1.02] ${temaNoturno ? 'bg-gradient-to-b from-[#14120C] to-[#0A0A0A] border-amber-500/20 shadow-[0_10px_40px_rgba(245,158,11,0.05)]' : 'bg-gradient-to-b from-amber-50/50 to-white/50 backdrop-blur-xl border-amber-200 shadow-[0_10px_40px_rgba(245,158,11,0.08)]'} w-full max-w-sm text-center`}>
+                    <div onClick={() => ctx.setClientePerfil(ctx.ranking[0])} className={`relative z-10 flex flex-col items-center p-6 md:p-8 rounded-[32px] border transition-all duration-500 cursor-pointer hover:scale-[1.02] ${temaNoturno ? 'bg-gradient-to-b from-white/[0.05] to-transparent border-amber-500/20 shadow-[0_10px_40px_rgba(245,158,11,0.05)]' : 'bg-gradient-to-b from-amber-50/50 to-white/50 backdrop-blur-xl border-amber-200 shadow-[0_10px_40px_rgba(245,158,11,0.08)]'} w-full max-w-sm text-center`}>
                       <div className="absolute -top-3 px-4 py-1.5 bg-black dark:bg-white text-white dark:text-black text-[10px] font-bold uppercase tracking-widest rounded-full shadow-md">Cliente mais Popular</div>
                       <div className="w-14 h-14 mb-4 rounded-full flex items-center justify-center text-2xl font-black bg-gradient-to-br from-amber-300 to-amber-600 text-black shadow-sm">{ctx.ranking[0].nome.charAt(0).toUpperCase()}</div>
                       <h2 className={`text-2xl md:text-3xl font-bold tracking-tight mb-1 truncate w-full px-4 ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>{ctx.ranking[0].nome}</h2>
@@ -180,7 +348,7 @@ export default function TabFidelidade({ temaNoturno, sessao, mostrarAlerta, clie
                     </div>
                     <div className="pt-4 w-full"><button onClick={ctx.atualizarMeta} className={`w-full md:w-auto px-8 py-3.5 text-[12px] font-bold uppercase tracking-widest rounded-xl active:scale-95 transition-transform border border-transparent ${btnArox}`}>Salvar Regras</button></div>
                   </div>
-                  <div className={`rounded-[32px] border relative flex flex-col justify-center overflow-hidden transition-all duration-500 w-full shadow-inner ${temaNoturno ? 'bg-[#0b141a] border-[#202c33]' : 'bg-[#efeae2] border-[#d1d7db]'}`}>
+                  <div className={`rounded-[32px] border relative flex flex-col justify-center overflow-hidden transition-all duration-500 w-full shadow-inner ${temaNoturno ? 'bg-white/[0.02] border-white/10' : 'bg-[#efeae2] border-[#d1d7db]'}`}>
                     <div className="absolute inset-0 pointer-events-none opacity-[0.20] dark:opacity-[0.10]" style={{ backgroundImage: `url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")`, backgroundSize: '400px' }} />
                     <div className="relative z-10 px-6 py-10 flex flex-col h-full w-full">
                       <div className="flex justify-between items-start mb-8 z-20 w-full">

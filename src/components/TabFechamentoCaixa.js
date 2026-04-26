@@ -1,4 +1,3 @@
-// TabFechamentoCaixa.jsx
 'use client';
 import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -31,14 +30,14 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
     mostrarConfirmacao: localMostrarConfirmacao
   });
 
-  const bgPrincipal = temaNoturno ? 'bg-[#0A0A0A]' : 'bg-[#FAFAFA]';
+  const bgPrincipal = 'bg-transparent';
   const textPrincipal = temaNoturno ? 'text-zinc-100' : 'text-zinc-900';
   const textSecundario = temaNoturno ? 'text-zinc-400' : 'text-zinc-500'; 
   const bordaDestaque = temaNoturno ? 'border-white/[0.06]' : 'border-black/[0.06]';
   
   const btnAROXPrimario = `px-5 py-2.5 rounded-xl text-[12px] font-semibold tracking-wide transition-all shadow-sm flex items-center justify-center gap-2 active:scale-[0.98] border ${temaNoturno ? 'bg-zinc-100 text-black border-transparent hover:bg-white hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'bg-zinc-900 text-white border-transparent hover:bg-black hover:shadow-md'}`;
-  const btnAROXSecundario = `px-5 py-2.5 rounded-xl text-[12px] font-medium tracking-wide transition-all shadow-sm flex items-center justify-center gap-2 active:scale-[0.98] border ${temaNoturno ? 'bg-[#151515] border-white/10 text-zinc-300 hover:text-white hover:bg-[#1A1A1A]' : 'bg-white border-black/10 text-zinc-700 hover:text-black hover:bg-zinc-50'}`;
-  const cardHistoricoStyle = `relative p-6 md:p-8 rounded-[24px] transition-all duration-400 border backdrop-blur-xl shadow-sm hover:-translate-y-[2px] hover:shadow-lg overflow-hidden flex flex-col w-full arox-cinematic ${temaNoturno ? 'bg-[#111111]/80 border-white/[0.06] hover:border-white/[0.1]' : 'bg-white/80 border-black/[0.04] hover:border-black/[0.08]'}`;
+  const btnAROXSecundario = `px-5 py-2.5 rounded-xl text-[12px] font-medium tracking-wide transition-all shadow-sm flex items-center justify-center gap-2 active:scale-[0.98] border ${temaNoturno ? 'bg-white/[0.05] border-white/10 text-zinc-300 hover:text-white hover:bg-white/[0.08]' : 'bg-white border-black/10 text-zinc-700 hover:text-black hover:bg-zinc-50'}`;
+  const cardHistoricoStyle = `relative p-6 md:p-8 rounded-[24px] transition-all duration-400 border backdrop-blur-xl shadow-sm hover:-translate-y-[2px] hover:shadow-lg overflow-hidden flex flex-col w-full arox-cinematic ${temaNoturno ? 'bg-white/[0.02] border-white/[0.06] hover:border-white/[0.1]' : 'bg-white/80 border-black/[0.04] hover:border-black/[0.08]'}`;
 
   const tabs = [{ id: 'atual', label: 'Ciclo Operacional' }, { id: 'historico', label: 'Trilha de Auditoria' }];
 
@@ -103,14 +102,14 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-[50vh] w-full"><div className="text-center arox-cinematic"><div className={`w-16 h-16 mx-auto mb-6 rounded-2xl flex items-center justify-center border shadow-sm ${temaNoturno ? 'bg-[#111111] border-white/[0.08] text-zinc-500' : 'bg-white border-black/[0.05] text-zinc-400'}`}><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg></div><p className={`text-[18px] font-semibold tracking-tight mb-1 ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>Ciclo Fechado</p><p className={`text-[13px] font-medium ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>Nenhuma sessão operacional aberta no momento.</p></div></div>
+                <div className="flex items-center justify-center h-[50vh] w-full"><div className="text-center arox-cinematic"><div className={`w-16 h-16 mx-auto mb-6 rounded-2xl flex items-center justify-center border shadow-sm ${temaNoturno ? 'bg-white/[0.02] border-white/[0.08] text-zinc-500' : 'bg-white border-black/[0.05] text-zinc-400'}`}><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg></div><p className={`text-[18px] font-semibold tracking-tight mb-1 ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>Ciclo Fechado</p><p className={`text-[13px] font-medium ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>Nenhuma sessão operacional aberta no momento.</p></div></div>
               )}
             </div>
 
             <div className={`w-full ${ctx.abaInterna === 'historico' ? 'block' : 'hidden'}`}>
                 {!ctx.historicoLiberado ? (
                   <div className="flex flex-col items-center justify-center h-[60vh] w-full max-w-[340px] mx-auto arox-cinematic">
-                    <div className={`w-20 h-20 mb-8 rounded-[24px] flex items-center justify-center border shadow-xl ${temaNoturno ? 'bg-[#111111] border-white/10 text-zinc-300' : 'bg-white border-black/10 text-zinc-700'}`}><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg></div>
+                    <div className={`w-20 h-20 mb-8 rounded-[24px] flex items-center justify-center border shadow-xl ${temaNoturno ? 'bg-white/[0.02] border-white/10 text-zinc-300' : 'bg-white border-black/10 text-zinc-700'}`}><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg></div>
                     <h2 className={`text-2xl font-semibold tracking-tight mb-2 ${temaNoturno ? 'text-white' : 'text-black'}`}>Acesso Restrito</h2>
                     <p className={`text-sm mb-8 font-medium text-center ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Insira sua credencial gerencial para acessar a trilha de auditoria.</p>
                     <div className="w-full space-y-4">
@@ -121,7 +120,7 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
                 ) : (
                   <>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 border-b pb-4 border-transparent arox-cinematic" style={{animationDelay: '0ms'}}>
-                      <div className={`flex items-center p-1.5 rounded-xl border ${temaNoturno ? 'bg-[#111111] border-white/[0.06]' : 'bg-white border-black/[0.06]'}`}>
+                      <div className={`flex items-center p-1.5 rounded-xl border ${temaNoturno ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-black/[0.06]'}`}>
                         <button onClick={() => ctx.alterarData(-1)} className={`p-2.5 rounded-lg active:scale-95 transition-colors ${temaNoturno ? 'hover:bg-white/[0.08] text-zinc-400 hover:text-white' : 'hover:bg-black/[0.05] text-zinc-500 hover:text-black'}`}><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
                         <span className={`min-w-[140px] text-center text-[12px] font-semibold tracking-wide ${temaNoturno ? 'text-zinc-200' : 'text-zinc-800'}`}>{ctx.renderDataLabel()}</span>
                         <button onClick={() => ctx.alterarData(1)} disabled={ctx.isHoje} className={`p-2.5 rounded-lg active:scale-95 transition-colors disabled:opacity-20 ${temaNoturno ? 'hover:bg-white/[0.08] text-zinc-400 hover:text-white' : 'hover:bg-black/[0.05] text-zinc-500 hover:text-black'}`}><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg></button>
@@ -136,7 +135,7 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
                           <div className="flex flex-col gap-6 relative z-10 w-full">
                             {ctx.historicoCaixas.map((caixa, index) => {
                               const isEstornado = caixa.status === 'estornado'; const diferenca = caixa.relatorio_fechamento?.diferencaDinheiro || 0; const isDiferenca = diferenca !== 0;
-                              let corMarcador = temaNoturno ? 'bg-zinc-400 ring-[#0A0A0A]' : 'bg-zinc-400 ring-[#FAFAFA]';
+                              let corMarcador = temaNoturno ? 'bg-zinc-400 ring-[#1a1a1a]' : 'bg-zinc-400 ring-[#FAFAFA]';
                               if (isEstornado) corMarcador = 'bg-rose-500 ring-rose-500/20'; else if (isDiferenca) corMarcador = diferenca > 0 ? 'bg-emerald-500 ring-emerald-500/20' : 'bg-amber-500 ring-amber-500/20';
                               return (
                                 <div key={caixa.id} className="relative pl-12 md:pl-16 group w-full arox-cinematic" style={{animationDelay: `${index * 50 + 50}ms`}}>
@@ -153,7 +152,7 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
                                         </div>
                                         {!isEstornado && (
                                           <div className="flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-                                            <button onClick={() => { ctx.setCaixaEditando(caixa); ctx.setAcaoPendente('editar_fechamento'); ctx.setSenhaModal({ visivel: true, senha: '' }); }} className={`px-4 py-2 rounded-xl text-[11px] font-semibold tracking-wide border shadow-sm ${temaNoturno ? 'bg-[#151515] border-white/10 text-zinc-300 hover:text-white hover:bg-[#1A1A1A]' : 'bg-white border-black/10 text-zinc-600 hover:text-black hover:bg-zinc-50'}`}>Editar</button>
+                                            <button onClick={() => { ctx.setCaixaEditando(caixa); ctx.setAcaoPendente('editar_fechamento'); ctx.setSenhaModal({ visivel: true, senha: '' }); }} className={`px-4 py-2 rounded-xl text-[11px] font-semibold tracking-wide border shadow-sm ${temaNoturno ? 'bg-white/[0.05] border-white/10 text-zinc-300 hover:text-white hover:bg-white/[0.08]' : 'bg-white border-black/10 text-zinc-600 hover:text-black hover:bg-zinc-50'}`}>Editar</button>
                                             <button onClick={() => { ctx.setCaixaEditando(caixa); ctx.setAcaoPendente('excluir_fechamento'); ctx.setSenhaModal({ visivel: true, senha: '' }); }} className={`px-4 py-2 rounded-xl text-[11px] font-semibold tracking-wide border shadow-sm ${temaNoturno ? 'bg-rose-500/10 border-rose-500/20 text-rose-400 hover:bg-rose-500/20' : 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'}`}>Estornar</button>
                                           </div>
                                         )}
@@ -185,22 +184,22 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
       {/* SUPERFÍCIE DOSSIÊ DE AUDITORIA (INTEGRADA E FULL-AREA) */}
       {ctx.extratoExpandido && (
         <ErrorBoundary codigoErro="ERR-CAIXA-EXTR-505" modulo="Dossiê Auditoria" temaNoturno={temaNoturno} fallbackClassName="absolute inset-0 z-[100]">
-          <div className={`absolute inset-0 z-[100] flex flex-col animate-in fade-in duration-300 ${temaNoturno ? 'bg-[#0A0A0A]' : 'bg-[#FAFAFA]'}`}>
+          <div className={`absolute inset-0 z-[100] flex flex-col animate-in fade-in duration-300 ${temaNoturno ? 'bg-sys-dark' : 'bg-[#FAFAFA]'}`}>
             
             <div className="relative w-full h-full flex flex-col overflow-hidden">
               
               {/* TOPO DA SUPERFÍCIE */}
-              <div className={`shrink-0 px-6 py-5 md:px-8 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between z-20 gap-4 ${temaNoturno ? 'bg-[#0A0A0A] border-white/[0.06]' : 'bg-[#FAFAFA] border-black/[0.05]'}`}>
+              <div className={`shrink-0 px-6 py-5 md:px-8 border-b flex flex-col sm:flex-row items-start sm:items-center justify-between z-20 gap-4 ${temaNoturno ? 'bg-transparent border-white/[0.06]' : 'bg-[#FAFAFA] border-black/[0.05]'}`}>
                 <div>
                   <h2 className={`text-xl md:text-2xl font-semibold tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>Dossiê de Auditoria</h2>
                   <p className={`text-sm mt-0.5 font-medium ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>Visão consolidada do ciclo operacional ativo.</p>
                 </div>
                 <div className="flex items-center gap-4 w-full sm:w-auto">
-                  <div className={`relative flex items-center w-full sm:w-72 h-11 rounded-xl border px-3 transition-colors ${temaNoturno ? 'bg-[#111111] border-white/[0.08] focus-within:border-white/[0.15]' : 'bg-white border-black/[0.08] focus-within:border-black/[0.15] shadow-sm'}`}>
+                  <div className={`relative flex items-center w-full sm:w-72 h-11 rounded-xl border px-3 transition-colors ${temaNoturno ? 'bg-white/[0.02] border-white/[0.08] focus-within:border-white/[0.15]' : 'bg-white border-black/[0.08] focus-within:border-black/[0.15] shadow-sm'}`}>
                     <svg className={`w-4 h-4 mr-2.5 ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     <input type="text" placeholder="Localizar operação..." value={ctx.buscaExtrato} onChange={(e) => ctx.setBuscaExtrato(e.target.value)} className={`w-full h-full bg-transparent outline-none text-[13px] font-medium ${temaNoturno ? 'text-zinc-200 placeholder-zinc-600' : 'text-zinc-800 placeholder-zinc-400'}`} />
                   </div>
-                  <button onClick={() => ctx.setExtratoExpandido(false)} className={`shrink-0 p-2.5 rounded-xl border transition-colors ${temaNoturno ? 'bg-[#111111] border-white/[0.08] hover:bg-white/10 text-zinc-400 hover:text-zinc-200' : 'bg-white border-black/[0.08] hover:bg-black/5 text-zinc-500 hover:text-zinc-800 shadow-sm'}`}>
+                  <button onClick={() => ctx.setExtratoExpandido(false)} className={`shrink-0 p-2.5 rounded-xl border transition-colors ${temaNoturno ? 'bg-white/[0.02] border-white/[0.08] hover:bg-white/10 text-zinc-400 hover:text-zinc-200' : 'bg-white border-black/[0.08] hover:bg-black/5 text-zinc-500 hover:text-zinc-800 shadow-sm'}`}>
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
                 </div>
@@ -214,7 +213,7 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
                   <div className="lg:col-span-4 flex flex-col gap-6 lg:sticky lg:top-0 lg:h-[calc(100vh-140px)]">
                     
                     {/* CARD 1 - RESUMO FINANCEIRO */}
-                    <div className={`p-6 md:p-8 rounded-[20px] md:rounded-[24px] border shadow-sm transition-all hover:shadow-md ${temaNoturno ? 'bg-[#111111] border-white/[0.06]' : 'bg-white border-black/[0.04]'}`}>
+                    <div className={`p-6 md:p-8 rounded-[20px] md:rounded-[24px] border shadow-sm transition-all hover:shadow-md ${temaNoturno ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-black/[0.04]'}`}>
                         <h3 className={`text-[13px] font-semibold mb-6 ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Resumo Financeiro</h3>
                         
                         <div className="flex flex-col gap-8">
@@ -251,7 +250,7 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
                     </div>
 
                     {/* CARD 2 - MOVIMENTAÇÕES EXTRAS */}
-                    <div className={`flex-1 p-6 md:p-8 rounded-[20px] md:rounded-[24px] border shadow-sm flex flex-col min-h-[250px] lg:min-h-0 overflow-hidden transition-all hover:shadow-md ${temaNoturno ? 'bg-[#111111] border-white/[0.06]' : 'bg-white border-black/[0.04]'}`}>
+                    <div className={`flex-1 p-6 md:p-8 rounded-[20px] md:rounded-[24px] border shadow-sm flex flex-col min-h-[250px] lg:min-h-0 overflow-hidden transition-all hover:shadow-md ${temaNoturno ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white border-black/[0.04]'}`}>
                         <div className="flex items-center justify-between mb-6">
                            <h3 className={`text-[13px] font-semibold ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Movimentações Extras</h3>
                            <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${temaNoturno ? 'bg-white/5 text-zinc-400' : 'bg-black/5 text-zinc-500'}`}>{ctx.movimentacoes.length} registros</span>
@@ -264,7 +263,7 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
                         ) : (
                           <div className="flex flex-col gap-3 overflow-y-auto scrollbar-hide pr-1 pb-2">
                             {ctx.movimentacoes.map(m => (
-                              <div key={m.id} className={`p-4 rounded-xl border flex justify-between items-center transition-colors ${temaNoturno ? 'bg-[#151515] border-white/[0.04] hover:bg-[#1A1A1A]' : 'bg-[#FAFAFA] border-black/[0.03] hover:bg-zinc-50'}`}>
+                              <div key={m.id} className={`p-4 rounded-xl border flex justify-between items-center transition-colors ${temaNoturno ? 'bg-white/[0.02] border-white/[0.04] hover:bg-white/[0.05]' : 'bg-[#FAFAFA] border-black/[0.03] hover:bg-zinc-50'}`}>
                                 <div className="flex items-center gap-3 truncate">
                                    <div className={`w-1.5 h-8 rounded-full shrink-0 ${m.tipo === 'sangria' ? 'bg-rose-500' : 'bg-emerald-500'}`} />
                                    <div className="flex flex-col truncate pr-3">
@@ -290,12 +289,12 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
                     
                     <div className="grid grid-cols-1 gap-4 pb-10">
                         {ctx.comandasExtratoFiltradas.length === 0 ? (
-                          <div className={`py-24 text-center border border-dashed rounded-[24px] ${temaNoturno ? 'border-white/[0.08] bg-[#111111]/50' : 'border-black/[0.08] bg-white/50'}`}>
+                          <div className={`py-24 text-center border border-dashed rounded-[24px] ${temaNoturno ? 'border-white/[0.08] bg-white/[0.01]' : 'border-black/[0.08] bg-white/50'}`}>
                              <p className={`text-[14px] font-medium ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>Nenhuma operação vinculada ao ciclo atual.<br/>Novas comandas aparecerão aqui automaticamente.</p>
                           </div>
                         ) : (
                           ctx.comandasExtratoFiltradas.map((c, idx) => (
-                            <div key={c.id} className={`p-5 md:p-6 rounded-[20px] border shadow-sm flex flex-col sm:flex-row justify-between gap-6 transition-all duration-300 hover:-translate-y-[2px] hover:shadow-md arox-cinematic ${temaNoturno ? 'bg-[#111111] border-white/[0.06] hover:border-white/[0.12]' : 'bg-white border-black/[0.04] hover:border-black/[0.08]'}`} style={{animationDelay: `${idx * 15}ms`}}>
+                            <div key={c.id} className={`p-5 md:p-6 rounded-[20px] border shadow-sm flex flex-col sm:flex-row justify-between gap-6 transition-all duration-300 hover:-translate-y-[2px] hover:shadow-md arox-cinematic ${temaNoturno ? 'bg-white/[0.02] border-white/[0.06] hover:border-white/[0.12]' : 'bg-white border-black/[0.04] hover:border-black/[0.08]'}`} style={{animationDelay: `${idx * 15}ms`}}>
                               <div className="flex flex-col gap-2 flex-1 min-w-0 justify-center">
                                 <div className="flex items-center gap-3">
                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wide border ${c.statusFinanceiro === 'PAGO' ? (temaNoturno ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700') : c.statusFinanceiro === 'PARCIAL' ? (temaNoturno ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-700') : (temaNoturno ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' : 'bg-amber-50 border-amber-200 text-amber-700')}`}>
@@ -351,16 +350,16 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
       {ctx.movModal.visivel && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className={`absolute inset-0 transition-opacity backdrop-blur-md ${temaNoturno ? 'bg-[#000000]/60' : 'bg-zinc-900/40'}`} onClick={() => ctx.setMovModal({ visivel: false, tipo: '', valor: '', descricao: '' })} />
-          <div className={`relative w-full max-w-[420px] p-8 md:p-10 rounded-[24px] shadow-2xl border arox-scale-in ${temaNoturno ? 'bg-[#111111] border-white/[0.08]' : 'bg-white backdrop-blur-2xl border-black/[0.05]'}`}>
+          <div className={`relative w-full max-w-[420px] p-8 md:p-10 rounded-[24px] shadow-2xl border arox-scale-in ${temaNoturno ? 'bg-sys-dark border-white/[0.08]' : 'bg-white backdrop-blur-2xl border-black/[0.05]'}`}>
             <h2 className="text-[20px] font-semibold tracking-tight mb-8">{ctx.movModal.tipo === 'sangria' ? 'Registrar Retirada' : 'Entrada Extraordinária'}</h2>
             <div className="space-y-6 mb-8">
               <div>
                 <label className={`text-[12px] font-medium mb-2 block ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Valor</label>
-                <div className={`relative flex items-center bg-transparent rounded-xl border transition-colors ${temaNoturno ? 'border-white/[0.08] bg-[#151515] focus-within:border-white/[0.15]' : 'border-black/10 bg-white focus-within:border-black/20 shadow-sm'}`}><span className={`absolute left-4 font-semibold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span><input type="number" step="0.01" value={ctx.movModal.valor} onChange={e => ctx.setMovModal({...ctx.movModal, valor: e.target.value})} autoFocus className={`w-full bg-transparent py-3 pr-4 pl-12 outline-none font-bold tabular-nums ${temaNoturno ? 'text-white' : 'text-black'}`} /></div>
+                <div className={`relative flex items-center bg-transparent rounded-xl border transition-colors ${temaNoturno ? 'border-white/[0.08] bg-white/[0.05] focus-within:border-white/[0.15]' : 'border-black/10 bg-white focus-within:border-black/20 shadow-sm'}`}><span className={`absolute left-4 font-semibold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span><input type="number" step="0.01" value={ctx.movModal.valor} onChange={e => ctx.setMovModal({...ctx.movModal, valor: e.target.value})} autoFocus className={`w-full bg-transparent py-3 pr-4 pl-12 outline-none font-bold tabular-nums ${temaNoturno ? 'text-white' : 'text-black'}`} /></div>
               </div>
               <div>
                 <label className={`text-[12px] font-medium mb-2 block ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Justificativa</label>
-                <div className={`relative flex items-center bg-transparent rounded-xl border transition-colors ${temaNoturno ? 'border-white/[0.08] bg-[#151515] focus-within:border-white/[0.15]' : 'border-black/10 bg-white focus-within:border-black/20 shadow-sm'}`}><input type="text" value={ctx.movModal.descricao} onChange={e => ctx.setMovModal({...ctx.movModal, descricao: e.target.value})} className={`w-full bg-transparent py-3 px-4 outline-none font-medium ${temaNoturno ? 'text-white' : 'text-black'}`} /></div>
+                <div className={`relative flex items-center bg-transparent rounded-xl border transition-colors ${temaNoturno ? 'border-white/[0.08] bg-white/[0.05] focus-within:border-white/[0.15]' : 'border-black/10 bg-white focus-within:border-black/20 shadow-sm'}`}><input type="text" value={ctx.movModal.descricao} onChange={e => ctx.setMovModal({...ctx.movModal, descricao: e.target.value})} className={`w-full bg-transparent py-3 px-4 outline-none font-medium ${temaNoturno ? 'text-white' : 'text-black'}`} /></div>
               </div>
             </div>
             <div className="flex justify-end gap-3"><button onClick={() => ctx.setMovModal({ visivel: false, tipo: '', valor: '', descricao: '' })} className={`px-5 py-2.5 rounded-xl text-[12px] font-medium transition-colors ${temaNoturno ? 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5' : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5'}`}>Cancelar</button><button onClick={ctx.handleSalvarMovimentacao} className={btnAROXPrimario}>Confirmar</button></div>
@@ -371,7 +370,7 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
       {ctx.senhaModal.visivel && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className={`absolute inset-0 backdrop-blur-md ${temaNoturno ? 'bg-[#000000]/60' : 'bg-zinc-900/40'}`} onClick={() => ctx.setSenhaModal({ visivel: false, senha: '' })} />
-          <div className={`relative w-full max-w-[420px] p-8 md:p-10 rounded-[24px] shadow-2xl border arox-scale-in ${temaNoturno ? 'bg-[#111111] border-white/[0.08]' : 'bg-white backdrop-blur-2xl border-black/[0.05]'}`}>
+          <div className={`relative w-full max-w-[420px] p-8 md:p-10 rounded-[24px] shadow-2xl border arox-scale-in ${temaNoturno ? 'bg-sys-dark border-white/[0.08]' : 'bg-white backdrop-blur-2xl border-black/[0.05]'}`}>
             <h2 className="text-[20px] font-semibold tracking-tight mb-2">Autenticação Necessária</h2>
             <p className={`text-[13px] mb-8 font-medium ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>Credencial gerencial obrigatória.</p>
             <div className="mb-8 w-full">{renderIOSInput(ctx.senhaModal.senha, (val) => ctx.setSenhaModal({...ctx.senhaModal, senha: val}), ctx.handleVerificarSenha, temaNoturno)}</div>
@@ -383,12 +382,12 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
       {ctx.modalEdicao.visivel && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className={`absolute inset-0 backdrop-blur-md ${temaNoturno ? 'bg-[#000000]/60' : 'bg-zinc-900/40'}`} onClick={() => ctx.setModalEdicao({ visivel: false, dinheiro: '', cartao: '', pix: '' })} />
-          <div className={`relative w-full max-w-[420px] p-8 md:p-10 rounded-[24px] shadow-2xl border arox-scale-in ${temaNoturno ? 'bg-[#111111] border-white/[0.08]' : 'bg-white backdrop-blur-2xl border-black/[0.05]'}`}>
+          <div className={`relative w-full max-w-[420px] p-8 md:p-10 rounded-[24px] shadow-2xl border arox-scale-in ${temaNoturno ? 'bg-sys-dark border-white/[0.08]' : 'bg-white backdrop-blur-2xl border-black/[0.05]'}`}>
             <h2 className="text-[20px] font-semibold tracking-tight mb-8">Editar Valores Declarados</h2>
             <div className="space-y-6 mb-8">
-              <div><label className={`text-[12px] font-medium mb-2 block ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Dinheiro</label><div className={`relative flex items-center bg-transparent rounded-xl border transition-colors ${temaNoturno ? 'border-white/[0.08] bg-[#151515] focus-within:border-white/[0.15]' : 'border-black/10 bg-white focus-within:border-black/20 shadow-sm'}`}><span className={`absolute left-4 font-semibold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span><input type="number" value={ctx.modalEdicao.dinheiro} onChange={e => ctx.setModalEdicao({...ctx.modalEdicao, dinheiro: e.target.value})} className={`w-full bg-transparent py-3 pr-4 pl-12 outline-none font-bold tabular-nums ${temaNoturno ? 'text-white' : 'text-black'}`} /></div></div>
-              <div><label className={`text-[12px] font-medium mb-2 block ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Cartão</label><div className={`relative flex items-center bg-transparent rounded-xl border transition-colors ${temaNoturno ? 'border-white/[0.08] bg-[#151515] focus-within:border-white/[0.15]' : 'border-black/10 bg-white focus-within:border-black/20 shadow-sm'}`}><span className={`absolute left-4 font-semibold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span><input type="number" value={ctx.modalEdicao.cartao} onChange={e => ctx.setModalEdicao({...ctx.modalEdicao, cartao: e.target.value})} className={`w-full bg-transparent py-3 pr-4 pl-12 outline-none font-bold tabular-nums ${temaNoturno ? 'text-white' : 'text-black'}`} /></div></div>
-              <div><label className={`text-[12px] font-medium mb-2 block ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Pix</label><div className={`relative flex items-center bg-transparent rounded-xl border transition-colors ${temaNoturno ? 'border-white/[0.08] bg-[#151515] focus-within:border-white/[0.15]' : 'border-black/10 bg-white focus-within:border-black/20 shadow-sm'}`}><span className={`absolute left-4 font-semibold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span><input type="number" value={ctx.modalEdicao.pix} onChange={e => ctx.setModalEdicao({...ctx.modalEdicao, pix: e.target.value})} className={`w-full bg-transparent py-3 pr-4 pl-12 outline-none font-bold tabular-nums ${temaNoturno ? 'text-white' : 'text-black'}`} /></div></div>
+              <div><label className={`text-[12px] font-medium mb-2 block ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Dinheiro</label><div className={`relative flex items-center bg-transparent rounded-xl border transition-colors ${temaNoturno ? 'border-white/[0.08] bg-white/[0.05] focus-within:border-white/[0.15]' : 'border-black/10 bg-white focus-within:border-black/20 shadow-sm'}`}><span className={`absolute left-4 font-semibold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span><input type="number" value={ctx.modalEdicao.dinheiro} onChange={e => ctx.setModalEdicao({...ctx.modalEdicao, dinheiro: e.target.value})} className={`w-full bg-transparent py-3 pr-4 pl-12 outline-none font-bold tabular-nums ${temaNoturno ? 'text-white' : 'text-black'}`} /></div></div>
+              <div><label className={`text-[12px] font-medium mb-2 block ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Cartão</label><div className={`relative flex items-center bg-transparent rounded-xl border transition-colors ${temaNoturno ? 'border-white/[0.08] bg-white/[0.05] focus-within:border-white/[0.15]' : 'border-black/10 bg-white focus-within:border-black/20 shadow-sm'}`}><span className={`absolute left-4 font-semibold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span><input type="number" value={ctx.modalEdicao.cartao} onChange={e => ctx.setModalEdicao({...ctx.modalEdicao, cartao: e.target.value})} className={`w-full bg-transparent py-3 pr-4 pl-12 outline-none font-bold tabular-nums ${temaNoturno ? 'text-white' : 'text-black'}`} /></div></div>
+              <div><label className={`text-[12px] font-medium mb-2 block ${temaNoturno ? 'text-zinc-400' : 'text-zinc-500'}`}>Pix</label><div className={`relative flex items-center bg-transparent rounded-xl border transition-colors ${temaNoturno ? 'border-white/[0.08] bg-white/[0.05] focus-within:border-white/[0.15]' : 'border-black/10 bg-white focus-within:border-black/20 shadow-sm'}`}><span className={`absolute left-4 font-semibold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span><input type="number" value={ctx.modalEdicao.pix} onChange={e => ctx.setModalEdicao({...ctx.modalEdicao, pix: e.target.value})} className={`w-full bg-transparent py-3 pr-4 pl-12 outline-none font-bold tabular-nums ${temaNoturno ? 'text-white' : 'text-black'}`} /></div></div>
             </div>
             <div className="flex justify-end gap-3"><button onClick={() => ctx.setModalEdicao({ visivel: false, dinheiro: '', cartao: '', pix: '' })} className={`px-5 py-2.5 rounded-xl text-[12px] font-medium transition-colors ${temaNoturno ? 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5' : 'text-zinc-600 hover:text-zinc-900 hover:bg-black/5'}`}>Cancelar</button><button onClick={ctx.salvarEdicaoFechamento} className={btnAROXPrimario}>Salvar Alterações</button></div>
           </div>
@@ -399,8 +398,8 @@ export default function TabFechamentoCaixa({ temaNoturno, sessao, caixaAtual, co
       {modalConfirm.visivel && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
           <div className={`absolute inset-0 transition-opacity duration-300 backdrop-blur-md ${temaNoturno ? 'bg-[#000000]/60' : 'bg-zinc-900/40'}`} onClick={() => setModalConfirm({ visivel: false, titulo: '', mensagem: '', onConfirm: null })} />
-          <div className={`relative w-full max-w-sm p-8 md:p-10 rounded-[24px] shadow-2xl border arox-scale-in flex flex-col items-center text-center ${temaNoturno ? 'bg-[#111111] border-white/[0.08]' : 'bg-white backdrop-blur-2xl border-black/[0.05]'}`}>
-            <div className={`relative w-16 h-16 rounded-[20px] flex items-center justify-center mb-6 border shadow-sm ${temaNoturno ? 'bg-[#151515] text-white border-white/[0.06]' : 'bg-zinc-50 text-black border-black/[0.05]'}`}>
+          <div className={`relative w-full max-w-sm p-8 md:p-10 rounded-[24px] shadow-2xl border arox-scale-in flex flex-col items-center text-center ${temaNoturno ? 'bg-sys-dark border-white/[0.08]' : 'bg-white backdrop-blur-2xl border-black/[0.05]'}`}>
+            <div className={`relative w-16 h-16 rounded-[20px] flex items-center justify-center mb-6 border shadow-sm ${temaNoturno ? 'bg-white/[0.05] text-white border-white/[0.06]' : 'bg-zinc-50 text-black border-black/[0.05]'}`}>
                <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
             <h2 className="text-xl font-semibold tracking-tight mb-2">{modalConfirm.titulo}</h2>

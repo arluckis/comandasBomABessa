@@ -37,8 +37,8 @@ export default function TabFechadas({
     return dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace(' de ', ' ');
   };
 
-  const bgPrincipal = temaNoturno ? 'bg-[#050505]' : 'bg-[#FAFAFA]';
-  const surfaceBase = temaNoturno ? 'bg-[#0A0A0A]' : 'bg-white/80 backdrop-blur-xl';
+  const bgPrincipal = 'bg-transparent';
+  const surfaceBase = temaNoturno ? 'bg-white/[0.02] backdrop-blur-xl' : 'bg-white/80 backdrop-blur-xl';
   const bordaBase = temaNoturno ? 'border-white/[0.04]' : 'border-black/[0.04]';
   const bordaDestaque = temaNoturno ? 'border-white/[0.08]' : 'border-black/[0.08]';
   const textSecundario = temaNoturno ? 'text-zinc-500' : 'text-zinc-500';
@@ -113,7 +113,7 @@ export default function TabFechadas({
 
               const cardBg = isDiaDiferente 
                 ? (temaNoturno ? 'bg-indigo-500/[0.02] border-indigo-500/20 hover:border-indigo-500/40' : 'bg-indigo-50/50 border-indigo-200 hover:border-indigo-300')
-                : (temaNoturno ? 'bg-[#0A0A0A] border-white/[0.04] hover:border-white/[0.08]' : 'bg-white border-black/[0.04] hover:border-black/[0.08]');
+                : (temaNoturno ? 'bg-white/[0.02] border-white/[0.04] hover:border-white/[0.08]' : 'bg-white border-black/[0.04] hover:border-black/[0.08]');
 
               const textHoraColor = isDiaDiferente 
                 ? (temaNoturno ? 'text-indigo-400' : 'text-indigo-600')

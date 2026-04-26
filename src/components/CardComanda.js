@@ -1,140 +1,205 @@
-// src/components/CardComanda.js
 'use client';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
-export default function CardComanda({ comanda, onClick, temaNoturno }) {
+// ==========================================
+// LÓGICA DE NEGÓCIO
+// ==========================================
+function useComandaLogic(comanda) {
   const isDelivery = comanda.tipo === 'Delivery';
   
-  // Cálculo do total
   const totalOriginal = (comanda.produtos || []).reduce((acc, p) => acc + (Number(p.preco) || 0), 0) + (Number(comanda.taxa_entrega) || 0);
   const totalPago = (comanda.pagamentos || []).reduce((acc, p) => acc + (Number(p.valor) || 0), 0);
   const totalPendente = totalOriginal - totalPago;
   
-  // Status de pagamento e produtos
   const isPagaParcial = totalPago > 0 && totalPendente > 0.01;
   const isPagaTotal = totalOriginal > 0 && totalPendente <= 0.01;
   const qtdProdutos = (comanda.produtos || []).length;
+
+  const [minutosAbertos, setMinutosAbertos] = useState(0);
   
-  // Tempo aberto com cálculo de Semanas e Dias
-  const getTempoAberto = () => {
-    if (!comanda.hora_abertura) return '';
-    try {
-      const ms = new Date() - new Date(comanda.hora_abertura);
-      if (isNaN(ms) || ms < 0) return '';
-      
-      const minutosTotais = Math.floor(ms / 60000);
-      const minutos = minutosTotais % 60;
-      
-      const horasTotais = Math.floor(minutosTotais / 60);
-      const horas = horasTotais % 24;
-      
-      const diasTotais = Math.floor(horasTotais / 24);
-      const dias = diasTotais % 7;
-        
-      if (diasTotais > 0) {
-        return horas > 0 ? `${diasTotais}d ${horas}h` : `${diasTotais}d`;
-      }
-      if (horasTotais > 0) {
-        return minutos > 0 ? `${horasTotais}h ${minutos}m` : `${horasTotais}h`;
-      }
-      return `${minutosTotais}m`;
-    } catch(e) { return ''; }
+  useEffect(() => {
+    if (!comanda.hora_abertura || isPagaTotal) return;
+    
+    const calcTempo = () => {
+      const diff = Date.now() - new Date(comanda.hora_abertura).getTime();
+      setMinutosAbertos(Math.floor(diff / 60000));
+    };
+    
+    calcTempo();
+    const interval = setInterval(calcTempo, 60000);
+    return () => clearInterval(interval);
+  }, [comanda.hora_abertura, isPagaTotal]);
+
+  return { isDelivery, totalOriginal, totalPendente, isPagaParcial, isPagaTotal, qtdProdutos, minutosAbertos };
+}
+
+// ==========================================
+// SISTEMA DE DESIGN
+// ==========================================
+function getCardTheme(logic, isDark) {
+  if (logic.isPagaTotal) {
+    return {
+      bgTinta: isDark ? 'bg-emerald-500/[0.04]' : 'bg-emerald-500/[0.03]',
+      bordaHover: isDark ? 'group-hover:border-emerald-500/20' : 'group-hover:border-emerald-500/30',
+      dot: 'bg-emerald-500',
+      textoValor: isDark ? 'text-emerald-400' : 'text-emerald-600',
+      textoTempo: isDark ? 'text-emerald-500/40' : 'text-emerald-600/40'
+    };
+  }
+  if (logic.isDelivery) {
+    return {
+      bgTinta: isDark ? 'bg-amber-500/[0.03]' : 'bg-amber-500/[0.02]',
+      bordaHover: isDark ? 'group-hover:border-amber-500/20' : 'group-hover:border-amber-500/30',
+      dot: 'bg-amber-500',
+      textoValor: isDark ? 'text-white' : 'text-zinc-900',
+      textoTempo: isDark ? 'text-zinc-500/80' : 'text-zinc-400/80'
+    };
+  }
+  
+  return {
+    bgTinta: 'bg-transparent',
+    bordaHover: isDark ? 'group-hover:border-white/10' : 'group-hover:border-black/10',
+    dot: isDark ? 'bg-blue-400' : 'bg-blue-500',
+    textoValor: isDark ? 'text-white' : 'text-zinc-900',
+    textoTempo: isDark ? 'text-zinc-500/80' : 'text-zinc-400/80'
   };
-  const tempoTexto = getTempoAberto();
+}
+
+// FÍSICA PREMIUM
+const springPhysics = {
+  type: "spring",
+  stiffness: 420,
+  damping: 32,
+  mass: 0.6
+};
+
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
+export default function CardComanda({ comanda, onClick, temaNoturno: isDark }) {
+  const logic = useComandaLogic(comanda);
+  const theme = getCardTheme(logic, isDark);
+
+  const tempoTexto = logic.minutosAbertos > 59 
+    ? `${Math.floor(logic.minutosAbertos / 60)}h ${logic.minutosAbertos % 60}m` 
+    : `${logic.minutosAbertos}m`;
 
   return (
-    <div 
+    <motion.div
       onClick={onClick}
-      className={`relative w-full sm:w-[280px] cursor-pointer rounded-2xl border p-5 transition-all duration-300 ease-out flex flex-col justify-between h-[152px] group overflow-hidden ${
-        temaNoturno 
-          ? 'bg-[#0A0A0A] border-white/[0.08] hover:border-white/[0.15] hover:shadow-lg' 
-          : 'bg-white border-black/[0.08] hover:border-black/[0.15] hover:shadow-md'
+      initial={{
+        boxShadow: isDark 
+          ? "0px 4px 24px -8px rgba(0,0,0,0.4)" 
+          : "0px 4px 16px -8px rgba(0,0,0,0.04)"
+      }}
+      whileHover={{ 
+        scale: 1.015,
+        y: -2,
+        boxShadow: isDark 
+          ? "0px 12px 32px -8px rgba(0,0,0,0.7)" 
+          : "0px 12px 24px -8px rgba(0,0,0,0.12)"
+      }}
+      whileTap={{ 
+        scale: 0.975,
+        transition: { type: "spring", stiffness: 500, damping: 30 }
+      }}
+      transition={springPhysics}
+      className={`group relative w-full sm:w-[280px] h-[150px] cursor-pointer rounded-[24px] flex flex-col justify-between p-5 border transition-colors duration-300 ease-out ${
+        isDark 
+          ? `bg-[#0A0A0A] border-white/[0.03] ${theme.bordaHover}` 
+          : `bg-white border-black/[0.03] ${theme.bordaHover}`
       }`}
     >
-      {/* IDENTIDADE LOGÍSTICA SUTIL */}
-      {isDelivery && (
-        <div className={`absolute inset-0 pointer-events-none transition-opacity duration-300 ${temaNoturno ? 'bg-gradient-to-br from-amber-500/[0.03] to-transparent' : 'bg-gradient-to-br from-amber-500/[0.04] to-transparent'}`}></div>
-      )}
+      {/* Edge Highlight (Premium Inset) */}
+      <div 
+        className={`absolute inset-0 z-20 rounded-[24px] pointer-events-none opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100 ${
+          isDark ? 'shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]' : 'shadow-[inset_0_1px_1px_rgba(0,0,0,0.03)]'
+        }`} 
+      />
 
-      {/* HEADER DO CARD */}
-      <div className="flex justify-between items-start gap-3 w-full relative z-10">
-        <div className="flex flex-col min-w-0 gap-1.5 w-full pr-2">
-          
-          <h3 className={`font-bold text-[15px] truncate tracking-tight ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
-            {comanda.nome}
+      {/* Tinta de Fundo: Fade-in suave simulando respiração orgânica */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className={`absolute inset-0 z-0 rounded-[24px] pointer-events-none transition-colors duration-700 ${theme.bgTinta}`} 
+      />
+
+      <div className="flex justify-between items-start w-full relative z-10 pointer-events-none">
+        
+        <div className="flex flex-col min-w-0 pr-3">
+          <h3 className={`font-medium text-[14px] truncate tracking-tight mb-1.5 ${isDark ? 'text-zinc-200/90' : 'text-zinc-800/90'}`}>
+            {comanda.nome || 'Comanda S/N'}
           </h3>
-          
-          <div className="flex items-center gap-2">
-            <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-widest uppercase border ${
-              isDelivery 
-                ? (temaNoturno ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-amber-50 border-amber-200 text-amber-700')
-                : (temaNoturno ? 'bg-white/5 border-white/5 text-zinc-400' : 'bg-black/5 border-black/5 text-zinc-600')
-            }`}>
-              {isDelivery ? 'Delivery' : 'Local'}
+          <div className="flex items-center gap-1.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${theme.dot}`} />
+            <span className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? 'text-zinc-500/80' : 'text-zinc-400/80'}`}>
+              {logic.isDelivery ? 'Delivery' : 'Mesa'} {logic.isPagaParcial && !logic.isPagaTotal && '• Parc'}
             </span>
-            
-            {tempoTexto && (
-               <span className={`text-[10px] font-bold tracking-wider ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>
-                 {tempoTexto}
-               </span>
-            )}
           </div>
         </div>
 
-        {/* STATUS VISUAL PREMIUM */}
-        <div className="shrink-0 flex items-center justify-end">
-          {isPagaTotal && (
-             <div className={`px-2 py-1 rounded text-[9px] font-black tracking-widest uppercase border ${temaNoturno ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>
-               Pago
-             </div>
+        <AnimatePresence>
+          {!logic.isPagaTotal && logic.minutosAbertos > 0 && (
+            <motion.span 
+              initial={{ opacity: 0, y: 2 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className={`text-[11px] font-mono tracking-wider text-right transition-colors duration-500 ${theme.textoTempo}`}
+            >
+              {tempoTexto}
+            </motion.span>
           )}
-          {isPagaParcial && !isPagaTotal && (
-             <div className={`px-2 py-1 rounded text-[9px] font-black tracking-widest uppercase border ${temaNoturno ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-blue-50 border-blue-200 text-blue-600'}`}>
-               Parcial
-             </div>
-          )}
-        </div>
+        </AnimatePresence>
+
       </div>
 
-      {/* FOOTER DO CARD (O valor riscado não aumenta a altura do card) */}
-      <div className="flex justify-between items-end mt-auto relative z-10">
+      <div className="flex items-end justify-between w-full mt-auto relative z-20 pointer-events-none">
         
         <div className="flex flex-col mb-1">
-           <span className={`text-[11px] font-bold uppercase tracking-wider ${temaNoturno ? 'text-zinc-500' : 'text-zinc-500'}`}>
-             {qtdProdutos === 0 ? 'Vazio' : `${qtdProdutos} ite${qtdProdutos === 1 ? 'm' : 'ns'}`}
+           <span className={`text-[11px] font-medium tracking-wide ${isDark ? 'text-zinc-600/80' : 'text-zinc-400/80'}`}>
+             {logic.qtdProdutos === 0 ? 'Vazia' : `${logic.qtdProdutos} ite${logic.qtdProdutos === 1 ? 'm' : 'ns'}`}
            </span>
         </div>
 
         <div className="text-right flex flex-col items-end leading-none relative">
-           {isPagaParcial && !isPagaTotal ? (
-             <>
-               {/* Preço original riscado posicionado de forma ABSOLUTA para não empurrar o layout pra baixo */}
-               <span className={`absolute bottom-full right-0 mb-1 text-[11px] font-bold line-through opacity-40 ${temaNoturno ? 'text-zinc-300' : 'text-zinc-700'}`}>
-                 R$ {totalOriginal.toFixed(2)}
-               </span>
-               <div className="flex items-baseline gap-1.5">
-                 <span className={`text-[12px] font-bold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
-                 <span className={`font-black text-2xl tabular-nums tracking-tighter ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
-                   {totalPendente.toFixed(2)}
-                 </span>
-               </div>
-             </>
-           ) : isPagaTotal ? (
-             <div className="flex items-baseline gap-1.5">
-               <span className={`text-[12px] font-bold ${temaNoturno ? 'text-emerald-500/60' : 'text-emerald-600/60'}`}>R$</span>
-               <span className={`font-black text-2xl tabular-nums tracking-tighter ${temaNoturno ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                 {totalOriginal.toFixed(2)}
-               </span>
-             </div>
-           ) : (
-             <div className="flex items-baseline gap-1.5">
-               <span className={`text-[12px] font-bold ${temaNoturno ? 'text-zinc-500' : 'text-zinc-400'}`}>R$</span>
-               <span className={`font-black text-2xl tabular-nums tracking-tighter ${temaNoturno ? 'text-zinc-100' : 'text-zinc-900'}`}>
-                 {totalOriginal.toFixed(2)}
-               </span>
-             </div>
-           )}
+           
+           <AnimatePresence>
+             {logic.isPagaParcial && !logic.isPagaTotal && (
+               <motion.span 
+                 initial={{ opacity: 0, y: 2 }} 
+                 animate={{ opacity: 1, y: 0 }} 
+                 exit={{ opacity: 0, y: 2 }}
+                 transition={{ duration: 0.2, ease: "easeOut" }}
+                 className={`absolute bottom-[110%] right-0 mb-1 text-[11px] font-medium line-through ${isDark ? 'text-zinc-600/70' : 'text-zinc-400/70'}`}
+               >
+                 R$ {logic.totalOriginal.toFixed(2)}
+               </motion.span>
+             )}
+           </AnimatePresence>
+           
+           <div className="flex items-baseline gap-1">
+             <span className={`text-[12px] font-medium ${logic.isPagaTotal ? (isDark ? 'text-emerald-500/50' : 'text-emerald-600/50') : (isDark ? 'text-zinc-500/70' : 'text-zinc-400/70')}`}>
+               R$
+             </span>
+             
+             <AnimatePresence mode="wait">
+               <motion.span
+                 key={logic.isPagaTotal ? logic.totalOriginal : logic.totalPendente}
+                 initial={{ opacity: 0, scale: 1.02 }}
+                 animate={{ opacity: 1, scale: 1 }}
+                 transition={{ duration: 0.15, ease: "easeOut" }}
+                 className={`font-semibold text-[32px] tabular-nums tracking-tighter leading-none ${theme.textoValor}`}
+               >
+                 {(logic.isPagaTotal ? logic.totalOriginal : logic.totalPendente).toFixed(2)}
+               </motion.span>
+             </AnimatePresence>
+           </div>
+
         </div>
       </div>
-    </div>
+      
+    </motion.div>
   );
 }

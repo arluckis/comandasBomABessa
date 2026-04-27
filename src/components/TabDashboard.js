@@ -3,14 +3,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { motion, animate, AnimatePresence, useScroll, useTransform, useReducedMotion, useSpring } from 'framer-motion';
 import { Play, Square, AlertCircle, ArrowRight, Wallet, TrendingUp, AlertTriangle, Zap, CheckCircle2, ChevronRight } from 'lucide-react';
+import CardCardapio from '@/components/dashboard/CardCardapio';
 
-// Easing premium padrão (Apple-like / Linear)
 const premiumEase = [0.16, 1, 0.3, 1];
 
-// Hook para extrair cores dinâmicas do logo de forma performática
 function useImageColors(src) {
   const [colors, setColors] = useState(['#6366f1', '#10b981']);
-
   useEffect(() => {
     if (!src) return;
     const img = new Image();
@@ -24,50 +22,30 @@ function useImageColors(src) {
         canvas.height = 64;
         ctx.drawImage(img, 0, 0, 64, 64);
         const data = ctx.getImageData(0, 0, 64, 64).data;
-        
         let r1 = 0, g1 = 0, b1 = 0, count1 = 0;
         let r2 = 0, g2 = 0, b2 = 0, count2 = 0;
-
         for (let i = 0; i < data.length; i += 16) { 
           const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
           if (a < 128) continue;
-          
           const x = (i / 4) % 64;
-          const y = Math.floor((i / 4) / 64);
-
-          if (x < 32) {
-            r1 += r; g1 += g; b1 += b; count1++;
-          } else {
-            r2 += r; g2 += g; b2 += b; count2++;
-          }
+          if (x < 32) { r1 += r; g1 += g; b1 += b; count1++; } 
+          else { r2 += r; g2 += g; b2 += b; count2++; }
         }
-
         const c1 = count1 > 0 ? `rgb(${Math.round(r1/count1)}, ${Math.round(g1/count1)}, ${Math.round(b1/count1)})` : '#6366f1';
         const c2 = count2 > 0 ? `rgb(${Math.round(r2/count2)}, ${Math.round(g2/count2)}, ${Math.round(b2/count2)})` : '#10b981';
-        
         setColors([c1, c2]);
-      } catch (e) {
-        // Fallback natural em caso de bloqueio CORS
-      }
+      } catch (e) {}
     };
   }, [src]);
-
   return colors;
 }
 
 function AnimatedMoney({ value, isDark, className, prefix = 'R$' }) {
   const [displayValue, setDisplayValue] = useState(0);
-  
   useEffect(() => {
-    const safeValue = Number(value) || 0;
-    const controls = animate(displayValue, safeValue, { 
-      duration: 1.2,
-      ease: premiumEase, 
-      onUpdate: (latest) => setDisplayValue(latest) 
-    });
+    const controls = animate(displayValue, Number(value) || 0, { duration: 1.2, ease: premiumEase, onUpdate: (latest) => setDisplayValue(latest) });
     return controls.stop;
   }, [value]);
-
   return (
     <span className={className}>
       <span className="text-[0.65em] opacity-60 mr-1 font-medium">{prefix}</span>
@@ -79,68 +57,41 @@ function AnimatedMoney({ value, isDark, className, prefix = 'R$' }) {
 export default function TabDashboard({ temaNoturno, core, sessao }) {
   const isDark = temaNoturno;
   const prefersReducedMotion = useReducedMotion();
-
-  // Cores dinâmicas extraídas do logo
   const logoUrl = core?.logoEmpresa || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
   const dynamicColors = useImageColors(logoUrl);
 
-  // Scroll físico com elasticidade (Apple-like)
   const { scrollY } = useScroll();
-  const smoothScroll = useSpring(scrollY, {
-    stiffness: 120,
-    damping: 20,
-    mass: 0.3
-  });
-  
+  const smoothScroll = useSpring(scrollY, { stiffness: 120, damping: 20, mass: 0.3 });
   const heroY = useTransform(smoothScroll, [0, 400], [0, prefersReducedMotion ? 0 : 20]);
   const heroOpacity = useTransform(smoothScroll, [0, 300], [1, 0.5]);
 
-  const {
-    faturamentoHoje, faturamentoMensal, dinheiroParado, ticketMedio,
-    comandasAbertasQtd, itensPendentesQtd, cicloAtrasado, topProdutos, pagamentosResumo, tendenciaFaturamento
-  } = useMemo(() => {
+  const { faturamentoHoje, faturamentoMensal, dinheiroParado, ticketMedio, comandasAbertasQtd, itensPendentesQtd, cicloAtrasado, topProdutos, pagamentosResumo, tendenciaFaturamento } = useMemo(() => {
     const hoje = core?.getHoje?.() || new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
     const mesAtual = core?.getMesAtual?.() || hoje.substring(0, 7);
     const dataOntem = new Date(); dataOntem.setDate(dataOntem.getDate() - 1);
     const ontem = dataOntem.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
-    
     const comandasAll = Array.isArray(core?.comandas) ? core.comandas : [];
     const abertasAll = Array.isArray(core?.comandasAbertas) ? core.comandasAbertas : [];
     const filtradasAll = Array.isArray(core?.comandasFiltradas) ? core.comandasFiltradas : [];
     const rankingSafe = Array.isArray(core?.rankingProdutos) ? core.rankingProdutos : [];
     const pizzaSafe = Array.isArray(core?.dadosPizza) ? core.dadosPizza : [];
-
     const comandasOntem = comandasAll.filter(c => c?.data?.startsWith(ontem));
     const fatOntem = comandasOntem.reduce((acc, c) => acc + (Array.isArray(c?.produtos) ? c.produtos : []).reduce((sum, p) => sum + Number(p?.preco || 0), 0), 0);
     const fatHoje = Number(core?.faturamentoTotal) || 0;
     const tendenciaFaturamento = fatOntem === 0 ? null : ((fatHoje - fatOntem) / fatOntem) * 100;
     const comandasMes = comandasAll.filter(c => c?.data?.startsWith(mesAtual));
     const fatMensal = comandasMes.reduce((acc, c) => acc + (Array.isArray(c?.produtos) ? c.produtos : []).reduce((sum, p) => sum + Number(p?.preco || 0), 0), 0);
-
     let dinParado = 0; let itensPend = 0;
     abertasAll.forEach(c => { (Array.isArray(c?.produtos) ? c.produtos : []).filter(p => !p?.pago).forEach(p => { dinParado += Number(p?.preco || 0); itensPend += 1; }); });
-
     const tMedio = filtradasAll.length > 0 ? (fatHoje / filtradasAll.length) : 0;
     const isAtrasado = core?.caixaAtual?.status === 'aberto' && core?.caixaAtual?.data_abertura && String(core.caixaAtual.data_abertura).substring(0, 10) < hoje;
-    
-    return {
-      faturamentoHoje: fatHoje, faturamentoMensal: fatMensal, dinheiroParado: dinParado, ticketMedio: tMedio, comandasAbertasQtd: abertasAll.length, itensPendentesQtd: itensPend,
-      cicloAtrasado: isAtrasado, topProdutos: rankingSafe.slice(0, 3), pagamentosResumo: pizzaSafe, tendenciaFaturamento
-    };
+    return { faturamentoHoje: fatHoje, faturamentoMensal: fatMensal, dinheiroParado: dinParado, ticketMedio: tMedio, comandasAbertasQtd: abertasAll.length, itensPendentesQtd: itensPend, cicloAtrasado: isAtrasado, topProdutos: rankingSafe.slice(0, 3), pagamentosResumo: pizzaSafe, tendenciaFaturamento };
   }, [core]);
 
   const proximaAcao = useMemo(() => {
     const hora = new Date().getHours();
     if (core?.caixaAtual?.status !== 'aberto') {
-      return { 
-        id: 'abrir', titulo: "Iniciar Expedição", subtitulo: "O caixa está fechado. Clique para abrir e iniciar vendas.", 
-        acao: () => {
-          if (core?.setModalGlobal) {
-             core.setModalGlobal({ visivel: true, titulo: "Abertura de Expediente", mensagem: "Deseja iniciar o caixa com saldo R$ 0,00 e ir direto para o terminal de vendas?", tipo: "confirmacao", acaoConfirmar: () => { core.abrirCaixaManual({ data_abertura: core.getHoje(), saldo_inicial: 0 }); core.setAbaAtiva('comandas'); } });
-          } else { core?.setAbaAtiva('caixa'); }
-        }, 
-        icone: Play, accent: 'emerald' 
-      };
+      return { id: 'abrir', titulo: "Iniciar Expedição", subtitulo: "O caixa está fechado. Clique para abrir e iniciar vendas.", acao: () => { if (core?.setModalGlobal) { core.setModalGlobal({ visivel: true, titulo: "Abertura de Expediente", mensagem: "Deseja iniciar o caixa com saldo R$ 0,00 e ir direto para o terminal de vendas?", tipo: "confirmacao", acaoConfirmar: () => { core.abrirCaixaManual({ data_abertura: core.getHoje(), saldo_inicial: 0 }); core.setAbaAtiva('comandas'); } }); } else { core?.setAbaAtiva('caixa'); } }, icone: Play, accent: 'emerald' };
     }
     if (dinheiroParado > 0 && comandasAbertasQtd >= 3) return { id: 'risco', titulo: "Cobrar Pendências", subtitulo: `Existem R$ ${dinheiroParado.toFixed(2).replace('.', ',')} retidos aguardando pagamento.`, acao: () => core?.setAbaAtiva('comandas'), icone: AlertCircle, accent: 'amber' };
     if (cicloAtrasado) return { id: 'atraso', titulo: "Turno Estendido", subtitulo: "Operação rodando com data retroativa. Acesse para operar as mesas pendentes.", acao: () => core?.setAbaAtiva('comandas'), icone: Square, accent: 'rose' };
@@ -165,20 +116,9 @@ export default function TabDashboard({ temaNoturno, core, sessao }) {
     };
     return map[accent] || map.zinc;
   };
+  const glowBaseColor = { emerald: isDark ? 'bg-emerald-500' : 'bg-emerald-400', rose: isDark ? 'bg-rose-500' : 'bg-rose-400', amber: isDark ? 'bg-amber-500' : 'bg-amber-400', indigo: isDark ? 'bg-indigo-500' : 'bg-indigo-400', zinc: isDark ? 'bg-white' : 'bg-zinc-400' }[proximaAcao.accent] || 'bg-zinc-400';
 
-  const glowBaseColor = {
-    emerald: isDark ? 'bg-emerald-500' : 'bg-emerald-400',
-    rose: isDark ? 'bg-rose-500' : 'bg-rose-400',
-    amber: isDark ? 'bg-amber-500' : 'bg-amber-400',
-    indigo: isDark ? 'bg-indigo-500' : 'bg-indigo-400',
-    zinc: isDark ? 'bg-white' : 'bg-zinc-400'
-  }[proximaAcao.accent] || 'bg-zinc-400';
-
-  const rootVariants = {
-    hidden: { opacity: 0, y: 10, filter: 'blur(4px)' },
-    visible: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.6, ease: premiumEase } }
-  };
-
+  const rootVariants = { hidden: { opacity: 0, y: 10, filter: 'blur(4px)' }, visible: { opacity: 1, y: 0, filter: 'blur(0px)', transition: { duration: 0.6, ease: premiumEase } } };
   const heroContainerVariants = { hidden: {}, visible: { transition: { delayChildren: 0.1, staggerChildren: 0.06 } } };
   const heroItemVariants = { hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: premiumEase } } };
   const metricsContainerVariants = { hidden: {}, visible: { transition: { delayChildren: 0.2, staggerChildren: 0.08 } } };
@@ -187,77 +127,46 @@ export default function TabDashboard({ temaNoturno, core, sessao }) {
   const riskCardVariants = { hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { delay: 0.45, duration: 0.8, ease: premiumEase } } };
 
   return (
-    <motion.div 
-      variants={rootVariants}
-      initial="hidden"
-      animate="visible"
-      className="w-full min-h-screen flex flex-col pb-12 pt-6 px-4 md:px-6 selection:bg-zinc-800 selection:text-white"
-    >
+    <motion.div variants={rootVariants} initial="hidden" animate="visible" className="w-full min-h-screen flex flex-col pb-12 pt-6 px-4 md:px-6 selection:bg-zinc-800 selection:text-white">
       <div className="flex flex-col gap-6 max-w-[1200px] w-full mx-auto relative z-10">
         
-        {/* 1. HERO REFINADO (Reduzido, densidade Apple-grade) */}
-        <motion.div 
-          style={{ y: heroY, opacity: heroOpacity }}
-          className={`relative p-6 md:p-8 rounded-[28px] overflow-hidden flex flex-col justify-end min-h-[180px] border ${isDark ? 'bg-[#0A0A0C] border-white/[0.04]' : 'bg-gradient-to-b from-white to-zinc-50/50 border-zinc-200/50'}`}
-        >
-          {/* Background Dinâmico com cores extraídas do logo */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-[28px] z-0">
-            <motion.div 
-              animate={{ backgroundColor: dynamicColors[0] }}
-              transition={{ duration: 1.5, ease: "easeOut" }}
-              className="absolute -right-10 -top-20 w-[400px] h-[400px] blur-[60px] rounded-full opacity-[0.08] mix-blend-screen" 
-            />
-            <motion.div 
-              animate={{ backgroundColor: dynamicColors[1] }}
-              transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
-              className="absolute -left-10 -bottom-10 w-[300px] h-[300px] blur-[60px] rounded-full opacity-[0.06] mix-blend-screen" 
-            />
-          </div>
+        {/* GRID PRINCIPAL DO TOPO */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 w-full">
           
-          <motion.div 
-            variants={heroContainerVariants} 
-            className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6 mt-6"
-          >
-            <div className="flex flex-col gap-5">
-              {/* Avatar Pixel-Perfect 100% Circular */}
-              <motion.div 
-                variants={heroItemVariants}
-                className={`w-14 h-14 shrink-0 rounded-full overflow-hidden border shadow-[0_2px_8px_rgba(0,0,0,0.06)] ${isDark ? 'bg-[#111113]/80 backdrop-blur-md border-white/[0.08]' : 'bg-white backdrop-blur-md border-zinc-200/80'}`}
-              >
-                <img 
-                  src={logoUrl} 
-                  alt="Logo Sede" 
-                  className="w-full h-full object-cover rounded-full" 
-                />
-              </motion.div>
-
-              <motion.div variants={heroItemVariants}>
-                <h1 className={`text-2xl md:text-3xl font-semibold tracking-tight mb-2.5 leading-[1.1] ${textPrimary}`}>
-                  {core?.nomeEmpresa || 'AROX Business'}
-                </h1>
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-medium uppercase tracking-[0.1em] ${isDark ? 'bg-white/10 text-white' : 'bg-zinc-900 text-white'}`}>
-                    {core?.dadosPlano?.nome || 'Premium'}
-                  </span>
-                  <span className="w-1 h-1 rounded-full bg-zinc-500/30" />
-                  <span className={`text-[12px] font-medium tracking-wide ${textMuted}`}>
-                    Sessão por {sessao?.nome_usuario || 'Admin'}
-                  </span>
+          <motion.div style={{ y: heroY, opacity: heroOpacity }} className={`lg:col-span-2 relative p-6 md:p-8 rounded-[28px] overflow-hidden flex flex-col justify-end min-h-[180px] border ${isDark ? 'bg-[#0A0A0C] border-white/[0.04]' : 'bg-gradient-to-b from-white to-zinc-50/50 border-zinc-200/50'}`}>
+            <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-[28px] z-0">
+              <motion.div animate={{ backgroundColor: dynamicColors[0] }} transition={{ duration: 1.5, ease: "easeOut" }} className="absolute -right-10 -top-20 w-[400px] h-[400px] blur-[60px] rounded-full opacity-[0.08] mix-blend-screen" />
+              <motion.div animate={{ backgroundColor: dynamicColors[1] }} transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }} className="absolute -left-10 -bottom-10 w-[300px] h-[300px] blur-[60px] rounded-full opacity-[0.06] mix-blend-screen" />
+            </div>
+            <motion.div variants={heroContainerVariants} className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6 mt-6">
+              <div className="flex flex-col gap-5">
+                <motion.div variants={heroItemVariants} className={`w-14 h-14 shrink-0 rounded-full overflow-hidden border shadow-[0_2px_8px_rgba(0,0,0,0.06)] ${isDark ? 'bg-[#111113]/80 backdrop-blur-md border-white/[0.08]' : 'bg-white backdrop-blur-md border-zinc-200/80'}`}>
+                  <img src={logoUrl} alt="Logo Sede" className="w-full h-full object-cover rounded-full" />
+                </motion.div>
+                <motion.div variants={heroItemVariants}>
+                  <h1 className={`text-2xl md:text-3xl font-semibold tracking-tight mb-2.5 leading-[1.1] ${textPrimary}`}>{core?.nomeEmpresa || 'AROX Business'}</h1>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-medium uppercase tracking-[0.1em] ${isDark ? 'bg-white/10 text-white' : 'bg-zinc-900 text-white'}`}>{core?.dadosPlano?.nome || 'Premium'}</span>
+                    <span className="w-1 h-1 rounded-full bg-zinc-500/30" />
+                    <span className={`text-[12px] font-medium tracking-wide ${textMuted}`}>Sessão por {sessao?.nome_usuario || 'Admin'}</span>
+                  </div>
+                </motion.div>
+              </div>
+              <motion.div variants={heroItemVariants} className={`flex flex-col gap-1 p-3.5 rounded-xl border backdrop-blur-[24px] min-w-[160px] ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white/60 border-zinc-200/60 shadow-sm'}`}>
+                <span className={`text-[9px] font-medium uppercase tracking-[0.15em] ${textMuted}`}>Data Contábil</span>
+                <div className="flex items-center gap-2.5">
+                  <span className={`text-[14px] font-medium tracking-tight ${textPrimary}`}>{core?.caixaAtual?.data_abertura ? String(core.caixaAtual.data_abertura).substring(0, 10).split('-').reverse().join('/') : core?.getHoje?.().split('-').reverse().join('/')}</span>
+                  {cicloAtrasado && <span className={`px-1.5 py-0.5 rounded text-[8px] font-medium uppercase tracking-[0.1em] ${isDark ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-100 text-rose-700'}`}>Atrasado</span>}
                 </div>
               </motion.div>
-            </div>
-
-            <motion.div variants={heroItemVariants} className={`flex flex-col gap-1 p-3.5 rounded-xl border backdrop-blur-[24px] min-w-[160px] ${isDark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white/60 border-zinc-200/60 shadow-sm'}`}>
-              <span className={`text-[9px] font-medium uppercase tracking-[0.15em] ${textMuted}`}>Data Contábil</span>
-              <div className="flex items-center gap-2.5">
-                <span className={`text-[14px] font-medium tracking-tight ${textPrimary}`}>
-                  {core?.caixaAtual?.data_abertura ? String(core.caixaAtual.data_abertura).substring(0, 10).split('-').reverse().join('/') : core?.getHoje?.().split('-').reverse().join('/')}
-                </span>
-                {cicloAtrasado && <span className={`px-1.5 py-0.5 rounded text-[8px] font-medium uppercase tracking-[0.1em] ${isDark ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-100 text-rose-700'}`}>Atrasado</span>}
-              </div>
             </motion.div>
           </motion.div>
-        </motion.div>
+
+          <motion.div variants={{ hidden: { opacity: 0, x: 20 }, visible: { opacity: 1, x: 0, transition: { duration: 0.6, ease: premiumEase } } }} className="lg:col-span-1 w-full h-full">
+            <CardCardapio core={core} sessao={sessao} isDark={isDark} />
+          </motion.div>
+
+        </div>
 
         {/* 2. METRICS CARDS */}
         <motion.div variants={metricsContainerVariants} className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -266,44 +175,21 @@ export default function TabDashboard({ temaNoturno, core, sessao }) {
             { label: 'Projeção Mensal', value: faturamentoMensal },
             { label: 'Ticket Médio', value: ticketMedio, sub: `${Array.isArray(core?.comandasFiltradas) ? core.comandasFiltradas.length : 0} cmd.`, isBadge: true }
           ].map((metric, idx) => (
-            <motion.div 
-              key={idx} 
-              variants={metricCardVariants}
-              whileHover={{ y: -2 }} 
-              transition={{ ease: premiumEase, duration: 0.4 }} 
-              className={`p-7 rounded-[28px] flex flex-col justify-between min-h-[170px] ${cardPremium}`}
-            >
+            <motion.div key={idx} variants={metricCardVariants} whileHover={{ y: -2 }} transition={{ ease: premiumEase, duration: 0.4 }} className={`p-7 rounded-[28px] flex flex-col justify-between min-h-[170px] ${cardPremium}`}>
               <div className="flex justify-between items-start">
                  <span className={`text-[10px] font-medium uppercase tracking-[0.15em] ${textMuted}`}>{metric.label}</span>
-                 {metric.sub && (
-                   <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${metric.isBadge ? (isDark ? 'bg-white/5 border-white/10 text-zinc-400' : 'bg-zinc-100 border-zinc-200 text-zinc-600') : (metric.isPositive ? (isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700') : (isDark ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-rose-50 border-rose-200 text-rose-700'))}`}>
-                     {metric.sub}
-                   </span>
-                 )}
+                 {metric.sub && ( <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium border ${metric.isBadge ? (isDark ? 'bg-white/5 border-white/10 text-zinc-400' : 'bg-zinc-100 border-zinc-200 text-zinc-600') : (metric.isPositive ? (isDark ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700') : (isDark ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-rose-50 border-rose-200 text-rose-700'))}`}>{metric.sub}</span> )}
               </div>
               <AnimatedMoney value={metric.value} isDark={isDark} className={`${metric.main ? 'text-3xl md:text-4xl font-semibold' : 'text-2xl font-medium'} tracking-tight tabular-nums mt-6 ${textPrimary}`} />
             </motion.div>
           ))}
         </motion.div>
 
-        {/* 3. RISK & ACTION (THE HEART) */}
+        {/* 3. RISK & ACTION */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          
-          <motion.div 
-            variants={actionCardVariants}
-            className="col-span-1 lg:col-span-2 relative group cursor-pointer" 
-            onClick={proximaAcao.acao}
-          >
-            {/* GLOW ATRÁS (Bordas e background, difuso, zero interferência no conteúdo) */}
+          <motion.div variants={actionCardVariants} className="col-span-1 lg:col-span-2 relative group cursor-pointer" onClick={proximaAcao.acao}>
             <div className={`absolute inset-0 -z-10 blur-[50px] opacity-0 group-hover:opacity-[0.12] transition-opacity duration-700 ${glowBaseColor}`} />
-            
-            {/* CARD FRONTAL */}
-            <motion.div 
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.99 }}
-              transition={{ ease: premiumEase, duration: 0.4 }}
-              className={`relative z-10 h-full p-8 md:p-10 rounded-[28px] flex flex-col justify-center border transition-colors duration-500 ${isDark ? 'bg-[#111113]/90 border-white/[0.08]' : 'bg-white border-zinc-200'} shadow-[0_4px_20px_rgba(0,0,0,0.02)]`}
-            >
+            <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.99 }} transition={{ ease: premiumEase, duration: 0.4 }} className={`relative z-10 h-full p-8 md:p-10 rounded-[28px] flex flex-col justify-center border transition-colors duration-500 ${isDark ? 'bg-[#111113]/90 border-white/[0.08]' : 'bg-white border-zinc-200'} shadow-[0_4px_20px_rgba(0,0,0,0.02)]`}>
               <div className="flex justify-between items-center w-full">
                 <div className="flex items-center gap-6 md:gap-8">
                   <div className={`w-14 h-14 md:w-16 md:h-16 rounded-[20px] flex items-center justify-center shrink-0 border transition-transform duration-700 ease-out group-hover:scale-105 group-hover:-rotate-2 ${getActionColors(proximaAcao.accent)}`}>
@@ -315,19 +201,11 @@ export default function TabDashboard({ temaNoturno, core, sessao }) {
                     <p className={`text-[14px] font-light leading-relaxed ${textMuted}`}>{proximaAcao.subtitulo}</p>
                   </div>
                 </div>
-                <div className={`hidden md:flex w-12 h-12 rounded-full items-center justify-center transition-transform duration-700 ease-out group-hover:translate-x-1.5 border ${isDark ? 'bg-white/[0.03] border-white/10 text-white' : 'bg-zinc-50 border-zinc-200 text-zinc-900 group-hover:bg-zinc-900 group-hover:text-white'}`}>
-                  <ChevronRight className="w-5 h-5" strokeWidth={1.5} />
-                </div>
+                <div className={`hidden md:flex w-12 h-12 rounded-full items-center justify-center transition-transform duration-700 ease-out group-hover:translate-x-1.5 border ${isDark ? 'bg-white/[0.03] border-white/10 text-white' : 'bg-zinc-50 border-zinc-200 text-zinc-900 group-hover:bg-zinc-900 group-hover:text-white'}`}><ChevronRight className="w-5 h-5" strokeWidth={1.5} /></div>
               </div>
             </motion.div>
           </motion.div>
-
-          <motion.div 
-            variants={riskCardVariants}
-            whileHover={{ y: -2 }} 
-            transition={{ ease: premiumEase, duration: 0.4 }}
-            className="relative h-full"
-          >
+          <motion.div variants={riskCardVariants} whileHover={{ y: -2 }} transition={{ ease: premiumEase, duration: 0.4 }} className="relative h-full">
             <div className={`h-full p-8 rounded-[28px] flex flex-col justify-between transition-colors duration-700 ${cardPremium} ${dinheiroParado > 0 ? (isDark ? 'border-amber-500/20' : 'border-amber-300/50 bg-amber-50/20') : ''}`}>
               <div className="flex items-center gap-2.5 mb-6">
                 <AlertTriangle className={`w-4 h-4 ${dinheiroParado > 0 ? (isDark ? 'text-amber-500' : 'text-amber-600') : textMuted}`} strokeWidth={1.5} />
@@ -344,29 +222,14 @@ export default function TabDashboard({ temaNoturno, core, sessao }) {
           </motion.div>
         </div>
 
-        {/* 4. DATA DRIVERS (Scroll Based Stagger) */}
-        <motion.div 
-          initial="hidden" 
-          whileInView="visible" 
-          viewport={{ once: true, margin: "-40px" }}
-          variants={{ visible: { transition: { staggerChildren: 0.05, delayChildren: 0.1 } } }}
-          className="grid grid-cols-1 md:grid-cols-2 gap-5"
-        >
-          
-          {/* Top Produtos */}
+        {/* 4. DATA DRIVERS */}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-40px" }} variants={{ visible: { transition: { staggerChildren: 0.05, delayChildren: 0.1 } } }} className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className={`p-8 rounded-[28px] ${cardPremium}`}>
-            <div className="flex items-center gap-2.5 mb-6">
-              <TrendingUp className={`w-4 h-4 ${textMuted}`} strokeWidth={1.5} />
-              <span className={`text-[9px] font-medium uppercase tracking-[0.15em] ${textMuted}`}>Motores de Receita (Top 3)</span>
-            </div>
+            <div className="flex items-center gap-2.5 mb-6"><TrendingUp className={`w-4 h-4 ${textMuted}`} strokeWidth={1.5} /><span className={`text-[9px] font-medium uppercase tracking-[0.15em] ${textMuted}`}>Motores de Receita (Top 3)</span></div>
             <div className="flex flex-col gap-3">
               <AnimatePresence>
                 {topProdutos.length > 0 ? topProdutos.map((prod, idx) => (
-                  <motion.div 
-                    key={idx} 
-                    variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0, transition: { duration: 0.5, ease: premiumEase } } }} 
-                    className={`flex items-center justify-between p-3.5 rounded-xl border transition-colors duration-300 ${isDark ? 'bg-transparent border-white/[0.04]' : 'bg-transparent border-zinc-200/50'}`}
-                  >
+                  <motion.div key={idx} variants={{ hidden: { opacity: 0, x: -10 }, visible: { opacity: 1, x: 0, transition: { duration: 0.5, ease: premiumEase } } }} className={`flex items-center justify-between p-3.5 rounded-xl border transition-colors duration-300 ${isDark ? 'bg-transparent border-white/[0.04]' : 'bg-transparent border-zinc-200/50'}`}>
                     <div className="flex items-center gap-3 overflow-hidden"><span className={`text-[12px] font-medium w-4 ${textMuted}`}>{idx + 1}.</span><span className={`text-[13px] font-medium tracking-tight truncate ${textPrimary}`}>{prod?.nome || 'Produto'}</span></div>
                     <div className="flex items-baseline gap-3 shrink-0"><span className={`text-[11px] font-light ${textMuted}`}>{prod?.volume || 0}x</span><span className={`text-[13px] font-medium tabular-nums ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>R$ {Number(prod?.valor || prod?.total || prod?.preco || 0).toFixed(2)}</span></div>
                   </motion.div>
@@ -374,18 +237,12 @@ export default function TabDashboard({ temaNoturno, core, sessao }) {
               </AnimatePresence>
             </div>
           </div>
-
-          {/* Consolidado */}
           <div className={`p-8 rounded-[28px] ${cardPremium}`}>
-             <div className="flex items-center gap-2.5 mb-6">
-              <Wallet className={`w-4 h-4 ${textMuted}`} strokeWidth={1.5} />
-              <span className={`text-[9px] font-medium uppercase tracking-[0.15em] ${textMuted}`}>Entradas Consolidadas</span>
-            </div>
+             <div className="flex items-center gap-2.5 mb-6"><Wallet className={`w-4 h-4 ${textMuted}`} strokeWidth={1.5} /><span className={`text-[9px] font-medium uppercase tracking-[0.15em] ${textMuted}`}>Entradas Consolidadas</span></div>
             <div className="flex flex-col gap-6">
               <AnimatePresence>
                 {pagamentosResumo.length > 0 ? [...pagamentosResumo].sort((a,b) => (Number(b?.value) || 0) - (Number(a?.value) || 0)).slice(0, 4).map((pag, idx) => {
-                  const safeValue = Number(pag?.value) || 0;
-                  const perc = faturamentoHoje > 0 ? (safeValue / faturamentoHoje) * 100 : 0;
+                  const safeValue = Number(pag?.value) || 0; const perc = faturamentoHoje > 0 ? (safeValue / faturamentoHoje) * 100 : 0;
                   return (
                     <motion.div key={idx} variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: premiumEase } } }} className="flex flex-col gap-2.5">
                       <div className="flex justify-between items-end"><span className={`text-[12px] font-medium ${textPrimary}`}>{pag?.name || 'Outros'}</span><div className="flex items-baseline gap-2.5"><span className={`text-[10px] font-light ${textMuted}`}>{perc.toFixed(0)}%</span><span className={`text-[13px] font-medium tabular-nums ${textPrimary}`}>R$ {safeValue.toFixed(2)}</span></div></div>
@@ -396,8 +253,8 @@ export default function TabDashboard({ temaNoturno, core, sessao }) {
               </AnimatePresence>
             </div>
           </div>
-
         </motion.div>
+
       </div>
     </motion.div>
   );

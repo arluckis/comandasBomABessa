@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { motion, AnimatePresence, LayoutGroup, useScroll, useTransform, useMotionTemplate } from 'framer-motion';
+import { motion, AnimatePresence, LayoutGroup, useScroll, useTransform, useMotionTemplate, useAnimation } from 'framer-motion';
 
 const mapAbaTitulo = { 
   comandas: 'Terminal de Operações', 
@@ -13,13 +13,35 @@ const mapAbaTitulo = {
 };
 
 // ============================================================================
-// SYSTEM CAPSULE (DUAL-CAPSULE FUSION SYSTEM)
+// FÍSICA PREMIUM (NÍVEL APPLE)
+// ============================================================================
+const cinematicSpring = { type: "spring", stiffness: 260, damping: 24, mass: 1 };
+const cinematicEase = [0.16, 1, 0.3, 1];
+
+// ============================================================================
+// COMPONENTE: TIME AGO (Relógio em Tempo Real para Fila de Espera)
+// ============================================================================
+const TimeAgo = ({ timestamp }) => {
+  const [time, setTime] = useState('agora');
+  
+  useEffect(() => {
+    const update = () => {
+      const diff = Math.floor((Date.now() - timestamp) / 60000);
+      if (diff < 1) setTime('agora');
+      else setTime(`há ${diff} min`);
+    };
+    update();
+    const interval = setInterval(update, 15000); // Atualiza a cada 15s
+    return () => clearInterval(interval);
+  }, [timestamp]);
+
+  return <span>{time}</span>;
+};
+
+// ============================================================================
+// SYSTEM CAPSULE (ESQUERDA - STATUS DO CAIXA)
 // ============================================================================
 const SystemCapsule = ({ isDark, statusOperacao, tensaoEstado, dataCaixaFormatada, abaAtiva, irParaControleOperacional, isCicloAtrasado }) => {
-  // Motion Language: Premium Apple-like Spring Physics
-  const cinematicSpring = { type: "spring", stiffness: 280, damping: 28, mass: 0.9 };
-
-  // 1. Hierarquia de Estados Inteligente
   let derivedState = 'normal';
   if (statusOperacao === 'inativa') derivedState = 'inativa';
   else if (tensaoEstado === 'critico') derivedState = 'critico';
@@ -27,100 +49,42 @@ const SystemCapsule = ({ isDark, statusOperacao, tensaoEstado, dataCaixaFormatad
   else if (tensaoEstado === 'pre-fechamento') derivedState = 'pre-fechamento';
   else if (isCicloAtrasado) derivedState = 'turno_estendido';
 
-  // 2. Regra de Existência da Capsula B
   const isDashboard = abaAtiva === 'dashboard';
   const showCapsuleB = derivedState !== 'normal' && derivedState !== 'inativa' && !isDashboard;
-
   const dateLabel = dataCaixaFormatada ? `Ciclo • ${dataCaixaFormatada}` : 'Sistema Ativo';
 
-  // 3. Sistema de Cores e Labels
   const config = {
-    inativa: { 
-      dot: 'bg-zinc-500', text: isDark ? 'text-zinc-400' : 'text-zinc-500', 
-      bg: isDark ? 'bg-white/5' : 'bg-black/[0.03]', border: isDark ? 'border-white/10' : 'border-black/5', 
-      labelA: 'Sistema Inativo', labelB: null 
-    },
-    normal: { 
-      dot: 'bg-emerald-500', text: isDark ? 'text-emerald-400' : 'text-emerald-700', 
-      bg: isDark ? 'bg-[#1c1c1e]/80' : 'bg-white/80', border: isDark ? 'border-emerald-500/20' : 'border-emerald-500/20', 
-      labelA: dateLabel, labelB: null 
-    },
-    turno_estendido: { 
-      dot: 'bg-orange-500', text: isDark ? 'text-orange-400' : 'text-orange-700', 
-      bg: isDark ? 'bg-orange-500/10' : 'bg-orange-50/90', border: isDark ? 'border-orange-500/20' : 'border-orange-500/20', 
-      labelA: dateLabel, labelB: 'Turno Estendido' 
-    },
-    'pre-fechamento': { 
-      dot: 'bg-amber-500', text: isDark ? 'text-amber-400' : 'text-amber-700', 
-      bg: isDark ? 'bg-amber-500/10' : 'bg-amber-50/90', border: isDark ? 'border-amber-500/20' : 'border-amber-500/20', 
-      labelA: dateLabel, labelB: 'Pré-fechamento' 
-    },
-    atraso: { 
-      dot: 'bg-orange-500', text: isDark ? 'text-orange-400' : 'text-orange-700', 
-      bg: isDark ? 'bg-orange-500/10' : 'bg-orange-50/90', border: isDark ? 'border-orange-500/20' : 'border-orange-500/20', 
-      labelA: dateLabel, labelB: 'Atraso Operacional' 
-    },
-    critico: { 
-      dot: 'bg-rose-500', text: isDark ? 'text-rose-400' : 'text-rose-700', 
-      bg: isDark ? 'bg-rose-500/10' : 'bg-rose-50/90', border: isDark ? 'border-rose-500/20' : 'border-rose-500/20', 
-      labelA: dateLabel, labelB: 'Operação Crítica' 
-    }
+    inativa: { dot: 'bg-zinc-500', text: isDark ? 'text-zinc-400' : 'text-zinc-500', bg: isDark ? 'bg-white/5' : 'bg-black/[0.03]', border: isDark ? 'border-white/10' : 'border-black/5', labelA: 'Sistema Inativo', labelB: null },
+    normal: { dot: 'bg-emerald-500', text: isDark ? 'text-emerald-400' : 'text-emerald-700', bg: isDark ? 'bg-[#1c1c1e]/80' : 'bg-white/80', border: isDark ? 'border-emerald-500/20' : 'border-emerald-500/20', labelA: dateLabel, labelB: null },
+    turno_estendido: { dot: 'bg-orange-500', text: isDark ? 'text-orange-400' : 'text-orange-700', bg: isDark ? 'bg-orange-500/10' : 'bg-orange-50/90', border: isDark ? 'border-orange-500/20' : 'border-orange-500/20', labelA: dateLabel, labelB: 'Turno Estendido' },
+    'pre-fechamento': { dot: 'bg-amber-500', text: isDark ? 'text-amber-400' : 'text-amber-700', bg: isDark ? 'bg-amber-500/10' : 'bg-amber-50/90', border: isDark ? 'border-amber-500/20' : 'border-amber-500/20', labelA: dateLabel, labelB: 'Pré-fechamento' },
+    atraso: { dot: 'bg-orange-500', text: isDark ? 'text-orange-400' : 'text-orange-700', bg: isDark ? 'bg-orange-500/10' : 'bg-orange-50/90', border: isDark ? 'border-orange-500/20' : 'border-orange-500/20', labelA: dateLabel, labelB: 'Atraso Operacional' },
+    critico: { dot: 'bg-rose-500', text: isDark ? 'text-rose-400' : 'text-rose-700', bg: isDark ? 'bg-rose-500/10' : 'bg-rose-50/90', border: isDark ? 'border-rose-500/20' : 'border-rose-500/20', labelA: dateLabel, labelB: 'Operação Crítica' }
   };
 
   const currentConfig = config[derivedState] || config.normal;
 
   return (
-    <motion.button
-      layout
-      layoutId="arox-status-pill"
-      onClick={irParaControleOperacional}
-      initial={{ opacity: 0, scale: 0.8, y: -10, filter: 'blur(8px)' }}
-      animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
-      exit={{ opacity: 0, scale: 0.8, y: -10, filter: 'blur(8px)' }}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      transition={cinematicSpring}
-      className={`relative group flex items-center h-8 sm:h-[36px] px-3 sm:px-4 rounded-full border shadow-[0_4px_16px_-8px_rgba(0,0,0,0.1)] backdrop-blur-[16px] transition-colors duration-500 overflow-hidden cursor-pointer ${currentConfig.bg} ${currentConfig.border}`}
-      style={{ borderRadius: 32 }}
-    >
+    <motion.button layout layoutId="arox-status-pill" onClick={irParaControleOperacional} initial={{ opacity: 0, scale: 0.8, y: -10, filter: 'blur(8px)' }} animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 0.8, y: -10, filter: 'blur(8px)' }} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} transition={cinematicSpring} className={`relative group flex items-center h-8 sm:h-[36px] px-3 sm:px-4 rounded-full border shadow-[0_4px_16px_-8px_rgba(0,0,0,0.1)] backdrop-blur-[16px] transition-colors duration-500 overflow-hidden cursor-pointer ${currentConfig.bg} ${currentConfig.border}`} style={{ borderRadius: 32 }}>
       <motion.div layout transition={cinematicSpring} className="flex items-center gap-2 sm:gap-3 relative z-10">
-        
-        {/* CAPSULE A: System Core */}
         <motion.div layout transition={cinematicSpring} className="flex items-center gap-2">
           <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2 shrink-0">
-            {derivedState !== 'inativa' && (
-              <span className={`absolute inline-flex h-full w-full rounded-full opacity-80 animate-[pulse_2s_ease-in-out_infinite] ${currentConfig.dot}`} />
-            )}
+            {derivedState !== 'inativa' && <span className={`absolute inline-flex h-full w-full rounded-full opacity-80 animate-[pulse_2s_ease-in-out_infinite] ${currentConfig.dot}`} />}
             <span className={`relative inline-flex rounded-full h-full w-full ${currentConfig.dot}`} />
           </span>
           <motion.span layout transition={cinematicSpring} className={`text-[12px] sm:text-[13px] font-medium tracking-tight whitespace-nowrap ${currentConfig.text}`}>
-            <span className="sm:hidden">{currentConfig.labelA.split(' • ')[1] || currentConfig.labelA}</span>
-            <span className="hidden sm:inline">{currentConfig.labelA}</span>
+            <span className="sm:hidden">{currentConfig.labelA.split(' • ')[1] || currentConfig.labelA}</span><span className="hidden sm:inline">{currentConfig.labelA}</span>
           </motion.span>
         </motion.div>
-
-        {/* CAPSULE B: Dynamic Events (Magnetic Merge effect) */}
         <AnimatePresence mode="popLayout">
           {showCapsuleB && (
-            <motion.div
-              layout
-              initial={{ opacity: 0, x: -10, filter: 'blur(4px)' }}
-              animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, x: -10, filter: 'blur(4px)' }}
-              transition={cinematicSpring}
-              className="flex items-center gap-2 sm:gap-3"
-            >
+            <motion.div layout initial={{ opacity: 0, x: -10, filter: 'blur(4px)' }} animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }} exit={{ opacity: 0, x: -10, filter: 'blur(4px)' }} transition={cinematicSpring} className="flex items-center gap-2 sm:gap-3">
               <motion.div layout transition={cinematicSpring} className={`w-[1px] h-3.5 sm:h-4 opacity-30 ${isDark ? 'bg-white' : 'bg-black'}`} />
-              <motion.span layout transition={cinematicSpring} className={`text-[12px] sm:text-[13px] font-semibold tracking-tight whitespace-nowrap ${currentConfig.text}`}>
-                {currentConfig.labelB}
-              </motion.span>
+              <motion.span layout transition={cinematicSpring} className={`text-[12px] sm:text-[13px] font-semibold tracking-tight whitespace-nowrap ${currentConfig.text}`}>{currentConfig.labelB}</motion.span>
             </motion.div>
           )}
         </AnimatePresence>
-
       </motion.div>
-
-      {/* Glassmorphism Inner Light Overlay */}
       <div className={`absolute inset-0 rounded-full pointer-events-none transition-opacity duration-500 opacity-0 group-hover:opacity-100 ${isDark ? 'bg-white/[0.03]' : 'bg-black/[0.02]'}`} />
     </motion.button>
   );
@@ -131,12 +95,10 @@ const SystemCapsule = ({ isDark, statusOperacao, tensaoEstado, dataCaixaFormatad
 // ============================================================================
 export default function Header({
   comandaAtiva, setIdSelecionado, setMenuMobileAberto, temaNoturno,
-  abaAtiva, fetchData, sessao, caixaAtual, setAbaAtiva,
-  sidebarExpandida = false
+  abaAtiva, fetchData, sessao, caixaAtual, setAbaAtiva, sidebarExpandida = false
 }) {
   const [editandoNome, setEditandoNome] = useState(false);
   const [tempNome, setTempNome] = useState('');
-  
   const [buscaCliente, setBuscaCliente] = useState('');
   const [mostrarDropdownCliente, setMostrarDropdownCliente] = useState(false);
   const [clientesFidelidade, setClientesFidelidade] = useState([]);
@@ -153,13 +115,8 @@ export default function Header({
   const isDark = temaNoturno; 
 
   const [animatingData, setAnimatingData] = useState(null);
-  useEffect(() => {
-    if (comandaAtiva) setAnimatingData(comandaAtiva);
-  }, [comandaAtiva]);
+  useEffect(() => { if (comandaAtiva) setAnimatingData(comandaAtiva); }, [comandaAtiva]);
   const safeComanda = comandaAtiva || animatingData;
-
-  const cinematicSpring = { type: "spring", stiffness: 260, damping: 28, mass: 1 };
-  const cinematicEase = [0.16, 1, 0.3, 1];
 
   const { scrollY } = useScroll();
   const innerScale = useTransform(scrollY, [0, 80], [1, 0.98]);
@@ -168,41 +125,131 @@ export default function Header({
 
   const isOperacaoAtiva = caixaAtual?.status === 'aberto';
   let statusOperacao = isOperacaoAtiva ? 'ativa' : 'inativa';
-  
   let dataCaixaFormatada = '';
   if (caixaAtual?.data_abertura) {
     const [ano, mes, dia] = String(caixaAtual.data_abertura).substring(0, 10).split('-');
     dataCaixaFormatada = `${dia}/${mes}`;
   }
-
   if (isOperacaoAtiva && caixaAtual?.data_abertura) {
     const dataAberturaDB = String(caixaAtual.data_abertura).substring(0, 10);
     const agora = new Date();
     const hoje = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-${String(agora.getDate()).padStart(2, '0')}`;
-    
-    if (dataAberturaDB < hoje && agora.getHours() >= 5) {
-      statusOperacao = 'pendente';
-    }
+    if (dataAberturaDB < hoje && agora.getHours() >= 5) statusOperacao = 'pendente';
   }
-
   const hojeCalendario = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
   const isCicloAtrasado = caixaAtual?.status === 'aberto' && caixaAtual?.data_abertura && String(caixaAtual.data_abertura).substring(0, 10) < hojeCalendario;
 
   const [horarioFechamento, setHorarioFechamento] = useState('23:00:00');
   const [tensaoEstado, setTensaoEstado] = useState('normal');
-
   const [ephemeralMsg, setEphemeralMsg] = useState(null);
   const timeoutRef = useRef(null);
+
+  // ============================================================================
+  // CORE FEATURE: SISTEMA DE CHAMADOS (DYNAMIC ISLAND)
+  // ============================================================================
+  const [chamadosPendentes, setChamadosPendentes] = useState([]);
+  const [isPopoverChamadosAberto, setIsPopoverChamadosAberto] = useState(false);
+  const prevCount = useRef(0);
+  
+  const islandControls = useAnimation(); // Controlador de animação da cápsula
+  const popoverRef = useRef(null);
+  
+  // Audio UI Premium (Som de Notificação Soft/Glass)
+  const notificationSound = useRef(null);
+
+  useEffect(() => {
+    // Instancia o áudio de forma segura no Client-side
+    if (typeof window !== 'undefined') {
+      notificationSound.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    }
+  }, []);
 
   const showBubble = useCallback((text, id, icon = null) => {
     setEphemeralMsg({ text, id, icon });
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => setEphemeralMsg(null), 2200);
+    timeoutRef.current = setTimeout(() => setEphemeralMsg(null), id.startsWith('chamado-') ? 4500 : 2200);
   }, []);
 
   useEffect(() => {
-    if (abaAtiva) showBubble(mapAbaTitulo[abaAtiva] || 'Visão Geral', `aba-${abaAtiva}`);
-  }, [abaAtiva, showBubble]);
+    if (!sessao?.empresa_id) return;
+    const channel = supabase.channel(`empresa-${sessao.empresa_id}`);
+
+    channel.on('broadcast', { event: 'novo_chamado' }, (payload) => {
+      const mesaChamando = payload.payload?.mesa || 'Balcão';
+      
+      const icon = (
+        <svg className="w-4 h-4 mr-2 shrink-0 text-amber-500 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      );
+      // Mantém a bolha original
+      showBubble(`Atendimento: Mesa ${mesaChamando}`, `chamado-${Date.now()}`, icon);
+
+      // Inteligência Anti-Spam
+      setChamadosPendentes(prev => {
+        const existe = prev.find(c => c.mesa === mesaChamando && c.status === 'pendente');
+        if (existe) {
+          return prev.map(c => c.mesa === mesaChamando ? { ...c, timestamp: Date.now() } : c);
+        } else {
+          return [...prev, { id: Date.now(), mesa: mesaChamando, timestamp: Date.now(), status: 'pendente' }];
+        }
+      });
+      
+    }).subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [sessao?.empresa_id, showBubble]);
+
+  // Efeito de Micro-interação Viva quando a fila aumenta
+  useEffect(() => {
+    if (chamadosPendentes.length > prevCount.current) {
+      // 1. Toca o Som Elegante
+      if (notificationSound.current) {
+        notificationSound.current.volume = 0.2;
+        notificationSound.current.currentTime = 0;
+        notificationSound.current.play().catch(() => {});
+      }
+      
+      // 2. Dispara a Animação Física
+      islandControls.start({
+        scale: [1, 1.06, 1],
+        boxShadow: isDark 
+          ? ["0px 0px 0px rgba(245, 158, 11, 0)", "0px 0px 32px rgba(245, 158, 11, 0.4)", "0px 0px 0px rgba(245, 158, 11, 0)"]
+          : ["0px 0px 0px rgba(245, 158, 11, 0)", "0px 0px 32px rgba(245, 158, 11, 0.2)", "0px 0px 0px rgba(245, 158, 11, 0)"],
+        transition: { duration: 0.6, ease: cinematicEase }
+      });
+    }
+
+    // Se a fila esvaziar, o popover (se estiver aberto) fecha e recolhe
+    if (chamadosPendentes.length === 0) {
+      setIsPopoverChamadosAberto(false);
+    }
+    
+    prevCount.current = chamadosPendentes.length;
+  }, [chamadosPendentes.length, isDark, islandControls]);
+
+  // Ação de Atender
+  const atenderChamado = (idChamado) => {
+    setChamadosPendentes(prev => prev.map(c => c.id === idChamado ? { ...c, status: 'finalizado' } : c));
+    setTimeout(() => {
+      setChamadosPendentes(prev => prev.filter(c => c.id !== idChamado));
+    }, 500); // 500ms para a animação de scale down
+  };
+
+  // Click outside para fechar o Popover do Dynamic Island
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownClienteRef.current && !dropdownClienteRef.current.contains(e.target)) setMostrarDropdownCliente(false);
+      if (dropdownMesaRef.current && !dropdownMesaRef.current.contains(e.target)) { setMostrarDropdownMesa(false); setEditandoTotalMesas(false); }
+      if (popoverRef.current && !popoverRef.current.contains(e.target)) setIsPopoverChamadosAberto(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // ============================================================================
+
+  useEffect(() => { if (abaAtiva) showBubble(mapAbaTitulo[abaAtiva] || 'Visão Geral', `aba-${abaAtiva}`); }, [abaAtiva, showBubble]);
 
   const prevTensao = useRef(tensaoEstado);
   useEffect(() => {
@@ -220,9 +267,7 @@ export default function Header({
       const icon = <svg className="w-3.5 h-3.5 mr-2 shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>;
       showBubble('Comanda Aberta', `comanda-open-${comandaAtiva.id}`, icon);
       prevComandaId.current = comandaAtiva.id;
-    } else if (!comandaAtiva) {
-      prevComandaId.current = null;
-    }
+    } else if (!comandaAtiva) { prevComandaId.current = null; }
   }, [comandaAtiva, showBubble]);
 
   useEffect(() => {
@@ -240,16 +285,13 @@ export default function Header({
       const agoraStr = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
       const agora = new Date(agoraStr);
       const agoraMinutos = agora.getHours() * 60 + agora.getMinutes();
-
       const [fHourStr, fMinStr] = horarioFechamento.split(':');
       const fHour = parseInt(fHourStr);
       const fMin = parseInt(fMinStr);
       let fechamentoMinutos = fHour * 60 + fMin;
-
       if (fHour < 5 && agora.getHours() >= 12) fechamentoMinutos += 24 * 60;
       let minAtuaisParaCalculo = agoraMinutos;
       if (agora.getHours() < 5 && fHour >= 12) minAtuaisParaCalculo += 24 * 60;
-
       const diff = fechamentoMinutos - minAtuaisParaCalculo;
 
       if (diff > 10) setTensaoEstado('normal');
@@ -257,7 +299,6 @@ export default function Header({
       else if (diff <= 0 && diff > -30) setTensaoEstado('atraso');
       else setTensaoEstado('critico');
     };
-
     calcularTensao();
     const tickInterval = setInterval(calcularTensao, 60000);
     return () => clearInterval(tickInterval);
@@ -269,15 +310,6 @@ export default function Header({
   const focarBuscaProduto = useCallback(() => { setTimeout(() => { const inputProduto = document.querySelector('.input-busca-produto'); if (inputProduto) inputProduto.focus(); }, 100); }, []);
   const carregarClientes = useCallback(async () => { if (!sessao?.empresa_id) return; try { const { data, error } = await supabase.from('clientes_fidelidade').select('id, nome, pontos').eq('empresa_id', sessao.empresa_id); if (data && !error) setClientesFidelidade(data); } catch (err) {} }, [sessao?.empresa_id]);
   useEffect(() => { carregarClientes(); }, [carregarClientes]);
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownClienteRef.current && !dropdownClienteRef.current.contains(e.target)) setMostrarDropdownCliente(false);
-      if (dropdownMesaRef.current && !dropdownMesaRef.current.contains(e.target)) { setMostrarDropdownMesa(false); setEditandoTotalMesas(false); }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   useEffect(() => {
     const handleKey = (e) => {
@@ -298,7 +330,6 @@ export default function Header({
       clienteFinal = nomeAtualDB.replace(/^\[Mesa\s\d+\](?:\s*-\s*)?/, '').trim();
       if (['Mesa ', 'Balcão', 'Delivery', 'Comanda'].some(prefix => clienteFinal.startsWith(prefix))) clienteFinal = '';
     }
-
     let nomeConstruido = '';
     if (mesaFinal && clienteFinal) nomeConstruido = `[Mesa ${mesaFinal}] - ${clienteFinal}`;
     else if (clienteFinal) nomeConstruido = clienteFinal;
@@ -308,7 +339,6 @@ export default function Header({
     const updates = { nome: nomeConstruido };
     comandaAtiva.nome = nomeConstruido;
     if(novaMesa !== undefined) comandaAtiva.mesa = novaMesa;
-
     const { error } = await supabase.from('comandas').update(updates).eq('id', comandaAtiva.id);
     if (!error && fetchData) await fetchData();
   };
@@ -380,36 +410,20 @@ export default function Header({
 
   return (
     <motion.div className="sticky top-0 z-50 flex items-center justify-center w-full bg-transparent flex-col py-1 sm:py-0 h-[76px]">
-      <motion.div 
-        className="absolute inset-0 z-0 pointer-events-none bg-transparent"
-        style={{ borderBottomWidth: '1px', borderBottomStyle: 'solid', borderBottomColor }}
-      />
-
-      {/* O bloco Critical Core Ambient Tint foi removido daqui */}
+      <motion.div className="absolute inset-0 z-0 pointer-events-none bg-transparent" style={{ borderBottomWidth: '1px', borderBottomStyle: 'solid', borderBottomColor }} />
 
       <motion.div style={{ scale: innerScale }} className="relative z-10 w-full flex flex-col h-full justify-center">
-        
-        {/* Barra superior legada removida a favor do Capsule System */}
-
         <header className="flex items-center justify-between px-4 sm:px-6 w-full relative min-h-[52px] sm:min-h-auto h-full">
           
           <div className="flex items-center gap-3 sm:gap-4 shrink-0 relative z-20 w-auto min-w-[48px] sm:w-[280px]">
             <AnimatePresence mode="popLayout" initial={false}>
               {comandaAtiva ? (
-                <motion.button
-                  key="btn-voltar" initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }} transition={cinematicSpring} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                  onClick={() => { setIdSelecionado(null); setEditandoNome(false); }} 
-                  className={`group flex items-center justify-center sm:justify-start w-9 h-9 sm:w-auto sm:px-3 sm:gap-2 rounded-full transition-colors duration-200 outline-none backdrop-blur-md ${isDark ? 'text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10' : 'text-zinc-600 hover:text-zinc-900 bg-black/5 hover:bg-black/10'}`}
-                >
+                <motion.button key="btn-voltar" initial={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }} transition={cinematicSpring} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => { setIdSelecionado(null); setEditandoNome(false); }} className={`group flex items-center justify-center sm:justify-start w-9 h-9 sm:w-auto sm:px-3 sm:gap-2 rounded-full transition-colors duration-200 outline-none backdrop-blur-md ${isDark ? 'text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10' : 'text-zinc-600 hover:text-zinc-900 bg-black/5 hover:bg-black/10'}`}>
                   <svg className="w-4 h-4 sm:w-3.5 sm:h-3.5 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
                   <span className="hidden sm:inline text-[13px] font-medium tracking-[-0.01em]">Voltar</span>
                 </motion.button>
               ) : (
-                <motion.button
-                  key="btn-menu" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={cinematicSpring} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                  onClick={() => setMenuMobileAberto(true)} 
-                  className={`xl:hidden flex items-center justify-center w-9 h-9 rounded-full transition-colors duration-200 outline-none backdrop-blur-md ${isDark ? 'text-zinc-400 bg-white/5 hover:bg-white/10 hover:text-white' : 'text-zinc-600 bg-black/5 hover:bg-black/10 hover:text-zinc-900'}`}
-                >
+                <motion.button key="btn-menu" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={cinematicSpring} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setMenuMobileAberto(true)} className={`xl:hidden flex items-center justify-center w-9 h-9 rounded-full transition-colors duration-200 outline-none backdrop-blur-md ${isDark ? 'text-zinc-400 bg-white/5 hover:bg-white/10 hover:text-white' : 'text-zinc-600 bg-black/5 hover:bg-black/10 hover:text-zinc-900'}`}>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                 </motion.button>
               )}
@@ -417,13 +431,8 @@ export default function Header({
 
             <AnimatePresence initial={false}>
               {!sidebarExpandida && !comandaAtiva && (
-                <motion.div
-                  key="arox-logo-header" initial={{ opacity: 0, width: 0, filter: 'blur(8px)', x: -10 }} animate={{ opacity: 1, width: 'auto', filter: 'blur(0px)', x: 0 }} exit={{ opacity: 0, width: 0, filter: 'blur(8px)', x: -10 }} transition={{ duration: 0.4, ease: cinematicEase }}
-                  className={`hidden sm:flex items-center cursor-default shrink-0 overflow-hidden backdrop-blur-md rounded-md px-2 -ml-2 py-1 ${isDark ? 'bg-black/20' : 'bg-white/20'}`}
-                >
-                  <span className={`font-semibold text-[17px] tracking-[-0.02em] leading-none select-none flex items-center ${isDark ? 'text-zinc-100' : 'text-zinc-900'}`}>
-                    AROX
-                  </span>
+                <motion.div key="arox-logo-header" initial={{ opacity: 0, width: 0, filter: 'blur(8px)', x: -10 }} animate={{ opacity: 1, width: 'auto', filter: 'blur(0px)', x: 0 }} exit={{ opacity: 0, width: 0, filter: 'blur(8px)', x: -10 }} transition={{ duration: 0.4, ease: cinematicEase }} className={`hidden sm:flex items-center cursor-default shrink-0 overflow-hidden backdrop-blur-md rounded-md px-2 -ml-2 py-1 ${isDark ? 'bg-black/20' : 'bg-white/20'}`}>
+                  <span className={`font-semibold text-[17px] tracking-[-0.02em] leading-none select-none flex items-center ${isDark ? 'text-zinc-100' : 'text-zinc-900'}`}>AROX</span>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -431,27 +440,13 @@ export default function Header({
 
           <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none z-[100] w-full px-4">
             {!comandaAtiva && (
-              <span className={`sm:hidden absolute font-semibold text-[17px] tracking-[-0.02em] leading-none select-none transition-opacity duration-300 backdrop-blur-md rounded-md px-2 py-1 ${ephemeralMsg ? 'opacity-0' : 'opacity-100'} ${isDark ? 'text-zinc-100 bg-black/20' : 'text-zinc-900 bg-white/20'}`}>
-                AROX
-              </span>
+              <span className={`sm:hidden absolute font-semibold text-[17px] tracking-[-0.02em] leading-none select-none transition-opacity duration-300 backdrop-blur-md rounded-md px-2 py-1 ${ephemeralMsg ? 'opacity-0' : 'opacity-100'} ${isDark ? 'text-zinc-100 bg-black/20' : 'text-zinc-900 bg-white/20'}`}>AROX</span>
             )}
-
             <AnimatePresence mode="wait">
               {ephemeralMsg && !comandaAtiva && (
-                <motion.div
-                  key={ephemeralMsg.id}
-                  initial={{ opacity: 0, scale: 0.95, filter: 'blur(8px)' }}
-                  animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, scale: 0.95, filter: 'blur(8px)' }}
-                  transition={{ duration: 0.4, ease: cinematicEase }}
-                  className={`h-[32px] sm:h-[36px] px-4 sm:px-5 rounded-full flex items-center justify-center backdrop-blur-md shadow-sm ring-1 whitespace-nowrap overflow-hidden absolute ${
-                    isDark ? 'bg-[#18181A]/80 ring-white/10 text-zinc-200' : 'bg-white/80 ring-black/5 text-zinc-800'
-                  }`}
-                >
+                <motion.div key={ephemeralMsg.id} initial={{ opacity: 0, scale: 0.95, filter: 'blur(8px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 0.95, filter: 'blur(8px)' }} transition={{ duration: 0.4, ease: cinematicEase }} className={`h-[32px] sm:h-[36px] px-4 sm:px-5 rounded-full flex items-center justify-center backdrop-blur-md shadow-sm ring-1 whitespace-nowrap overflow-hidden absolute ${isDark ? 'bg-[#18181A]/80 ring-white/10 text-zinc-200' : 'bg-white/80 ring-black/5 text-zinc-800'}`}>
                   {ephemeralMsg.icon}
-                  <span className="font-medium text-[13px] sm:text-[14px]">
-                    {ephemeralMsg.text}
-                  </span>
+                  <span className="font-medium text-[13px] sm:text-[14px]">{ephemeralMsg.text}</span>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -463,17 +458,9 @@ export default function Header({
                 <AnimatePresence>
                   {comandaAtiva && (
                     <motion.div 
-                      key="dynamic-island"
-                      layoutId="arox-dynamic-island"
-                      initial={{ opacity: 0, y: -10, scale: 0.95, filter: 'blur(8px)' }}
-                      animate={{ 
-                        opacity: 1, y: 0, scale: isIslandFocused ? 1 : 1, filter: 'blur(0px)',
-                        boxShadow: isIslandFocused 
-                          ? (isDark ? '0 12px 32px -12px rgba(0,0,0,0.6), inset 0 1px 0 0 rgba(255,255,255,0.1)' : '0 12px 32px -12px rgba(0,0,0,0.1), inset 0 1px 0 0 rgba(255,255,255,0.6)')
-                          : (isDark ? '0 4px 16px -8px rgba(0,0,0,0.4), inset 0 1px 0 0 rgba(255,255,255,0.06)' : '0 4px 16px -8px rgba(0,0,0,0.05), inset 0 1px 0 0 rgba(255,255,255,0.4)')
-                      }}
-                      exit={{ opacity: 0, y: -8, scale: 0.96, filter: 'blur(8px)' }}
-                      transition={cinematicSpring}
+                      key="dynamic-island" layoutId="arox-dynamic-island" initial={{ opacity: 0, y: -10, scale: 0.95, filter: 'blur(8px)' }}
+                      animate={{ opacity: 1, y: 0, scale: isIslandFocused ? 1 : 1, filter: 'blur(0px)', boxShadow: isIslandFocused ? (isDark ? '0 12px 32px -12px rgba(0,0,0,0.6), inset 0 1px 0 0 rgba(255,255,255,0.1)' : '0 12px 32px -12px rgba(0,0,0,0.1), inset 0 1px 0 0 rgba(255,255,255,0.6)') : (isDark ? '0 4px 16px -8px rgba(0,0,0,0.4), inset 0 1px 0 0 rgba(255,255,255,0.06)' : '0 4px 16px -8px rgba(0,0,0,0.05), inset 0 1px 0 0 rgba(255,255,255,0.4)')}}
+                      exit={{ opacity: 0, y: -8, scale: 0.96, filter: 'blur(8px)' }} transition={cinematicSpring}
                       className={`flex items-center h-10 sm:h-[44px] rounded-full px-1.5 sm:px-2 w-auto max-w-[full] md:max-w-[720px] transition-colors duration-300 overflow-visible relative ${isDark ? 'bg-[#1c1c1e]/80 ring-1 ring-white/10 backdrop-blur-[16px]' : 'bg-white/80 ring-1 ring-black/[0.05] backdrop-blur-[16px]'} ${!isIslandFocused ? 'animate-[island-breathe_8s_ease-in-out_infinite]' : ''}`}
                     >
                       <style jsx>{` @keyframes island-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.001); } } `}</style>
@@ -585,13 +572,103 @@ export default function Header({
             </div>
           </LayoutGroup>
           
-          {/* ========================================= */}
-          {/* DUAL-CAPSULE SYSTEM INTEGRATION           */}
-          {/* ========================================= */}
+          {/* ==================================================================== */}
+          {/* O NOVO SISTEMA DYNAMIC ISLAND (APPLE-LIKE) PARA OS CHAMADOS            */}
+          {/* ==================================================================== */}
           <LayoutGroup>
-            <div className="flex justify-end items-center gap-3 shrink-0 relative z-20 w-auto sm:w-[280px]">
+            <div className="flex justify-end items-center gap-2 shrink-0 relative z-20 flex-1 h-full" ref={popoverRef}>
+              <AnimatePresence mode="popLayout">
+                {chamadosPendentes.length > 0 && (
+                  <motion.div animate={islandControls} className="relative origin-right flex justify-end h-full items-center">
+                    
+                    {!isPopoverChamadosAberto ? (
+                      // 1. CÁPSULA FECHADA (Botão)
+                      <motion.button 
+                        layoutId="dynamic-island-calls"
+                        key="capsule"
+                        initial={{ opacity: 0, scale: 0.8, filter: 'blur(8px)' }} 
+                        animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} 
+                        exit={{ opacity: 0, scale: 0.8, filter: 'blur(4px)' }}
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                        transition={cinematicSpring}
+                        onClick={() => setIsPopoverChamadosAberto(true)}
+                        style={{ borderRadius: 9999 }}
+                        className={`flex items-center h-8 sm:h-[36px] px-3 sm:px-4 border backdrop-blur-[16px] transition-colors duration-500 overflow-hidden cursor-pointer shadow-[0_4px_16px_-8px_rgba(0,0,0,0.1)] ${isDark ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/15' : 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100'}`}
+                      >
+                        <motion.svg layout="position" className="w-3.5 h-3.5 mr-2 animate-pulse shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></motion.svg>
+                        
+                        <motion.div layout="position" className="flex items-center overflow-hidden h-full text-[12px] sm:text-[13px] font-bold tracking-tight">
+                           <AnimatePresence mode="popLayout">
+                             <motion.span 
+                               key={chamadosPendentes.length}
+                               initial={{ y: 15, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -15, opacity: 0 }}
+                               transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                               className="inline-block"
+                             >
+                               {chamadosPendentes.length}
+                             </motion.span>
+                           </AnimatePresence>
+                           <span className="ml-1 hidden sm:inline">{chamadosPendentes.length === 1 ? 'Chamado' : 'Chamados'}</span>
+                        </motion.div>
+                      </motion.button>
+                    ) : (
+                      // 2. POPOVER EXPANDIDO (Painel)
+                      <motion.div 
+                        layoutId="dynamic-island-calls"
+                        key="popover"
+                        transition={cinematicSpring}
+                        style={{ borderRadius: 24 }}
+                        className={`absolute top-0 right-0 w-[320px] origin-top-right border backdrop-blur-3xl shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] z-[150] overflow-hidden ${isDark ? 'bg-[#18181A]/95 border-white/10' : 'bg-white/95 border-zinc-200/80'}`}
+                      >
+                        <motion.div layout="position" className={`px-4 py-3 flex items-center justify-between border-b ${isDark ? 'border-white/10' : 'border-zinc-100'}`}>
+                          <span className={`text-[11px] font-bold uppercase tracking-widest ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>Fila de Atendimento</span>
+                          <button onClick={() => setIsPopoverChamadosAberto(false)} className={`p-1 rounded-full transition-colors ${isDark ? 'hover:bg-white/10 text-zinc-400' : 'hover:bg-zinc-100 text-zinc-500'}`}>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </motion.div>
+                        
+                        <div className="p-2 flex flex-col gap-1.5 max-h-[340px] overflow-y-auto scrollbar-hide">
+                          <AnimatePresence mode="popLayout">
+                            {chamadosPendentes.sort((a,b) => b.timestamp - a.timestamp).map((c) => (
+                              <motion.div 
+                                layout
+                                key={c.id}
+                                initial={{ opacity: 0, scale: 0.95, filter: 'blur(4px)' }} 
+                                animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} 
+                                exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+                                transition={{ duration: 0.4, ease: cinematicEase }}
+                                className={`flex items-center justify-between p-3 rounded-[16px] border transition-colors duration-500 ${c.status === 'finalizado' ? 'bg-emerald-500/10 border-emerald-500/20' : (isDark ? 'bg-white/[0.03] border-white/5' : 'bg-zinc-50/50 border-zinc-100')}`}
+                              >
+                                <div className="flex flex-col gap-0.5">
+                                  <span className={`text-[14px] font-bold tracking-tight transition-colors duration-500 ${c.status === 'finalizado' ? 'text-emerald-500' : (isDark ? 'text-white' : 'text-zinc-900')}`}>
+                                    Mesa {c.mesa}
+                                  </span>
+                                  <span className={`text-[11px] font-medium transition-colors duration-500 ${c.status === 'finalizado' ? 'text-emerald-500/60' : (isDark ? 'text-zinc-500' : 'text-zinc-400')}`}>
+                                    <TimeAgo timestamp={c.timestamp} />
+                                  </span>
+                                </div>
+                                
+                                <motion.button 
+                                  whileHover={{ scale: c.status === 'finalizado' ? 1 : 1.05 }}
+                                  whileTap={{ scale: c.status === 'finalizado' ? 1 : 0.95 }}
+                                  onClick={() => c.status !== 'finalizado' && atenderChamado(c.id)}
+                                  className={`h-8 px-3 rounded-xl text-[12px] font-bold flex items-center gap-1.5 transition-colors duration-500 ${c.status === 'finalizado' ? 'bg-emerald-500 text-white shadow-emerald-500/20 shadow-lg' : (isDark ? 'bg-white text-black' : 'bg-zinc-900 text-white shadow-zinc-900/10 shadow-lg')}`}
+                                >
+                                  {c.status === 'finalizado' ? <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg> OK</> : 'Atender'}
+                                </motion.button>
+                              </motion.div>
+                            ))}
+                          </AnimatePresence>
+                        </div>
+                      </motion.div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <AnimatePresence mode="wait">
-                {!comandaAtiva && (
+                {!comandaAtiva && chamadosPendentes.length === 0 && (
                   <SystemCapsule 
                     key="system-capsule-core"
                     isDark={isDark}
@@ -604,6 +681,7 @@ export default function Header({
                   />
                 )}
               </AnimatePresence>
+
             </div>
           </LayoutGroup>
 

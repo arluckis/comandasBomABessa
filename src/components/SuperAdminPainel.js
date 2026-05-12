@@ -313,7 +313,7 @@ export default function SuperAdminPainel({ fazerLogout, temaNoturno, setTemaNotu
   const entrarComoCliente = (dono) => {
     if (!dono || !dono.empresa_id) return mostrarNotificacao("Gestor não localizado para este workspace.", 'erro');
     localStorage.setItem('bessa_session', JSON.stringify({ ...dono, data: getHoje() }));
-    window.location.href = '/'; 
+    window.location.href = '/acesso-interno/'; 
   };
 
   const empresasFiltradas = useMemo(() => {

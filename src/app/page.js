@@ -1,726 +1,927 @@
 'use client';
 
+import React, { 
+  useState, 
+  useEffect, 
+  memo,
+  useRef
+} from 'react';
 import { 
   motion, 
   useScroll, 
-  useSpring, 
   useTransform, 
-  AnimatePresence 
+  useMotionValueEvent,
+  useSpring,
+  useInView,
+  AnimatePresence
 } from 'framer-motion';
-import { useRef, useState, useEffect } from 'react';
-import Link from 'next/link';
 import { 
   ArrowRight, 
-  BarChart3, 
-  LayoutDashboard, 
-  Award, 
-  Smartphone, 
-  ShieldCheck,
-  ChefHat,
-  ChevronRight,
-  Zap,
+  Shield,
   Activity,
-  CreditCard,
+  Maximize,
+  Crosshair,
+  Lock,
+  ChevronRight,
   TrendingUp,
-  Clock,
-  CheckCircle2,
-  Utensils
+  Map as MapIcon,
+  CheckCircle2
 } from 'lucide-react';
 
-export default function AroxPremiumLanding() {
-  // Use window scroll to avoid ResizeObserver jitter loops on dynamic height containers
-  const { scrollYProgress } = useScroll();
+// ==========================================
+// UTILS: CINEMATIC SCROLL (APPLE/AWWWARDS FEEL)
+// ==========================================
+const cinematicSmoothScroll = (e, targetId) => {
+  e.preventDefault();
+  const target = document.getElementById(targetId);
+  if (!target) return;
   
-  const scaleProgress = useSpring(scrollYProgress, { 
-    stiffness: 100, 
-    damping: 30, 
-    restDelta: 0.001 
+  const startPosition = window.scrollY;
+  const targetPosition = target.getBoundingClientRect().top + window.scrollY;
+  const distance = targetPosition - startPosition;
+  let startTime = null;
+
+  // Curva EaseInOutCubic para peso e inércia física
+  const animation = (currentTime) => {
+    if (startTime === null) startTime = currentTime;
+    const timeElapsed = currentTime - startTime;
+    const progress = Math.min(timeElapsed / 1200, 1); // 1.2s de duração
+    const ease = progress < 0.5 
+      ? 4 * progress * progress * progress 
+      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      
+    window.scrollTo(0, startPosition + distance * ease);
+    if (timeElapsed < 1200) requestAnimationFrame(animation);
+  };
+  requestAnimationFrame(animation);
+};
+
+const cinematicEasing = [0.16, 1, 0.3, 1];
+const smoothSpring = { stiffness: 40, damping: 20, mass: 1 };
+
+export default function AroxEnterpriseOS() {
+  const containerRef = useRef(null);
+  const { scrollYProgress } = useScroll({ target: containerRef });
+  
+  const [scenePhase, setScenePhase] = useState('ignition');
+
+  useMotionValueEvent(scrollYProgress, "change", (latest) => {
+    if (latest < 0.15) setScenePhase('ignition');
+    else if (latest < 0.4) setScenePhase('reveal');
+    else if (latest < 0.7) setScenePhase('sync');
+    else setScenePhase('handoff');
   });
 
   return (
-    <main className="bg-zinc-950 text-zinc-50 min-h-screen flex flex-col overflow-hidden selection:bg-violet-500/30 selection:text-white font-sans">
-      <motion.div 
-        className="fixed top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-violet-500 via-blue-500 to-emerald-500 z-[100] origin-left"
-        style={{ scaleX: scaleProgress }}
-      />
+    <div 
+      ref={containerRef}
+      className="relative bg-[#030406] text-zinc-200 min-h-screen flex flex-col overflow-x-hidden selection:bg-white selection:text-black font-sans"
+      style={{ WebkitFontSmoothing: 'antialiased' }}
+    >
+      {/* Scroll Snapping Magnético Global Injetado */}
+      <style dangerouslySetInnerHTML={{__html: `
+        html {
+          scroll-snap-type: y proximity;
+          scroll-padding-top: 100px;
+        }
+        section {
+          scroll-snap-align: start;
+        }
+      `}} />
 
-      <Navigation />
-      <HeroSection />
-      <SocialProofMetrics />
-      <FeaturesStorytelling />
-      <BentoGridSection />
-      <CtaFooter />
-    </main>
+      <FilmGrain />
+      <CinematicHeader />
+      
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <AroxCinematicScene scenePhase={scenePhase} temaAnterior="dark" />
+      </div>
+
+      <main className="relative z-10 flex flex-col w-full">
+        <HeroSection />
+        <OperationalDensitySection />
+        <MenuIntelligenceSection />
+        <PrivateOnboarding />
+      </main>
+
+      <MinimalFooter />
+    </div>
   );
 }
 
-function Navigation() {
-  const [scrolled, setScrolled] = useState(false);
+// ==========================================
+// CORE & UTILS
+// ==========================================
 
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+const FilmGrain = memo(() => (
+  <div 
+    className="pointer-events-none fixed inset-0 z-[100] h-full w-full opacity-[0.04] mix-blend-overlay"
+    style={{ 
+      backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` 
+    }}
+  />
+));
+FilmGrain.displayName = 'FilmGrain';
+
+const CinematicHeader = memo(() => {
+  const { scrollY } = useScroll();
+  const [hidden, setHidden] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    const previous = scrollY.getPrevious() ?? 0;
+    setHidden(latest > previous && latest > 150);
+    setIsScrolled(latest > 50);
+  });
 
   return (
-    <header 
-      className={`fixed top-0 w-full px-8 md:px-12 py-6 flex justify-between items-center z-[60] transition-all duration-500 ${
-        scrolled ? 'bg-zinc-950/80 backdrop-blur-xl border-b border-white/5 shadow-2xl shadow-black/50 py-4' : 'bg-transparent'
+    <motion.header
+      variants={{ visible: { y: 0, opacity: 1 }, hidden: { y: "-100%", opacity: 0 } }}
+      animate={hidden ? "hidden" : "visible"}
+      transition={{ duration: 0.8, ease: cinematicEasing }}
+      className={`fixed top-0 left-0 right-0 z-[90] transition-colors duration-1000 ${
+        isScrolled ? 'bg-[#030406]/60 backdrop-blur-3xl border-b border-white/[0.02]' : 'bg-transparent'
       }`}
     >
-      <div className="flex items-center gap-4 group cursor-pointer">
-        <div className="relative w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-blue-600 flex items-center justify-center font-bold text-lg shadow-[0_0_20px_rgba(124,58,237,0.3)] transition-transform duration-500 group-hover:scale-110">
-          <div className="absolute inset-0 bg-white/20 rounded-lg blur-[2px] mix-blend-overlay"></div>
-          <span className="relative z-10 text-white">A</span>
-        </div>
-        <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">
-          AROX
-        </span>
-      </div>
-      
-      <div className="flex items-center gap-8">
-        <nav className="hidden md:flex gap-8 text-sm font-medium text-zinc-400">
-          <Link href="#produto" className="hover:text-white transition-colors">Produto</Link>
-          <Link href="#features" className="hover:text-white transition-colors">Ecossistema</Link>
-          <Link href="#cases" className="hover:text-white transition-colors">Cases</Link>
-        </nav>
-        <div className="h-4 w-px bg-white/10 hidden md:block"></div>
-        <Link 
-          href="#demo"
-          className="group relative inline-flex h-10 items-center justify-center overflow-hidden rounded-full bg-white px-8 font-medium text-zinc-950 transition-transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+      <div className="max-w-[1600px] mx-auto px-8 py-5 flex items-center justify-between">
+        <div 
+          className="flex items-center gap-1 cursor-pointer group"
+          onClick={(e) => cinematicSmoothScroll(e, 'hero')}
         >
-          <span className="absolute h-0 w-0 rounded-full bg-zinc-200 transition-all duration-300 ease-out group-hover:h-56 group-hover:w-56"></span>
-          <span className="relative flex items-center gap-2 text-sm">
-            Agendar Demo <ArrowRight className="w-4 h-4" />
+          <span className="text-xl font-medium tracking-[0.25em] text-white group-hover:opacity-70 transition-opacity">
+            AROX
           </span>
-        </Link>
+        </div>
+        
+        <nav className="hidden md:flex items-center gap-12 text-[10px] font-medium tracking-[0.2em] uppercase text-zinc-500">
+          {['Ecossistema', 'Inteligência', 'Infraestrutura'].map((item) => {
+            const sectionId = item.toLowerCase();
+            return (
+              <a 
+                key={item} 
+                href={`#${sectionId}`} 
+                onClick={(e) => cinematicSmoothScroll(e, sectionId)}
+                className="hover:text-white transition-colors duration-500"
+              >
+                {item}
+              </a>
+            );
+          })}
+        </nav>
+
+        <a 
+          href="#infraestrutura"
+          onClick={(e) => cinematicSmoothScroll(e, 'infraestrutura')}
+          className="relative overflow-hidden group px-6 py-2 border border-white/[0.1] rounded-full text-[10px] font-semibold tracking-widest uppercase text-white hover:border-white/[0.3] transition-all duration-500"
+        >
+          <span className="relative z-10 group-hover:text-black transition-colors duration-500">Iniciar Transição</span>
+          <div className="absolute inset-0 bg-white transform translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]" />
+        </a>
       </div>
-    </header>
+    </motion.header>
   );
-}
+});
+CinematicHeader.displayName = 'CinematicHeader';
+
+// ==========================================
+// HERO SECTION
+// ==========================================
 
 function HeroSection() {
-  const { scrollY } = useScroll();
-  
-  // Parallax effects to create the "slide behind" z-index illusion
-  const yText = useTransform(scrollY, [0, 800], [0, 400]);
-  const opacityText = useTransform(scrollY, [0, 500], [1, 0]);
-  const scaleText = useTransform(scrollY, [0, 500], [1, 0.9]);
-
-  const heroVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.15, delayChildren: 0.1 }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: { 
-      opacity: 1, 
-      y: 0, 
-      transition: { duration: 0.9, ease: [0.16, 1, 0.3, 1] } 
-    }
-  };
+  const { scrollYProgress } = useScroll();
+  const smoothY = useSpring(useTransform(scrollYProgress, [0, 0.3], [0, 150]), smoothSpring);
+  const opacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
+  const blur = useTransform(scrollYProgress, [0, 0.15], ["blur(0px)", "blur(20px)"]);
 
   return (
-    <section className="relative min-h-[110vh] pt-48 pb-28 px-8 overflow-visible flex flex-col items-center justify-start">
-      {/* Background Ambience */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-violet-600/15 blur-[150px] rounded-full pointer-events-none" />
-      <div className="absolute top-40 right-1/4 w-[400px] h-[400px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none" />
-
-      {/* Hero Content (Z-10) - Parallax down behind dashboard */}
+    <section id="hero" className="relative h-[110vh] flex flex-col items-center justify-center pt-20 overflow-visible pointer-events-none">
       <motion.div 
-        style={{ y: yText, opacity: opacityText, scale: scaleText }}
-        variants={heroVariants}
-        initial="hidden"
-        animate="visible"
-        className="relative z-10 flex flex-col items-center text-center max-w-5xl w-full mx-auto"
+        style={{ y: smoothY, opacity, filter: blur }}
+        className="relative z-10 flex flex-col items-center text-center px-6 max-w-6xl mx-auto mt-[-10vh]"
       >
-        <motion.div variants={itemVariants} className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-zinc-900/80 border border-white/10 text-zinc-300 text-xs font-medium tracking-wide mb-10 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.5)]">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1.5, ease: cinematicEasing }}
+          className="flex items-center gap-4 px-5 py-2.5 border border-white/[0.08] rounded-full bg-white/[0.02] backdrop-blur-xl mb-14"
+        >
+          <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+          <span className="text-[9px] font-medium tracking-[0.3em] uppercase text-zinc-300">
+            Engine Operacional Nível Tier-1
           </span>
-          AROX OS 2.0 Operante
-          <ChevronRight className="w-3 h-3 text-zinc-500" />
         </motion.div>
 
-        <motion.h1 variants={itemVariants} className="text-5xl md:text-7xl lg:text-[6rem] font-bold tracking-tighter leading-[1.05] mb-8 text-white drop-shadow-2xl">
-          O sistema operacional da <br className="hidden md:block" />
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-zinc-300 to-zinc-500">
-            gastronomia de alta performance.
+        <motion.h1 
+          initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1.8, ease: cinematicEasing, delay: 0.1 }}
+          className="text-5xl md:text-7xl lg:text-[7rem] font-medium tracking-tight text-white leading-[1.02] mb-12 will-change-transform"
+        >
+          O padrão invisível <br className="hidden md:block" />
+          <span className="text-transparent bg-clip-text bg-gradient-to-b from-zinc-100 to-zinc-500">
+            de operações bilionárias.
           </span>
         </motion.h1>
 
-        <motion.p variants={itemVariants} className="max-w-2xl text-zinc-400 text-lg md:text-xl leading-relaxed mb-12 font-light">
-          Muito além de um PDV. Orquestre comandas, faturamento em tempo real, delivery e a experiência do cliente em um único ecossistema hiper-responsivo.
+        <motion.p 
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          transition={{ duration: 2, ease: cinematicEasing, delay: 0.4 }}
+          className="max-w-2xl text-lg md:text-xl text-zinc-400 font-light leading-relaxed tracking-wide mix-blend-plus-lighter"
+        >
+          Projetado em arquitetura paralela para altíssima volumetria. Unificamos salão, cozinha, fidelização e auditoria com precisão milimétrica e latência rigorosamente zero.
         </motion.p>
+      </motion.div>
+    </section>
+  );
+}
 
-        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center gap-6 w-full sm:w-auto">
-          <Link href="#demo" className="group relative w-full sm:w-auto px-10 py-4 bg-white text-zinc-950 font-semibold rounded-full overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-[0_0_40px_rgba(255,255,255,0.15)]">
-            <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-zinc-200/50 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-            <span className="relative flex items-center justify-center gap-2 text-base">
-              Solicitar Acesso <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </span>
-          </Link>
-          <Link href="#tour" className="w-full sm:w-auto px-10 py-4 bg-zinc-900/80 border border-white/10 text-zinc-300 font-medium rounded-full hover:bg-zinc-800 hover:text-white transition-all backdrop-blur-md text-base flex items-center justify-center gap-2">
-            Ver Tour Virtual
-          </Link>
+// ==========================================
+// OPERATIONAL DENSITY 
+// ==========================================
+
+function OperationalDensitySection() {
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
+  const y = useSpring(useTransform(scrollYProgress, [0, 1], [100, -100]), smoothSpring);
+
+  return (
+    <section ref={ref} id="ecossistema" className="relative py-40 z-20">
+      <div className="max-w-[1600px] mx-auto px-8">
+        <motion.div 
+          initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }} transition={{ duration: 1.4, ease: cinematicEasing }}
+          className="flex flex-col md:flex-row justify-between items-end mb-24 gap-10"
+        >
+          <div className="max-w-3xl">
+            <h2 className="text-3xl md:text-5xl font-medium tracking-tight text-white mb-6">
+              Densidade Operacional.
+            </h2>
+            <p className="text-zinc-500 text-lg font-light leading-relaxed">
+              Enquanto sistemas comuns travam no pico de movimento, a AROX respira. Processamento assíncrono em múltiplas camadas garante que uma alteração no salão seja refletida no KDS (Kitchen Display System) em frações de segundo.
+            </p>
+          </div>
+          <div className="flex gap-8 text-[10px] tracking-[0.2em] uppercase font-medium text-zinc-600">
+            <span className="flex items-center gap-2"><Activity size={12}/> Zero Downtime</span>
+            <span className="flex items-center gap-2"><Lock size={12}/> Auditoria Real-time</span>
+          </div>
         </motion.div>
-      </motion.div>
 
-      {/* Dashboard Simulation (Z-30) - Overlaps and stays in front */}
-      <motion.div
-        initial={{ opacity: 0, y: 140, rotateX: 15, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, rotateX: 0, scale: 1 }}
-        transition={{ duration: 1.4, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        style={{ perspective: "1200px" }}
-        className="relative z-30 w-full max-w-6xl mx-auto mt-28 md:mt-32"
-      >
-        <ProductSimulation />
-      </motion.div>
-    </section>
-  );
-}
-
-function ProductSimulation() {
-  const [revenue, setRevenue] = useState(18420.50);
-  const [activeOrders, setActiveOrders] = useState(42);
-  const [orders, setOrders] = useState([
-    { id: '1084', status: 'preparando', type: 'Mesa 12', items: 'T-Bone Steak, Vinho Tinto', total: 345.00, time: 'Agora', statusColor: 'text-amber-400', bg: 'bg-amber-400/10' },
-    { id: '1083', status: 'novo', type: 'Delivery iFood', items: '2x Burger Artesanal, Fritas', total: 89.90, time: '1m atrás', statusColor: 'text-blue-400', bg: 'bg-blue-400/10' },
-    { id: '1082', status: 'pronto', type: 'Mesa 04', items: 'Risoto de Funghi', total: 120.00, time: '4m atrás', statusColor: 'text-emerald-400', bg: 'bg-emerald-400/10' },
-  ]);
-
-  // Realistic operation simulator
-  useEffect(() => {
-    const events = [
-      { type: 'Balcão', items: 'Café Expresso, Água', val: 18.50 },
-      { type: 'Mesa 08', items: 'Ceviche Clássico', val: 75.00 },
-      { type: 'Delivery Rappi', items: 'Combo Sushi 40pc', val: 189.90 },
-      { type: 'Mesa 22', items: 'Garrafa Chablis', val: 450.00 }
-    ];
-
-    let counter = 1085;
-
-    const interval = setInterval(() => {
-      const isNewOrder = Math.random() > 0.4;
-      
-      if (isNewOrder) {
-        const randomEvent = events[Math.floor(Math.random() * events.length)];
-        const newTotal = randomEvent.val;
-        
-        setRevenue(prev => prev + newTotal);
-        setActiveOrders(prev => prev + 1);
-        
-        setOrders(prev => {
-          const newOrder = { 
-            id: `${counter++}`, 
-            status: 'novo', 
-            type: randomEvent.type,
-            items: randomEvent.items,
-            total: newTotal, 
-            time: 'Agora',
-            statusColor: 'text-blue-400',
-            bg: 'bg-blue-400/10'
-          };
-          return [newOrder, prev[0], prev[1]]; // Keep array size fixed to prevent layout shift
-        });
-      } else {
-        // Just update time strings or simulate state changes
-        setOrders(prev => {
-          const updated = [...prev];
-          if(updated[1].status === 'novo') {
-            updated[1].status = 'preparando';
-            updated[1].statusColor = 'text-amber-400';
-            updated[1].bg = 'bg-amber-400/10';
-          }
-          return updated;
-        });
-      }
-    }, 3500);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="relative w-full rounded-2xl border border-white/10 bg-zinc-950 shadow-[0_30px_100px_-20px_rgba(0,0,0,1)] overflow-hidden flex flex-col h-[600px] ring-1 ring-white/5">
-      {/* App Header Bar */}
-      <div className="h-12 bg-zinc-900/80 border-b border-white/5 flex items-center justify-between px-6 backdrop-blur-md z-10">
-        <div className="flex gap-2">
-          <div className="w-3 h-3 rounded-full bg-zinc-700" />
-          <div className="w-3 h-3 rounded-full bg-zinc-700" />
-          <div className="w-3 h-3 rounded-full bg-zinc-700" />
-        </div>
-        <div className="flex items-center gap-4 text-xs font-medium text-zinc-500">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            Sistema Online
-          </div>
-          <span>•</span>
-          <span>Caixa Aberto (Operador: João M.)</span>
-        </div>
-      </div>
-
-      <div className="flex flex-1 overflow-hidden bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-zinc-900/40 via-zinc-950 to-zinc-950">
-        {/* Sidebar */}
-        <div className="hidden md:flex w-64 border-r border-white/5 bg-zinc-950/50 p-6 flex-col gap-8">
-          <div>
-            <div className="text-xs font-semibold text-zinc-500 mb-4 tracking-wider uppercase">Operação</div>
-            <div className="flex flex-col gap-2">
-              <NavItem icon={<LayoutDashboard size={18} />} label="Visão Geral" active />
-              <NavItem icon={<Utensils size={18} />} label="Salão & Mesas" />
-              <NavItem icon={<Smartphone size={18} />} label="Delivery" badge="3" />
+        <motion.div style={{ y }} className="relative w-full aspect-[16/9] md:aspect-[21/9] bg-[#050608] border border-white/[0.05] rounded-3xl overflow-hidden shadow-2xl ring-1 ring-white/[0.02]">
+          <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
+          
+          <div className="h-12 border-b border-white/[0.05] flex items-center justify-between px-6 bg-[#030406]/80 backdrop-blur-md">
+            <div className="flex items-center gap-4">
+              <div className="flex gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-zinc-800" /><div className="w-2 h-2 rounded-full bg-zinc-800" /><div className="w-2 h-2 rounded-full bg-zinc-800" />
+              </div>
+              <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-mono">AROX_EXEC_DASHBOARD</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-2 text-[10px] tracking-widest uppercase text-emerald-500 font-mono">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"/> Sync: 4ms
+              </span>
             </div>
           </div>
-          <div>
-            <div className="text-xs font-semibold text-zinc-500 mb-4 tracking-wider uppercase">Gestão</div>
-            <div className="flex flex-col gap-2">
-              <NavItem icon={<ChefHat size={18} />} label="Cardápio" />
-              <NavItem icon={<CreditCard size={18} />} label="Financeiro" />
-              <NavItem icon={<BarChart3 size={18} />} label="Relatórios" />
-            </div>
-          </div>
-        </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 p-8 flex flex-col gap-8 relative overflow-hidden">
-          {/* Top Stats */}
-          <div className="flex justify-between items-end">
-            <div>
-              <p className="text-zinc-400 text-sm mb-2 font-medium">Faturamento Bruto (Hoje)</p>
-              <div className="text-5xl font-bold tracking-tight text-white flex items-center gap-4 drop-shadow-md">
-                R$ {revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="p-8 grid grid-cols-12 gap-8 h-[calc(100%-3rem)]">
+            <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
+              <div className="text-[10px] uppercase tracking-widest text-zinc-600 font-semibold mb-2">Pipeline de Produção</div>
+              <div className="flex-1 overflow-hidden relative mask-image-b">
+                <MassiveDataPipeline />
               </div>
             </div>
-            <div className="hidden sm:flex items-center gap-4">
-              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-medium">
-                <TrendingUp size={16} />
-                +14.5% vs. ontem
+
+            <div className="col-span-12 lg:col-span-8 flex flex-col gap-6">
+              <div className="grid grid-cols-3 gap-4">
+                <MetricCard title="Gross Volume (Live)" value="R$ 142.890" trend="+14.2%" />
+                <MetricCard title="Tempo Médio KDS" value="12m 40s" trend="-2m 10s" good />
+                <MetricCard title="Mesas Ocupadas" value="94%" trend="Pico" />
               </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <DashboardCard title="Ticket Médio" value="R$ 164,20" trend="+R$ 12,50" isPositive />
-            <DashboardCard title="Comandas Abertas" value={activeOrders.toString()} trend="Capacidade: 85%" isNeutral />
-            <DashboardCard title="Tempo Médio" value="18 min" trend="-2 min" isPositive />
-          </div>
-
-          {/* Live Orders Section */}
-          <div className="flex-1 border border-white/5 bg-zinc-900/40 rounded-2xl flex flex-col shadow-inner backdrop-blur-xl">
-            <div className="flex justify-between items-center p-6 border-b border-white/5 bg-white/[0.02]">
-              <h4 className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
-                <Activity size={16} className="text-violet-400" />
-                Live Feed da Operação
-              </h4>
-              <button className="text-xs font-medium text-violet-400 hover:text-violet-300 transition-colors">
-                Ver Todas
-              </button>
-            </div>
-            
-            <div className="flex-1 p-6 relative overflow-hidden">
-              <div className="absolute top-6 left-6 right-6 bottom-6 flex flex-col gap-4">
-                <AnimatePresence>
-                  {orders.map((order, index) => (
-                    <motion.div 
-                      key={order.id}
-                      initial={{ opacity: 0, y: -20, scale: 0.98 }}
-                      animate={{ opacity: 1, y: index * 80, scale: 1 }} // Fixed spacing to prevent overlap
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                      className="absolute w-full h-[68px] flex justify-between items-center px-5 rounded-xl bg-zinc-800/40 border border-white/5 hover:bg-zinc-800/60 transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-5">
-                        <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-sm font-bold ${order.bg} ${order.statusColor}`}>
-                          #{order.id.slice(-3)}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-bold text-white">{order.type}</span>
-                            <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider px-2 py-0.5 rounded-full bg-white/5">
-                              {order.status}
-                            </span>
-                          </div>
-                          <div className="text-xs text-zinc-400 truncate max-w-[200px] sm:max-w-[300px]">{order.items}</div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-base font-bold text-white mb-1">R$ {order.total.toFixed(2)}</div>
-                        <div className="text-xs text-zinc-500 flex items-center justify-end gap-1">
-                          <Clock size={12} /> {order.time}
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NavItem({ icon, label, active, badge }) {
-  return (
-    <div className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${active ? 'bg-violet-600 text-white shadow-lg shadow-violet-600/20' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}>
-      <div className="flex items-center gap-3">
-        {icon}
-        <span className={`text-sm ${active ? 'font-medium' : ''}`}>{label}</span>
-      </div>
-      {badge && (
-        <span className="bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md">
-          {badge}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function DashboardCard({ title, value, trend, isNeutral, isPositive = true }) {
-  return (
-    <div className="p-6 rounded-2xl border border-white/5 bg-zinc-900/50 backdrop-blur-sm flex flex-col gap-2 transition-transform hover:-translate-y-1 duration-300">
-      <span className="text-sm text-zinc-400 font-medium">{title}</span>
-      <div className="text-3xl font-bold text-zinc-100 mt-1">{value}</div>
-      <div className={`text-sm font-semibold flex items-center gap-1 mt-2 ${isNeutral ? 'text-zinc-500' : isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-        {isPositive && !isNeutral && <TrendingUp size={14} />}
-        {trend}
-      </div>
-    </div>
-  );
-}
-
-function SocialProofMetrics() {
-  return (
-    <section className="py-24 border-y border-white/5 bg-zinc-950 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-blue-900/5 to-transparent pointer-events-none" />
-      <div className="max-w-7xl mx-auto px-8 md:px-12 grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-8 divide-x divide-white/5 relative z-10">
-        <MetricItem value="R$ 150M+" label="Transacionados em 2023" />
-        <MetricItem value="0.05s" label="Latência de Sincronização" />
-        <MetricItem value="99.99%" label="Uptime Garantido" />
-        <MetricItem value="4.9/5" label="Avaliação nas Stores" />
-      </div>
-    </section>
-  );
-}
-
-function MetricItem({ value, label }) {
-  return (
-    <div className="flex flex-col items-center justify-center text-center px-4">
-      <span className="text-4xl md:text-5xl font-bold tracking-tight text-white mb-3 drop-shadow-md">{value}</span>
-      <span className="text-sm md:text-base text-zinc-500 font-medium">{label}</span>
-    </div>
-  );
-}
-
-function FeaturesStorytelling() {
-  return (
-    <section id="features" className="py-40 px-8 md:px-12 overflow-hidden relative bg-zinc-950">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-32">
-          <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-8 max-w-3xl leading-[1.1]">
-            A ponte definitiva entre <br/> 
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-blue-400 to-emerald-400">
-              operação e experiência.
-            </span>
-          </h2>
-          <p className="text-zinc-400 text-lg md:text-xl max-w-2xl leading-relaxed font-light">
-            Nós não substituímos o seu caixa. Nós transformamos o seu estabelecimento em uma máquina de dados, previsibilidade e retenção de clientes.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-          <RevealWrapper>
-            <div className="relative rounded-[2.5rem] overflow-hidden border border-white/5 bg-gradient-to-b from-zinc-900/80 to-zinc-950 aspect-square flex items-center justify-center group shadow-2xl">
-              <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
               
-              {/* Phone Mockup */}
-              <div className="relative w-[320px] h-[640px] bg-zinc-950 rounded-[50px] border-[12px] border-zinc-800 shadow-2xl overflow-hidden transform group-hover:scale-105 transition-transform duration-700 ease-[0.16,1,0.3,1] ring-1 ring-white/10">
-                <div className="absolute top-0 inset-x-0 h-7 bg-zinc-800 rounded-b-3xl w-40 mx-auto z-20" />
+              <div className="flex-1 bg-[#020202] border border-white/[0.03] rounded-xl relative overflow-hidden flex items-center justify-center group">
+                <MapIcon className="absolute text-white/[0.02] w-64 h-64" />
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-black/40 backdrop-blur-sm">
+                  <Maximize className="text-white/50 w-8 h-8" />
+                  <span className="text-[10px] uppercase tracking-widest text-white/50">Simulação de Heatmap Espacial</span>
+                </div>
+                <div className="absolute top-[30%] left-[20%] w-32 h-32 bg-orange-500/10 blur-3xl rounded-full" />
+                <div className="absolute top-[50%] right-[30%] w-40 h-40 bg-emerald-500/10 blur-3xl rounded-full" />
+                <div className="absolute bottom-[20%] left-[40%] w-24 h-24 bg-blue-500/10 blur-3xl rounded-full" />
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </section>
+  );
+}
+
+function MetricCard({ title, value, trend, good = true }) {
+  return (
+    <div className="bg-[#020202] border border-white/[0.03] p-5 rounded-xl flex flex-col gap-3">
+      <div className="text-[10px] uppercase tracking-widest text-zinc-600">{title}</div>
+      <div className="text-2xl font-medium text-white tracking-tight">{value}</div>
+      <div className={`text-[10px] font-mono ${good ? 'text-emerald-500/70' : 'text-zinc-500'}`}>{trend} vs ontem</div>
+    </div>
+  );
+}
+
+const MassiveDataPipeline = memo(() => {
+  return (
+    <div className="flex flex-col gap-3 relative font-mono text-xs w-full h-full pb-10">
+      <div className="absolute top-0 bottom-0 left-[11px] w-px bg-gradient-to-b from-white/[0.1] to-transparent z-0" />
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes scrollUp {
+          0% { transform: translateY(100%); opacity: 0; }
+          10% { transform: translateY(0); opacity: 1; }
+          90% { transform: translateY(-200%); opacity: 0.3; }
+          100% { transform: translateY(-250%); opacity: 0; }
+        }
+        .log-item { animation: scrollUp 8s linear infinite; will-change: transform, opacity; opacity: 0; position: absolute; width: 100%; }
+        .log-1 { animation-delay: 0s; } .log-2 { animation-delay: 2s; }
+        .log-3 { animation-delay: 4s; } .log-4 { animation-delay: 6s; }
+      `}} />
+      {[
+        { id: 'T-849', action: 'ORDER_SYNC', mesa: 'M24', time: '0.04ms' },
+        { id: 'T-850', action: 'PAYMENT_AUTH', mesa: 'M12', time: '0.12ms' },
+        { id: 'T-851', action: 'KDS_DISPATCH', mesa: 'M04', time: '0.01ms' },
+        { id: 'T-852', action: 'STOCK_UPDATE', mesa: 'SYS', time: '0.08ms' }
+      ].map((log, i) => (
+        <div key={i} className={`log-item log-${i+1} flex items-start gap-4 z-10`}>
+          <div className="w-6 h-6 rounded-full bg-[#050608] border border-white/[0.1] flex items-center justify-center shrink-0 mt-0.5">
+            <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full" />
+          </div>
+          <div className="flex-1 bg-white/[0.01] border border-white/[0.03] p-3 rounded-lg flex flex-col gap-2 backdrop-blur-sm">
+            <div className="flex justify-between items-center text-[10px]">
+              <span className="text-zinc-300">{log.action}</span>
+              <span className="text-zinc-600">{log.time}</span>
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-zinc-500">
+              <span>{log.id}</span>
+              <span>{log.mesa}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+});
+MassiveDataPipeline.displayName = 'MassiveDataPipeline';
+
+// ==========================================
+// DIGITAL MENU INTELLIGENCE
+// ==========================================
+
+function MenuIntelligenceSection() {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: "-100px" });
+
+  return (
+    <section ref={ref} id="inteligencia" className="relative py-40 z-20 border-t border-white/[0.02]">
+      <div className="max-w-[1600px] mx-auto px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
+          
+          <motion.div 
+            initial={{ opacity: 0, x: -40 }} animate={isInView ? { opacity: 1, x: 0 } : {}}
+            transition={{ duration: 1.4, ease: cinematicEasing }}
+            className="flex flex-col gap-12 order-2 lg:order-1"
+          >
+            <div>
+              <div className="flex items-center gap-3 mb-6">
+                <Crosshair className="text-white/40 w-5 h-5" />
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white/40 font-semibold">Cardápio Inteligente</span>
+              </div>
+              <h2 className="text-3xl md:text-5xl font-medium tracking-tight text-white mb-6 leading-tight">
+                Não é um PDF.<br />É predição de consumo.
+              </h2>
+              <p className="text-zinc-500 text-lg font-light leading-relaxed">
+                Esqueça catálogos estáticos. O Cardápio Digital da AROX atua como um sommelier silencioso. Ele analisa o histórico do cliente, calcula itens de maior margem no momento, e sugere upsells estrategicamente formulados para elevar o Ticket Médio sem atrito.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-6">
+              {[
+                "Recomendação Dinâmica baseada no clima e histórico",
+                "Analytics de rejeição (onde o cliente abandonou a tela)",
+                "Campanhas automáticas para recuperação de inativos",
+                "Testes A/B nativos para fotografia e copy de pratos"
+              ].map((feat, i) => (
+                <div key={i} className="flex items-center gap-4 border-b border-white/[0.03] pb-6">
+                  <div className="w-1 h-1 bg-white/40 rounded-full" />
+                  <span className="text-zinc-400 font-light text-sm tracking-wide">{feat}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, rotateY: 10 }} animate={isInView ? { opacity: 1, scale: 1, rotateY: 0 } : {}}
+            transition={{ duration: 1.8, ease: cinematicEasing }}
+            style={{ perspective: 1000 }}
+            className="order-1 lg:order-2 relative aspect-[4/5] rounded-3xl overflow-hidden group"
+          >
+            <div className="absolute inset-0 bg-[#0A0A0C] border border-white/[0.05] rounded-3xl z-0" />
+            
+            <div className="absolute inset-4 rounded-2xl bg-gradient-to-br from-zinc-900 to-[#020202] border border-white/[0.02] overflow-hidden z-10 flex flex-col">
+              <div className="h-2/3 bg-[url('https://images.unsplash.com/photo-1544025162-878f895c8986?q=80&w=2000&auto=format&fit=crop')] bg-cover bg-center opacity-40 mix-blend-luminosity transition-all duration-1000 group-hover:scale-105 group-hover:opacity-60" />
+              <div className="h-1/3 bg-black flex flex-col justify-center px-8 relative">
+                <div className="absolute -top-6 right-8 w-12 h-12 bg-white text-black rounded-full flex items-center justify-center font-bold tracking-tighter">98%</div>
+                <h3 className="text-white text-xl font-medium tracking-wide mb-1">Wagyu A5 Striploin</h3>
+                <p className="text-zinc-500 text-xs font-light tracking-widest uppercase mb-4">Taxa de Conversão após View</p>
                 
-                {/* Fake Mobile App UI */}
-                <div className="flex flex-col h-full bg-zinc-950 relative z-10">
-                  {/* Header */}
-                  <div className="pt-14 pb-6 px-6 bg-zinc-900/80 backdrop-blur-md border-b border-white/5 flex justify-between items-center">
-                    <div>
-                      <div className="text-xs font-bold text-violet-400 tracking-wider uppercase mb-1">Mesa 14</div>
-                      <div className="text-xl font-bold text-white">Menu Digital</div>
-                    </div>
-                    <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center text-white">
-                      <Utensils size={18} />
-                    </div>
-                  </div>
-
-                  {/* Menu Items */}
-                  <div className="flex-1 p-6 space-y-6 overflow-hidden">
-                    <div className="text-sm font-semibold text-zinc-400 mb-2">Mais Pedidos</div>
-                    {[
-                      { name: 'Burger Trufado', desc: 'Blend 180g, queijo brie, maionese', price: 'R$ 48,00', img: 'bg-orange-900/30' },
-                      { name: 'Steak Frites', desc: 'Ancho grelhado com fritas da casa', price: 'R$ 89,00', img: 'bg-rose-900/30' },
-                      { name: 'Gin Tônica', desc: 'Gin premium, tônica, limão siciliano', price: 'R$ 35,00', img: 'bg-blue-900/30' },
-                    ].map((item, i) => (
-                      <div key={i} className="flex gap-4 items-center group/item cursor-pointer">
-                        <div className={`w-20 h-20 rounded-2xl ${item.img} flex-shrink-0 border border-white/5`} />
-                        <div className="flex-1">
-                          <div className="text-base font-bold text-zinc-200 group-hover/item:text-white transition-colors">{item.name}</div>
-                          <div className="text-xs text-zinc-500 leading-snug mt-1 mb-2 line-clamp-2">{item.desc}</div>
-                          <div className="text-sm font-bold text-emerald-400">{item.price}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Bottom Bar */}
-                  <div className="p-6 bg-zinc-900/90 border-t border-white/5 backdrop-blur-md">
-                    <div className="flex justify-between items-center mb-4 px-2">
-                      <span className="text-sm text-zinc-400">Total da Mesa</span>
-                      <span className="text-xl font-bold text-white">R$ 172,00</span>
-                    </div>
-                    <div className="h-14 bg-violet-600 hover:bg-violet-500 transition-colors cursor-pointer rounded-2xl flex items-center justify-center text-white font-bold text-base shadow-[0_10px_30px_rgba(124,58,237,0.4)]">
-                      Fechar Conta
-                    </div>
-                  </div>
+                <div className="w-full h-1 bg-white/[0.05] rounded-full overflow-hidden">
+                  <div className="w-[98%] h-full bg-gradient-to-r from-zinc-500 to-white" />
                 </div>
               </div>
             </div>
-          </RevealWrapper>
 
-          <RevealWrapper delay={0.2}>
-            <div className="flex flex-col gap-12">
-              <FeatureTextItem 
-                icon={<Smartphone />} 
-                title="Cardápio Digital Nativo" 
-                desc="Esqueça integrações complexas. O cardápio digital lê o seu estoque em tempo real. Se acabou na cozinha, some do menu do cliente instantaneamente."
-              />
-              <FeatureTextItem 
-                icon={<Award />} 
-                title="Motor de Retenção (CRM)" 
-                desc="Cada comanda gera inteligência. Crie programas de fidelidade invisíveis, onde o cliente acumula cashback sem precisar baixar nenhum aplicativo."
-              />
-              <FeatureTextItem 
-                icon={<CreditCard />} 
-                title="Faturamento Sem Atrito" 
-                desc="Split inteligente, pagamento via PIX integrado à comanda e conciliação bancária automática. O fim do expediente focado em descanso, não planilhas."
-              />
+            <div className="absolute top-12 -left-6 z-20 bg-[#050608]/90 backdrop-blur-xl border border-white/[0.05] p-4 rounded-xl shadow-2xl flex items-center gap-4">
+              <TrendingUp className="text-white/60 w-5 h-5" />
+              <div>
+                <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-1">Ticket Médio</div>
+                <div className="text-white font-medium">+24.5%</div>
+              </div>
             </div>
-          </RevealWrapper>
+          </motion.div>
+
         </div>
       </div>
     </section>
   );
 }
 
-function FeatureTextItem({ icon, title, desc }) {
+// ==========================================
+// PRIVATE ONBOARDING (FUNCIONAL)
+// ==========================================
+
+function PrivateOnboarding() {
+  const [focusedField, setFocusedField] = useState(null);
+  const [status, setStatus] = useState('idle'); // idle | loading | success
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setStatus('loading');
+    
+    // Mock de requisição com delay realista para feedback visual
+    setTimeout(() => {
+      setStatus('success');
+    }, 2000);
+  };
+
   return (
-    <div className="flex gap-6 group">
-      <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-zinc-900 border border-white/5 flex items-center justify-center text-zinc-400 group-hover:text-violet-400 group-hover:bg-violet-500/10 group-hover:border-violet-500/30 transition-all duration-500 shadow-lg">
-        <div className="w-6 h-6">{icon}</div>
+    <section id="infraestrutura" className="relative py-40 z-20 bg-black min-h-screen flex items-center justify-center">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.02)_0%,rgba(0,0,0,1)_60%)] pointer-events-none" />
+      
+      <div className="max-w-[800px] w-full px-8 relative z-10">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }} transition={{ duration: 1.2, ease: cinematicEasing }}
+          className="text-center mb-16"
+        >
+          <h2 className="text-3xl md:text-5xl font-medium tracking-tight text-white mb-6">
+            Inicie a transição.
+          </h2>
+          <p className="text-zinc-500 text-lg font-light">
+            O acesso à arquitetura AROX requer alinhamento técnico prévio.<br/>Detalhe sua operação abaixo para acionarmos nossa diretoria.
+          </p>
+        </motion.div>
+
+        <div className="relative bg-[#030406] border border-white/[0.05] rounded-3xl p-1 shadow-2xl">
+          <AnimatePresence mode="wait">
+            {status === 'success' ? (
+              <motion.div 
+                key="success-state"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-[#050608] rounded-[22px] p-8 md:p-12 border border-transparent min-h-[400px] flex flex-col items-center justify-center text-center"
+              >
+                <div className="w-16 h-16 bg-white/[0.02] border border-white/[0.05] rounded-full flex items-center justify-center mb-6">
+                  <Shield className="text-white w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-medium text-white mb-3">Protocolo Executivo Iniciado</h3>
+                <p className="text-zinc-500 font-light max-w-md">
+                  Sua requisição de arquitetura foi registrada em nosso pipeline seguro. Nossa diretoria técnica analisará seu perfil operacional e retornará o contato em breve.
+                </p>
+              </motion.div>
+            ) : (
+              <motion.form 
+                key="form-state"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                onSubmit={handleSubmit}
+                className="bg-[#050608] rounded-[22px] p-8 md:p-12"
+              >
+                <div className="flex flex-col gap-8">
+                  <PremiumInput 
+                    id="name" label="Nome do Responsável Executivo" required
+                    isFocused={focusedField === 'name'} 
+                    onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)}
+                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <PremiumInput 
+                      id="email" label="E-mail Corporativo" type="email" required
+                      isFocused={focusedField === 'email'} 
+                      onFocus={() => setFocusedField('email')} onBlur={() => setFocusedField(null)}
+                    />
+                    <PremiumInput 
+                      id="phone" label="Telefone de Contato" type="tel" required
+                      isFocused={focusedField === 'phone'} 
+                      onFocus={() => setFocusedField('phone')} onBlur={() => setFocusedField(null)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="flex flex-col gap-3 relative">
+                      <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Volume Mensal (Faturamento)</label>
+                      <select required className="w-full bg-transparent border-b border-white/[0.1] pb-3 text-white outline-none appearance-none cursor-pointer focus:border-white transition-colors text-sm rounded-none">
+                        <option value="" className="bg-black text-zinc-500">Selecione...</option>
+                        <option value="1" className="bg-black">Até R$ 100k</option>
+                        <option value="2" className="bg-black">R$ 100k - R$ 500k</option>
+                        <option value="3" className="bg-black">Acima de R$ 500k</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-3 relative">
+                      <label className="text-[10px] uppercase tracking-widest text-zinc-500 font-semibold">Desafio Operacional Principal</label>
+                      <select required className="w-full bg-transparent border-b border-white/[0.1] pb-3 text-white outline-none appearance-none cursor-pointer focus:border-white transition-colors text-sm rounded-none">
+                        <option value="" className="bg-black text-zinc-500">Selecione...</option>
+                        <option value="sync" className="bg-black">Lentidão e Quedas de Sistema</option>
+                        <option value="data" className="bg-black">Falta de Dados Confiáveis</option>
+                        <option value="scale" className="bg-black">Dificuldade de Escalar/Franquear</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-16 flex flex-col md:flex-row items-center justify-between gap-6 border-t border-white/[0.05] pt-8">
+                  <div className="flex items-center gap-3 text-[10px] uppercase tracking-widest text-zinc-600">
+                    <Shield size={14} /> Transmissão Criptografada P2P
+                  </div>
+                  <button 
+                    type="submit"
+                    disabled={status === 'loading'}
+                    className="group w-full md:w-auto flex items-center justify-center gap-4 bg-white text-black px-8 py-4 rounded-full text-xs font-bold tracking-widest uppercase hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {status === 'loading' ? 'Processando...' : 'Solicitar Diretoria'} 
+                    {status !== 'loading' && (
+                      <span className="w-6 h-6 rounded-full bg-black flex items-center justify-center group-hover:translate-x-1 transition-transform">
+                        <ChevronRight size={12} className="text-white" />
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </motion.form>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
-      <div>
-        <h3 className="text-2xl font-bold text-white mb-3 group-hover:text-violet-100 transition-colors">{title}</h3>
-        <p className="text-zinc-400 text-lg leading-relaxed font-light">{desc}</p>
-      </div>
+    </section>
+  );
+}
+
+function PremiumInput({ id, label, type = "text", required, isFocused, onFocus, onBlur }) {
+  const [val, setVal] = useState('');
+  
+  return (
+    <div className="relative flex flex-col">
+      <label 
+        htmlFor={id}
+        className={`absolute left-0 transition-all duration-300 font-medium tracking-wide ${
+          isFocused || val ? '-top-5 text-[10px] text-zinc-400 uppercase tracking-widest' : 'top-0 text-sm text-zinc-600'
+        }`}
+      >
+        {label}
+      </label>
+      <input 
+        id={id} type={type} required={required}
+        onFocus={onFocus} onBlur={onBlur}
+        onChange={(e) => setVal(e.target.value)} value={val}
+        className="w-full bg-transparent border-b border-white/[0.1] pb-3 pt-1 text-white text-base outline-none focus:border-white transition-colors rounded-none"
+      />
+      <div className={`absolute bottom-0 left-0 h-px bg-white transition-all duration-500 ${isFocused ? 'w-full' : 'w-0'}`} />
     </div>
   );
 }
 
-function BentoGridSection() {
+// ==========================================
+// FOOTER (FUNCIONAL E MAPEADO)
+// ==========================================
+
+function MinimalFooter() {
   return (
-    <section className="py-32 px-8 md:px-12 relative bg-zinc-950">
-      <div className="absolute top-1/2 left-0 w-[800px] h-[800px] bg-emerald-600/5 blur-[200px] rounded-full pointer-events-none" />
-      
-      <div className="max-w-7xl mx-auto relative z-10">
-        <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-20 max-w-3xl leading-[1.1]">
-          Controle absoluto da operação. <br/>
-          <span className="text-zinc-500 font-medium">Arquitetado para a escala.</span>
-        </h2>
+    <footer className="relative z-20 bg-black border-t border-white/[0.05] pt-24 pb-12 px-8">
+      <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-start gap-16">
+        <div>
+          <span 
+            className="text-2xl font-medium tracking-[0.25em] text-white block mb-4 cursor-pointer"
+            onClick={(e) => cinematicSmoothScroll(e, 'hero')}
+          >
+            AROX
+          </span>
+          <p className="text-xs text-zinc-600 font-light max-w-xs leading-relaxed">
+            A infraestrutura silenciosa desenhada para padronizar e escalar as maiores operações gastronômicas.
+          </p>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 auto-rows-[360px]">
-          <SpotlightCard className="md:col-span-2 relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-zinc-900/60 to-zinc-950/90 z-0" />
-            <div className="relative z-10 flex flex-col h-full justify-between p-10">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-800/80 flex items-center justify-center text-zinc-300 border border-white/5 mb-6 shadow-inner">
-                <Activity className="w-7 h-7 text-emerald-400" />
-              </div>
-              <div className="mt-auto">
-                <h3 className="text-3xl font-bold mb-4 text-white">Sincronização Sub-segundo</h3>
-                <p className="text-zinc-400 text-lg max-w-xl leading-relaxed font-light">
-                  Arquitetura edge-first. Mesas, comandas e pedidos atualizados instantaneamente em todos os dispositivos da rede, garantindo zero gargalos no horário de pico.
-                </p>
-              </div>
-            </div>
-            {/* Abstract decorative graphic */}
-            <div className="absolute right-10 top-1/2 -translate-y-1/2 w-[250px] h-[250px] opacity-20 group-hover:opacity-100 transition-opacity duration-1000 pointer-events-none flex items-center justify-center">
-              <div className="absolute w-full h-full border border-emerald-500/30 rounded-full animate-ping [animation-duration:3s]" />
-              <div className="absolute w-2/3 h-2/3 border border-emerald-500/40 rounded-full animate-ping [animation-duration:2s]" />
-              <div className="w-1/3 h-1/3 bg-emerald-500/50 rounded-full blur-md" />
-            </div>
-          </SpotlightCard>
-
-          <SpotlightCard className="relative overflow-hidden">
-             <div className="relative z-10 flex flex-col h-full justify-between p-10">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-800/80 flex items-center justify-center text-zinc-300 border border-white/5 mb-6 shadow-inner">
-                <BarChart3 className="w-7 h-7 text-blue-400" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold mb-3 text-white">Business Intelligence</h3>
-                <p className="text-zinc-400 text-base leading-relaxed font-light">
-                  Métricas de lucratividade, curva ABC de produtos e previsibilidade de demanda baseada no seu histórico.
-                </p>
-              </div>
-            </div>
-          </SpotlightCard>
-
-          <SpotlightCard className="relative overflow-hidden">
-             <div className="relative z-10 flex flex-col h-full justify-between p-10">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-800/80 flex items-center justify-center text-zinc-300 border border-white/5 mb-6 shadow-inner">
-                <ChefHat className="w-7 h-7 text-amber-400" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold mb-3 text-white">Gestão de Catálogo</h3>
-                <p className="text-zinc-400 text-base leading-relaxed font-light">
-                  Controle centralizado de insumos, ficha técnica e regras dinâmicas de precificação em tempo real.
-                </p>
-              </div>
-            </div>
-          </SpotlightCard>
-
-          <SpotlightCard className="md:col-span-2 relative overflow-hidden bg-white group">
-             <div className="relative z-10 flex flex-col h-full justify-between p-10">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-100 flex items-center justify-center border border-black/5 mb-6 shadow-sm">
-                <ShieldCheck className="w-7 h-7 text-zinc-900" />
-              </div>
-              <div className="mt-auto">
-                <h3 className="text-3xl font-bold mb-4 text-zinc-950">Segurança Institucional</h3>
-                <p className="text-zinc-600 text-lg max-w-xl leading-relaxed font-light">
-                  Seus dados protegidos com padrão bancário. Criptografia end-to-end, conformidade nativa com a LGPD e controle de acesso granular para sua equipe.
-                </p>
-              </div>
-            </div>
-          </SpotlightCard>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-16 text-xs text-zinc-600">
+          <div className="flex flex-col gap-4">
+            <span className="text-[10px] uppercase tracking-widest text-white/50 mb-2">Produto</span>
+            <a href="#ecossistema" onClick={(e) => cinematicSmoothScroll(e, 'ecossistema')} className="hover:text-white transition-colors">Sistema Operacional</a>
+            <a href="#inteligencia" onClick={(e) => cinematicSmoothScroll(e, 'inteligencia')} className="hover:text-white transition-colors">Cardápio de Alta Conversão</a>
+            <a href="#ecossistema" onClick={(e) => cinematicSmoothScroll(e, 'ecossistema')} className="hover:text-white transition-colors">KDS de Baixa Latência</a>
+          </div>
+          <div className="flex flex-col gap-4">
+            <span className="text-[10px] uppercase tracking-widest text-white/50 mb-2">Corporativo</span>
+            <a href="#hero" onClick={(e) => cinematicSmoothScroll(e, 'hero')} className="hover:text-white transition-colors">A Empresa</a>
+            <a href="#infraestrutura" onClick={(e) => cinematicSmoothScroll(e, 'infraestrutura')} className="hover:text-white transition-colors">Segurança & Auditoria</a>
+            <a href="#infraestrutura" onClick={(e) => cinematicSmoothScroll(e, 'infraestrutura')} className="hover:text-white transition-colors">Contato Executivo</a>
+          </div>
         </div>
       </div>
-    </section>
-  );
-}
-
-function CtaFooter() {
-  return (
-    <footer className="relative border-t border-white/5 bg-zinc-950 overflow-hidden pt-40 pb-16 px-8 md:px-12">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[1200px] h-[500px] bg-gradient-to-t from-violet-600/10 to-transparent blur-[150px] rounded-full pointer-events-none" />
-
-      <div className="max-w-4xl mx-auto text-center relative z-10">
-        <h2 className="text-5xl md:text-7xl font-bold tracking-tighter mb-8 leading-[1.1]">
-          Pronto para elevar o padrão?
-        </h2>
-        <p className="text-zinc-400 text-xl md:text-2xl mb-14 max-w-3xl mx-auto font-light leading-relaxed">
-          Junte-se à nova geração de estabelecimentos que usam o AROX para reduzir custos operacionais e escalar a experiência do cliente.
-        </p>
-        
-        <div className="flex flex-col sm:flex-row justify-center gap-6 mb-40">
-          <Link 
-            href="#demo"
-            className="group inline-flex items-center justify-center gap-3 px-10 py-5 bg-white text-zinc-950 font-bold rounded-full hover:scale-105 transition-all shadow-[0_0_40px_rgba(255,255,255,0.2)] text-lg"
-          >
-            Começar Agora
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </Link>
-          <Link 
-            href="#contato"
-            className="inline-flex items-center justify-center px-10 py-5 bg-zinc-900 border border-white/10 text-white font-medium rounded-full hover:bg-zinc-800 transition-colors text-lg"
-          >
-            Falar com Especialista
-          </Link>
-        </div>
-
-        <div className="border-t border-white/10 pt-10 flex flex-col md:flex-row justify-between items-center gap-6 text-sm font-medium text-zinc-500 tracking-wide">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded bg-zinc-900 flex items-center justify-center text-white font-bold text-sm">A</div>
-            <span>© 2026 AROX SYSTEMS INC.</span>
-          </div>
-          <div className="flex gap-8">
-            <Link href="#" className="hover:text-zinc-400 transition-colors">Privacidade</Link>
-            <Link href="#" className="hover:text-zinc-400 transition-colors">Termos</Link>
-            <span className="text-zinc-700 hidden sm:inline">|</span>
-            <span className="uppercase text-xs flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 block"></span> Status: Operacional
-            </span>
-          </div>
-        </div>
+      <div className="max-w-[1600px] mx-auto mt-32 text-[10px] text-zinc-700 font-mono flex flex-col md:flex-row justify-between items-center gap-4 border-t border-white/[0.02] pt-8">
+        <span>© 2026 AROX SYSTEMS. TODOS OS DIREITOS RESERVADOS.</span>
+        <button 
+          onClick={(e) => cinematicSmoothScroll(e, 'hero')}
+          className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer"
+        >
+          <span className="w-1.5 h-1.5 bg-zinc-700 rounded-full"></span>
+          VOLTAR AO TOPO
+        </button>
       </div>
     </footer>
   );
 }
 
-// Reusable animated wrapper for scroll reveals
-function RevealWrapper({ children, delay = 0, className = '' }) {
+// ==========================================
+// CÓDIGO REFERENCIAL INTOCADO DO PLANETA
+// (Injetado para funcionamento autônomo do arquivo)
+// ==========================================
+
+export function AroxCinematicScene({
+  scenePhase = 'ignition', 
+  customConfig = null,
+  temaAnterior = 'dark',
+  children
+}) {
+  const [isClient, setIsClient] = useState(false);
+  const canvasRef = useRef(null);
+  const containerRef = useRef(null);
+  const requestRef = useRef();
+  const [isMobile, setIsMobile] = useState(false);
+
+  const isLight = temaAnterior === 'light';
+
+  useEffect(() => {
+    setIsClient(true);
+    setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  const phaseConfig = {
+    ignition:    { light: 0.00, rotation: -2,   planetY: isMobile ? -240 : 60, scale: isMobile ? 0.90 : 0.85, blur: 0,   overlay: 0 },
+    reveal:      { light: 0.02, rotation: -1.5, planetY: isMobile ? -260 : 40, scale: isMobile ? 0.95 : 0.90, blur: 0,   overlay: 0 },
+    sync:        { light: 0.10, rotation: 0.0,  planetY: isMobile ? -280 : 15, scale: isMobile ? 1.05 : 0.98, blur: isMobile ? 0 : 2, overlay: isMobile ? 0 : 0.05 },
+    handoff:     { light: 0.30, rotation: 1.5,  planetY: isMobile ? -200 : -10, scale: 1.00, blur: 4,   overlay: 0.15 },
+    bridgeLight: { light: 150.0, rotation: 1.5, planetY: isMobile ? -200 : -10, scale: 1.00, blur: 12,  overlay: 1 }, 
+    bridgeDark:  { light: 0.00,  rotation: 1.5, planetY: isMobile ? -200 : -10, scale: 1.00, blur: 16,  overlay: 1 } 
+  };
+
+  const activeConfig = customConfig || phaseConfig[scenePhase] || phaseConfig.ignition;
+
+  const physics = useRef({
+    mouseX: 0, targetMouseX: 0, 
+    mouseY: 0, targetMouseY: 0,
+    light: activeConfig.light, targetLight: activeConfig.light, 
+    rotation: activeConfig.rotation, targetRotation: activeConfig.rotation, 
+    planetY: activeConfig.planetY, targetPlanetY: activeConfig.planetY,
+    scale: activeConfig.scale, targetScale: activeConfig.scale
+  });
+
+  useEffect(() => {
+    physics.current.targetLight = activeConfig.light;
+    physics.current.targetRotation = activeConfig.rotation;
+    physics.current.targetPlanetY = activeConfig.planetY;
+    physics.current.targetScale = activeConfig.scale;
+  }, [activeConfig]);
+
+  useEffect(() => {
+    if (!isClient) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+    let width = window.innerWidth; 
+    let height = window.innerHeight;
+    canvas.width = width; 
+    canvas.height = height;
+
+    const PI2 = Math.PI * 2; 
+    const baseCount = isMobile ? 200 : 800;
+    const particleCount = isLight ? Math.floor(baseCount * 0.25) : baseCount;
+
+    const particles = Array.from({ length: particleCount }).map(() => ({ 
+      x: (Math.random() - 0.5) * 6000, 
+      y: (Math.random() - 0.5) * 6000,
+      baseZ: Math.random() * 2000 + 500, 
+      size: isLight ? (Math.random() * 1.5 + 0.5) : (Math.random() * 0.8 + 0.1), 
+      alphaMult: Math.random() * 0.5 + 0.1, 
+      twinkle: !isLight && Math.random() > 0.5, 
+      timeOffset: Math.random() * PI2,
+      hasHalo: !isLight && Math.random() > 0.9
+    }));
+
+    const lerp = (start, end, f) => start + (end - start) * f;
+    const fov = 1000;
+
+    const handleMouseMove = (e) => {
+      if (scenePhase === 'bridgeLight' || scenePhase === 'bridgeDark') return;
+      physics.current.targetMouseX = (e.clientX / width - 0.5) * 0.4;
+      physics.current.targetMouseY = (e.clientY / height - 0.5) * 0.4;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('resize', () => {
+      width = window.innerWidth; height = window.innerHeight;
+      canvas.width = width; canvas.height = height;
+    }, { passive: true });
+
+    let time = 0;
+
+    const render = () => {
+      time += 0.01; 
+      const p = physics.current;
+      const isBridge = scenePhase === 'bridgeLight' || scenePhase === 'bridgeDark' || activeConfig.overlay === 1;
+      
+      p.scale = lerp(p.scale, p.targetScale, 0.02);
+      p.rotation = lerp(p.rotation, p.targetRotation, 0.02);
+      p.planetY = lerp(p.planetY, p.targetPlanetY, 0.02);
+      p.mouseX = lerp(p.mouseX, isBridge ? 0 : p.targetMouseX, 0.04);
+      p.mouseY = lerp(p.mouseY, isBridge ? 0 : p.targetMouseY, 0.04);
+
+      let speedLight = 0.02;
+      if (isBridge && isLight) {
+        const progress = Math.min(p.light / p.targetLight, 1);
+        speedLight = 0.005 + (Math.pow(progress, 3) * 0.1); 
+      }
+      p.light = lerp(p.light, p.targetLight, speedLight);
+
+      ctx.fillStyle = isLight ? '#fdfdfd' : '#030406';
+      ctx.fillRect(0, 0, width, height);
+
+      if (isLight) {
+        const gradient = ctx.createRadialGradient(width/2, height/2, 0, width/2, height/2, width * 0.8);
+        gradient.addColorStop(0, 'rgba(255,255,255,0)');
+        gradient.addColorStop(1, 'rgba(240,244,248,0.8)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+      }
+
+      const cx = width / 2; 
+      const cy = (height / 2) + p.planetY; 
+      const dimFactor = Math.max(0, 1 - (p.light * (isLight ? 2.0 : 0.08))); 
+
+      if (dimFactor > 0.01) {
+        const currentScale = p.scale;
+        const parallaxX = p.mouseX * 120;
+        const parallaxY = p.mouseY * 120;
+
+        for (let i = 0; i < particles.length; i++) {
+          const pt = particles[i]; 
+          const actualZ = pt.baseZ / currentScale; 
+          const zRatio = fov / actualZ; 
+          
+          const px = (pt.x * zRatio) + cx - (parallaxX * zRatio); 
+          const py = (pt.y * zRatio) + cy - (parallaxY * zRatio);
+          const size = Math.max(0.1, pt.size * zRatio);
+
+          if (px < -size || px > width + size || py < -size || py > height + size) continue;
+
+          let currentAlpha = pt.alphaMult;
+          if (pt.twinkle) currentAlpha *= (0.6 + Math.sin(time + pt.timeOffset) * 0.4);
+          
+          const alpha = Math.min(currentAlpha, (3000 - actualZ) / 1000); 
+          
+          if (alpha > 0) {
+             ctx.fillStyle = isLight ? `rgba(148, 163, 184, ${alpha * dimFactor * 0.4})` : `rgba(220, 235, 255, ${alpha * dimFactor})`; 
+             ctx.beginPath(); 
+             ctx.arc(px, py, size, 0, PI2); 
+             ctx.fill();
+
+             if (pt.hasHalo) {
+               ctx.fillStyle = `rgba(160, 200, 255, ${alpha * 0.25 * dimFactor})`;
+               ctx.beginPath(); ctx.arc(px, py, size * 3, 0, PI2); ctx.fill();
+             }
+          }
+        }
+      }
+
+      if (containerRef.current) {
+        const lightProg = Math.min(p.light / 150.0, 1);
+        containerRef.current.style.cssText = `
+          --pr-mouse-x: ${p.mouseX}; --pr-mouse-y: ${p.mouseY};
+          --pr-light: ${p.light}; --pr-light-prog: ${lightProg};
+          --pr-rot: ${p.rotation}deg; --pr-planet-y: ${p.planetY}px; --pr-scale: ${p.scale};
+        `;
+      }
+      
+      requestRef.current = requestAnimationFrame(render);
+    };
+
+    render();
+    return () => { window.removeEventListener('mousemove', handleMouseMove); cancelAnimationFrame(requestRef.current); };
+  }, [isClient, scenePhase, temaAnterior]);
+
+  if (!isClient) return null;
+
+  const themeClass = isLight ? 'theme-light' : 'theme-dark';
+  const overlayColor = isLight ? '253, 253, 253' : '3, 4, 6'; 
+  const isExiting = activeConfig.overlay === 1;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-100px' }}
-      transition={{ duration: 0.9, delay, ease: [0.16, 1, 0.3, 1] }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
+    <div ref={containerRef} className={`fixed inset-0 w-full h-[100dvh] z-0 overflow-hidden font-sans select-none ${themeClass} ${isLight ? 'bg-[#fdfdfd]' : 'bg-[#030406]'}`}>
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        .cinematic-entry { animation: cinematicFadeIn 3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes cinematicFadeIn { 0% { opacity: 0; filter: blur(12px); } 100% { opacity: 1; filter: blur(0); } }
 
-// Premium bento grid card with spotlight hover effect
-function SpotlightCard({ children, className = '' }) {
-  const divRef = useRef(null);
-  const [isFocused, setIsFocused] = useState(false);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [opacity, setOpacity] = useState(0);
+        .orbital-backlight {
+          position: absolute; top: 50%; left: 50%;
+          width: clamp(320px, 50vw, 600px); height: clamp(320px, 50vw, 600px);
+          border-radius: 50%;
+          transform: translate(-50%, -50%) translateY(var(--pr-planet-y, 0px)) scale(calc(1 + (var(--pr-light-prog) * 30))) translateZ(0);
+          z-index: 0; pointer-events: none; mix-blend-mode: screen;
+        }
 
-  const handleMouseMove = (e) => {
-    if (!divRef.current || isFocused) return;
-    const div = divRef.current;
-    const rect = div.getBoundingClientRect();
-    setPosition({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
+        .arox-planet-system {
+          position: absolute; top: 50%; left: 50%;
+          width: clamp(320px, 50vw, 600px); height: clamp(320px, 50vw, 600px);
+          pointer-events: none; z-index: 1;
+          transform: translate(-50%, -50%) translateY(var(--pr-planet-y, 0px)) scale(var(--pr-scale, 1)) rotate(var(--pr-rot, 0deg)) translateZ(0);
+        }
 
-  const handleFocus = () => {
-    setIsFocused(true);
-    setOpacity(1);
-  };
+        .arox-planet {
+          position: absolute; inset: 0; border-radius: 50%;
+          transform: translate3d(calc(var(--pr-mouse-x, 0) * -20px), calc(var(--pr-mouse-y, 0) * -20px), 0);
+          z-index: 20;
+        }
 
-  const handleBlur = () => {
-    setIsFocused(false);
-    setOpacity(0);
-  };
+        .arox-planet::after, .arox-planet::before { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
 
-  const handleMouseEnter = () => setOpacity(1);
-  const handleMouseLeave = () => setOpacity(0);
+        .arox-ring-main {
+          position: absolute; top: 50%; left: 50%; width: 120%; height: 120%; border-radius: 50%;
+          transform: translate(-50%, -50%) translate3d(calc(var(--pr-mouse-x, 0) * -30px), calc(var(--pr-mouse-y, 0) * -30px), 0); 
+          z-index: 10; border: 1px solid transparent;
+        }
+        .arox-ring-thin-group {
+          position: absolute; top: 50%; left: 50%; width: 140%; height: 140%;
+          transform: translate(-50%, -50%) translate3d(calc(var(--pr-mouse-x, 0) * -16px), calc(var(--pr-mouse-y, 0) * -16px), 0); z-index: 5;
+        }
+        .arox-ring-thin { position: absolute; top: 50%; left: 50%; border-radius: 50%; transform: translate(-50%, -50%); border: 1px solid transparent; }
+        .arox-ring-thin:nth-child(1) { width: 100%; height: 100%; } .arox-ring-thin:nth-child(2) { width: 92%; height: 92%; }
+        .arox-ring-thin:nth-child(3) { width: 84%; height: 84%; } .arox-ring-thin:nth-child(4) { width: 76%; height: 76%; }
 
-  return (
-    <div
-      ref={divRef}
-      onMouseMove={handleMouseMove}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      className={`relative rounded-[2rem] border border-white/5 bg-zinc-900/40 overflow-hidden shadow-lg ${className}`}
-    >
-      <div
-        className="pointer-events-none absolute -inset-px opacity-0 transition duration-500 z-20"
-        style={{
-          opacity,
-          background: `radial-gradient(800px circle at ${position.x}px ${position.y}px, rgba(255,255,255,.08), transparent 40%)`,
-        }}
+        .arox-flare { position: absolute; width: 160px; height: 160px; z-index: 40; }
+        .flare-bl { bottom: 10%; left: -2%; transform: translate3d(calc(var(--pr-mouse-x, 0) * -50px), calc(var(--pr-mouse-y, 0) * -50px), 0) rotate(20deg); }
+        .flare-tr { top: 10%; right: -2%; transform: translate3d(calc(var(--pr-mouse-x, 0) * -50px), calc(var(--pr-mouse-y, 0) * -50px), 0) rotate(20deg); }
+        .flare-core { position: absolute; top: 50%; left: 50%; width: 2px; height: 2px; border-radius: 50%; transform: translate(-50%, -50%); }
+        .flare-beam { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .flare-beam.h { width: 80%; height: 1px; } .flare-beam.v { width: 80%; height: 1px; transform: translate(-50%, -50%) rotate(90deg); }
+        .flare-beam.diag { width: 120%; height: 1px; transform: translate(-50%, -50%) rotate(30deg); }
+
+        .theme-dark .orbital-backlight { background: radial-gradient(circle at center, rgba(160, 190, 255, 0.15) 0%, transparent 65%); opacity: calc(var(--pr-light, 0) * 0.8); }
+        .theme-dark .arox-planet-system { opacity: calc(1 - (var(--pr-light-prog) * 1.5)); }
+        .theme-dark .arox-planet { background: radial-gradient(circle at 50% 50%, #06080b 0%, #020304 60%, #000000 100%); box-shadow: inset 0 0 40px rgba(0,0,0,1); }
+        .theme-dark .arox-planet::after { inset: -2px; background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 30%, rgba(255,255,255,1) 80%); opacity: calc(var(--pr-light-prog) * 4); mix-blend-mode: screen; }
+        .theme-dark .arox-planet::before { background: radial-gradient(circle at 50% 100%, rgba(255,255,255,calc(min(0.2, var(--pr-light, 0) * 0.015))) 0%, transparent 60%); z-index: 21; }
+        .theme-dark .arox-ring-main { border-color: rgba(255, 255, 255, 0.20); } .theme-dark .arox-ring-thin { border-color: rgba(255, 255, 255, 0.04); }
+        .theme-dark .arox-ring-thin:nth-child(1) { border-color: rgba(255, 255, 255, 0.06); }
+        .theme-dark .flare-core { background: rgba(255, 255, 255, 0.9); box-shadow: 0 0 6px 1px rgba(255,255,255,0.4); }
+        .theme-dark .flare-beam { background: radial-gradient(ellipse at center, rgba(255,255,255,0.5) 0%, transparent 60%); }
+        .theme-dark .flare-beam.diag { opacity: 0.4; }
+        .theme-dark .arox-ring-main, .theme-dark .arox-ring-thin-group, .theme-dark .arox-flare { opacity: calc(1 - (var(--pr-light-prog) * 12)); }
+      `}} />
+
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />
+
+      <div className="orbital-backlight"></div>
+
+      <div className="arox-planet-system cinematic-entry">
+         <div className="arox-ring-main"></div>
+         <div className="arox-ring-thin-group">
+            <div className="arox-ring-thin"></div>
+            <div className="arox-ring-thin"></div>
+            <div className="arox-ring-thin"></div>
+            <div className="arox-ring-thin"></div>
+         </div>
+         <div className="arox-planet"></div>
+         <div className="arox-flare flare-bl"><div className="flare-core"></div><div className="flare-beam h"></div><div className="flare-beam v"></div><div className="flare-beam diag"></div></div>
+         <div className="arox-flare flare-tr"><div className="flare-core"></div><div className="flare-beam h"></div><div className="flare-beam v"></div><div className="flare-beam diag"></div></div>
+      </div>
+
+      <div 
+        className={`absolute inset-0 z-[50] pointer-events-none transition-all ${isExiting ? 'duration-[800ms] ease-in' : 'duration-[2000ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]'}`}
+        style={{ backdropFilter: `blur(${activeConfig.blur}px)`, WebkitBackdropFilter: `blur(${activeConfig.blur}px)`, backgroundColor: `rgba(${overlayColor}, ${activeConfig.overlay})` }}
       />
-      {children}
+      <div className="relative z-[20] w-full h-full">{children}</div>
     </div>
   );
 }
